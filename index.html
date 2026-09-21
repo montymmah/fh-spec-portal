@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MMAH Cutting Spec Portal</title>
+<style>
+  :root{
+    --ink:#1A1A1A; --red:#8B1A1A; --grey1:#606060; --grey2:#808080; --grey3:#909090;
+    --line:#BFBFBF; --panel:#F2F2F2; --highlight:#FCE9D9; --bg:#FFFFFF;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){ --bg:#1c1c1c; --panel:#2a2a2a; --line:#444; --ink:#f0f0f0; }
+  }
+  :root[data-theme="dark"]{ --bg:#1c1c1c; --panel:#2a2a2a; --line:#444; --ink:#f0f0f0; }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{max-width:980px;margin:0 auto;padding:16px 16px 60px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;padding-top:8px;}
+  .brand{font-weight:800;font-size:18px;letter-spacing:.2px;}
+  .brand span{color:var(--red);}
+  .subnote{font-size:12px;color:var(--grey2);margin-bottom:18px;}
+  .nav{display:flex;gap:8px;flex-wrap:wrap;}
+  button, .btn{
+    font-family:inherit; cursor:pointer; border:1px solid var(--line); background:var(--bg); color:var(--ink);
+    border-radius:8px; padding:9px 14px; font-size:13.5px; font-weight:600; transition:.15s;
+  }
+  button:hover{border-color:var(--ink);}
+  .btn-primary{background:var(--red);border-color:var(--red);color:#fff;}
+  .btn-primary:hover{opacity:.9;}
+  .btn-dark{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .btn-ghost{background:transparent;border-color:transparent;color:var(--grey1);}
+  .btn-sm{padding:6px 10px;font-size:12.5px;}
+  input[type=text],input[type=number],input[type=date],textarea,select{
+    width:100%; font-family:inherit; font-size:14px; padding:9px 10px; border:1px solid var(--line);
+    border-radius:6px; background:var(--bg); color:var(--ink);
+  }
+  textarea{resize:vertical;min-height:60px;}
+  label.field-label{display:block;font-weight:700;font-size:12px;color:var(--grey1);text-transform:uppercase;letter-spacing:.03em;margin-bottom:5px;}
+  .field{margin-bottom:16px;}
+  .row{display:flex;gap:14px;flex-wrap:wrap;}
+  .row > .field{flex:1;min-width:180px;}
+  .card{border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px;background:var(--bg);}
+  .search-bar{margin-bottom:16px;display:flex;gap:8px;}
+  .search-bar input{flex:1;}
+  .catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;}
+  .catalog-card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column;}
+  .catalog-thumb{width:100%;height:140px;object-fit:cover;background:var(--panel);display:block;cursor:zoom-in;}
+  .catalog-thumb-ph{width:100%;height:140px;background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--grey3);font-size:28px;}
+  .catalog-body{padding:12px 14px;flex:1;display:flex;flex-direction:column;}
+  .catalog-body h3{margin:0 0 2px;font-size:14.5px;}
+  .catalog-sage{font-size:12.5px;color:var(--grey1);margin-bottom:6px;min-height:16px;}
+  .catalog-meta{font-size:11.5px;color:var(--grey2);margin-bottom:10px;}
+  .catalog-actions{display:flex;gap:6px;margin-top:auto;flex-wrap:wrap;}
+  .empty{color:var(--grey2);text-align:center;padding:40px 10px;font-size:14px;}
+  .section-bar{background:var(--ink);color:#fff;font-weight:800;font-size:13px;letter-spacing:.03em;padding:8px 14px;border-radius:6px 6px 0 0;margin-top:26px;}
+  .section-body{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;padding:16px;}
+  .chk-group{display:flex;gap:16px;flex-wrap:wrap;}
+  .chk-opt{display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 2px;border-radius:4px;}
+  .chk-opt .box{font-size:15px;}
+  .chk-opt.sel{font-weight:700;color:var(--ink);}
+  .chk-opt:not(.sel){color:var(--grey2);}
+  .imgs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:10px;}
+  .img-box{border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .img-box img{width:100%;height:120px;object-fit:cover;display:block;background:var(--panel);}
+  .img-box .cap{padding:6px;}
+  .img-box .cap input{font-size:12px;padding:5px 6px;}
+  .img-remove{display:block;width:100%;text-align:center;font-size:11px;padding:5px;color:var(--red);background:none;border:none;border-top:1px solid var(--line);cursor:pointer;}
+  .note{font-size:12px;color:var(--grey3);font-style:italic;}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:50;box-shadow:0 4px 14px rgba(0,0,0,.2);max-width:90vw;text-align:center;}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--red);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:-2px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .lightbox-overlay{position:fixed;inset:0;background:rgba(0,0,0,.87);display:flex;align-items:center;justify-content:center;z-index:200;padding:30px;}
+  .lightbox-overlay img{max-width:92vw;max-height:88vh;object-fit:contain;box-shadow:0 10px 40px rgba(0,0,0,.5);}
+  .lightbox-close{position:fixed;top:18px;right:22px;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:18px;cursor:pointer;z-index:201;}
+  .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
+  .confirm-box{background:var(--bg);border-radius:12px;padding:22px 22px 18px;max-width:340px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);}
+  .confirm-box p{margin:0 0 16px;font-size:14px;}
+  .confirm-box .row{display:flex;gap:8px;justify-content:flex-end;}
+  .setup-warning{background:#fdecea;border:1px solid #f2b8b5;color:#8B1A1A;padding:14px 16px;border-radius:8px;font-size:13.5px;margin-bottom:18px;}
+
+  #printArea{display:none;}
+  .spec-sheet{max-width:760px;margin:0 auto;background:#fff;color:#1A1A1A;font-size:13px;}
+  .spec-sheet .title{font-weight:800;font-size:22px;line-height:1.15;margin-bottom:6px;}
+  .spec-sheet .subtitle{font-weight:800;font-size:16px;color:#8B1A1A;margin-bottom:14px;}
+  .ss-table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+  .ss-table td,.ss-table th{border:1px solid #BFBFBF;padding:8px 10px;vertical-align:middle;font-size:13px;}
+  .ss-table td.lbl{background:#F2F2F2;font-weight:700;font-size:12px;width:150px;}
+  .ss-bar{background:#1A1A1A;color:#fff;font-weight:800;font-size:14px;letter-spacing:.02em;padding:7px 12px;}
+  .ss-weightband td{text-align:center;padding:12px 8px;}
+  .ss-weightband .k{font-weight:700;font-size:11px;color:#606060;display:block;}
+  .ss-weightband .v{font-weight:800;font-size:22px;display:block;margin:4px 0;}
+  .ss-weightband .d{font-style:italic;font-size:11px;color:#808080;}
+  .ss-weightband .mincell .v{color:#1A1A1A;}
+  .ss-weightband .targetcell{background:#FCE9D9;}
+  .ss-weightband .targetcell .v{color:#8B1A1A;}
+  .ss-check{color:#808080;margin-right:14px;font-size:13px;}
+  .ss-check.on{color:#1A1A1A;font-weight:700;}
+  .ss-imgs{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:8px;}
+  .ss-imgs .im{border:1px solid #BFBFBF;border-radius:4px;overflow:hidden;text-align:center;}
+  .ss-imgs img{width:100%;max-height:260px;object-fit:contain;background:#f5f5f5;}
+  .ss-imgs .cap{font-size:12px;padding:6px;color:#404040;}
+  .ss-footer{margin-top:20px;font-size:11px;color:#606060;border-top:1px solid #BFBFBF;padding-top:8px;}
+  .ss-edit-note{font-size:11px;color:#909090;font-style:italic;margin-top:2px;}
+  .ss-custom{white-space:pre-wrap;font-size:13px;border:1px solid #BFBFBF;border-radius:4px;padding:10px 12px;background:#fff;}
+
+  @media print{
+    body *{visibility:hidden;}
+    #printArea, #printArea *{visibility:visible;}
+    #printArea{display:block;position:absolute;top:0;left:0;width:100%;}
+    @page{margin:14mm;}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="printArea"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  /* ====================================================================
+     FILL THESE TWO IN after you create your free Supabase project.
+     Project Settings -> API -> "Project URL" and "anon public" key.
+     ==================================================================== */
+  var SUPABASE_URL = "https://hmmqpjzvldqzdxukrjrd.supabase.co/rest/v1/";
+  var SUPABASE_ANON_KEY = "https://hmmqpjzvldqzdxukrjrd.supabase.co/rest/v1/";
+</script>
+
+<script>
+(function(){
+
+  var sb = null;
+  var SETUP_OK = SUPABASE_URL.indexOf("PASTE_")!==0 && SUPABASE_ANON_KEY.indexOf("PASTE_")!==0;
+  if(SETUP_OK){ try{ sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ SETUP_OK=false; } }
+
+  // ---------- schema / options ----------
+  var CONDITION_OPTS = [["chilled","Chilled"],["tempered","Tempered"],["frozen","Solid frozen"]];
+  var MACHINE_OPTS = [["na","N/A"],["hand","Hand meat slicer"],["automatic","Automatic meat slicer"],["bonesaw","Bone saw"]];
+  var TRIM_OPTS = [["discard","To be discarded"],["repurpose","To be repurposed into"]];
+  var PACKAGING_OPTS = [
+    ["blackDeep","Black D15-27 (deep tray)"],["blackShallow","Black D15-13 (shallow tray)"],
+    ["transparentDeep","Transparent D15-27 (deep tray)"],["transparentShallow","Transparent D15-13 (shallow tray)"],
+    ["vacuumTransparent","Vacuum packed transparent"],["vacuumGold","Vacuum packed gold"],
+    ["boneGuard","Bone Guard"],["other","Other"]
+  ];
+  var LABEL_CP_OPTS = [["smallWhite","Small white label"],["na","N/A"]];
+  var LABEL_WH_OPTS = [["bottom","Bottom label"],["cwrap","C Wrap label"]];
+  var FINISHED_OPTS = [["frozen","Frozen"],["chilled","Chilled"],["ambient","Ambient"]];
+
+  function blankSpec(){
+    return {
+      productName:"", outputSku:"", inputSku:"", outputSageDesc:"", inputSageDesc:"",
+      targetWeight:"", minWeight:"", maxWeight:"", toleranceNote:"W \u2212(2 \u00d7 TNE)",
+      inputCondition:"chilled", fatCover:"", cuttingMachine:"na",
+      trimUse:"discard", trimRepurposeNote:"", cuttingNotes:"",
+      weightRecordingNote:"List the weight of each item overleaf on the Cutting Plant Production Sheet.",
+      packingPrep:"", packagingType:"blackDeep", packagingNote:"",
+      positionInTray:"Centre the item (cf. reference image)",
+      labelCuttingPlant:"smallWhite", labelWarehouse:"bottom",
+      finishedState:"frozen", customNotes:"",
+      referenceImages:[], issuedDate:"", issuedByInitials:""
+    };
+  }
+
+  // ---------- state ----------
+  var S = {
+    view:"library", specs:[], loadingSpecs:true, search:"",
+    form:null, formId:null, toast:""
+  };
+
+  function showToast(msg){ S.toast = msg; render(); setTimeout(function(){ S.toast=""; render(); }, 3200); }
+
+  // ---------- password / editor name ----------
+  function getPassword(){
+    var p = sessionStorage.getItem("mmah_pwd");
+    if(!p){
+      p = prompt("Enter the shared edit password:");
+      if(p) sessionStorage.setItem("mmah_pwd", p);
+    }
+    return p || null;
+  }
+  function getEditorName(){
+    var n = localStorage.getItem("mmah_editor_name");
+    if(!n){
+      n = prompt("Your name (shown as who amended each sheet):") || "Someone";
+      localStorage.setItem("mmah_editor_name", n);
+    }
+    return n;
+  }
+  function handleWriteError(e){
+    var msg = (e && e.message) || String(e);
+    if(msg.toLowerCase().indexOf("password")>=0){
+      sessionStorage.removeItem("mmah_pwd");
+      showToast("Incorrect password \u2014 try again.");
+    } else {
+      showToast("Save failed: " + msg);
+    }
+  }
+
+  // ---------- data ----------
+  async function loadSpecs(){
+    if(!SETUP_OK){ S.loadingSpecs=false; render(); return; }
+    S.loadingSpecs = true; render();
+    try{
+      var res = await sb.from("specs").select("id, spec, updated_at").order("updated_at", {ascending:false});
+      if(res.error) throw res.error;
+      S.specs = (res.data||[]).map(function(row){
+        var d = Object.assign({}, row.spec || {});
+        d.id = row.id; d.updatedAt = row.updated_at;
+        return d;
+      });
+    }catch(e){ showToast("Couldn't load specs: " + (e.message||e)); }
+    S.loadingSpecs = false;
+    render();
+  }
+
+  // ---------- helpers ----------
+  function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function nl2br(s){ return esc(s).replace(/\n/g,"<br>"); }
+  function fmtDate(iso){
+    if(!iso) return "\u2014";
+    try{ var d=new Date(iso); return d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); }catch(e){ return iso; }
+  }
+
+  function checkGroupHTML(opts, val, editable, name){
+    return '<div class="chk-group">' + opts.map(function(o){
+      var on = (o[0]===val);
+      var cls = "chk-opt" + (on?" sel":"");
+      var clickAttr = editable ? ' onclick="setField(\''+name+'\',\''+o[0]+'\')"' : '';
+      return '<div class="'+cls+'"'+clickAttr+'><span class="box">'+(on?"\u2612":"\u2610")+'</span><span>'+esc(o[1])+'</span></div>';
+    }).join("") + "</div>";
+  }
+  function ssCheckGroup(opts, val){
+    return opts.map(function(o){
+      var on=(o[0]===val);
+      return '<span class="ss-check'+(on?" on":"")+'">'+(on?"\u2612":"\u2610")+" "+esc(o[1])+"</span>";
+    }).join(" ");
+  }
+
+  // ---------- navigation ----------
+  function goLibrary(){ S.view="library"; S.form=null; S.formId=null; render(); loadSpecs(); }
+  function goNew(){ S.view="form"; S.form=blankSpec(); S.formId=null; render(); }
+  function goEdit(id){
+    var spec = S.specs.filter(function(s){return s.id===id;})[0];
+    if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
+    S.form = JSON.parse(JSON.stringify(spec));
+    S.formId = id;
+    S.view="form";
+    render(); window.scrollTo(0,0);
+  }
+  function openPrintSpec(spec){
+    S.view="print"; S.printSpec=spec;
+    render(); window.scrollTo(0,0);
+  }
+  function goPrint(id){
+    var spec = S.specs.filter(function(s){return s.id===id;})[0];
+    if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
+    openPrintSpec(spec);
+  }
+
+  function onAppClick(e){
+    var el = e.target.closest ? e.target.closest("[data-action]") : null;
+    if(!el) return;
+    var action = el.getAttribute("data-action");
+    var id = el.getAttribute("data-id");
+    try{
+      if(action==="print") goPrint(id);
+      else if(action==="edit") goEdit(id);
+      else if(action==="delete"){ S.confirmDelete = id; render(); }
+      else if(action==="reallyDelete") performDelete(id);
+      else if(action==="cancelDelete"){ S.confirmDelete = null; render(); }
+      else if(action==="removeImg") removeImg(parseInt(el.getAttribute("data-idx"),10));
+      else if(action==="rotateImg") rotateImg(parseInt(el.getAttribute("data-idx"),10));
+      else if(action==="lightbox") openLightbox(el.getAttribute("data-url"), parseInt(el.getAttribute("data-rot")||"0",10));
+      else if(action==="closeLightbox") closeLightbox();
+    }catch(err){
+      console.error("Portal action error:", err);
+      showToast("Something went wrong: " + (err && err.message ? err.message : String(err)));
+    }
+  }
+
+  window.setField = function(name, val){ S.form[name]=val; render(); };
+  window.setImgCaption = function(idx, val){
+    S.form.referenceImages[idx].caption = val;
+    var previewCaps = document.querySelectorAll('.ss-imgs .cap');
+    if(previewCaps[idx]) previewCaps[idx].textContent = val;
+  };
+  window.removeImg = function(idx){ S.form.referenceImages.splice(idx,1); render(); };
+  window.rotateImg = function(idx){
+    var img = S.form.referenceImages[idx];
+    img.rotation = ((img.rotation||0) + 90) % 360;
+    render();
+  };
+  window.openLightbox = function(url, rotation){ S.lightbox = {url:url, rotation:rotation||0}; render(); };
+  window.closeLightbox = function(){ S.lightbox = null; render(); };
+
+  async function handleImageUpload(files){
+    if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
+    for(var i=0;i<files.length;i++){
+      var file = files[i];
+      var path = Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+file.name.replace(/[^a-zA-Z0-9.\-_]/g,"_");
+      try{
+        var up = await sb.storage.from("spec-images").upload(path, file, {upsert:false});
+        if(up.error) throw up.error;
+        var pub = sb.storage.from("spec-images").getPublicUrl(path);
+        S.form.referenceImages.push({id:path, url:pub.data.publicUrl, caption:"", rotation:0});
+        render();
+      }catch(e){ showToast("Image upload failed: " + (e.message||"error")); }
+    }
+  }
+
+  function readFormFromInputs(){
+    var el = document.getElementById("specForm");
+    if(!el) return;
+    ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight","toleranceNote",
+     "fatCover","cuttingNotes","weightRecordingNote","packingPrep","packagingNote","positionInTray",
+     "customNotes","trimRepurposeNote","issuedDate","issuedByInitials"].forEach(function(name){
+      var input = el.querySelector('[data-f="'+name+'"]');
+      if(input) S.form[name] = input.value;
+    });
+  }
+
+  async function saveSpec(){
+    readFormFromInputs();
+    if(!S.form.productName.trim()){ showToast("Product name is required."); return; }
+    if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
+    var pwd = getPassword();
+    if(!pwd) return;
+    var name = getEditorName();
+    var payload = JSON.parse(JSON.stringify(S.form));
+    delete payload.id;
+    if(S.formId){
+      payload.editHistory = (payload.editHistory||[]).concat([{by:name, at:new Date().toISOString()}]);
+      try{
+        var res = await sb.rpc("update_spec", {pwd:pwd, spec_id:S.formId, payload:payload});
+        if(res.error) throw res.error;
+        showToast("Spec updated.");
+        var updated = JSON.parse(JSON.stringify(payload)); updated.id = S.formId; updated.updatedAt = new Date().toISOString();
+        openPrintSpec(updated);
+        loadSpecs();
+      }catch(e){ handleWriteError(e); }
+    } else {
+      payload.editHistory = [];
+      try{
+        var res2 = await sb.rpc("create_spec", {pwd:pwd, payload:payload});
+        if(res2.error) throw res2.error;
+        showToast("Spec created.");
+        var created = JSON.parse(JSON.stringify(payload)); created.id = res2.data; created.updatedAt = new Date().toISOString();
+        openPrintSpec(created);
+        loadSpecs();
+      }catch(e){ handleWriteError(e); }
+    }
+  }
+
+  async function performDelete(id){
+    if(!SETUP_OK) return;
+    var pwd = getPassword();
+    if(!pwd) return;
+    try{
+      var res = await sb.rpc("delete_spec", {pwd:pwd, spec_id:id});
+      if(res.error) throw res.error;
+      S.confirmDelete = null; showToast("Deleted."); loadSpecs();
+    }catch(e){ S.confirmDelete=null; render(); handleWriteError(e); }
+  }
+
+  function doPrint(){ window.print(); }
+
+  // ---------- rendering ----------
+  function render(){
+    try{
+      document.getElementById("app").innerHTML = renderView();
+      document.getElementById("printArea").innerHTML = (S.view==="print" && S.printSpec) ? renderPrintable(S.printSpec) : "";
+      wireFileInputs();
+    }catch(err){
+      console.error("Portal render error:", err);
+      document.getElementById("app").innerHTML =
+        '<div class="card" style="border-color:#8B1A1A"><b style="color:#8B1A1A">Something went wrong showing this screen.</b>'
+        + '<p class="note">'+esc(err && err.message ? err.message : String(err))+'</p>'
+        + '<button class="btn-sm" onclick="S.view=\'library\'; S.printSpec=null; render();">Back to Library</button></div>';
+    }
+  }
+
+  function wireFileInputs(){
+    var imgInput = document.getElementById("imgUploadInput");
+    if(imgInput){ imgInput.onchange = function(e){ handleImageUpload(e.target.files); e.target.value=""; }; }
+    var el = document.getElementById("specForm");
+    if(el){
+      el.querySelectorAll("textarea, input[type=text], input[type=date]").forEach(function(inp){
+        inp.oninput = function(){ S.form[inp.getAttribute("data-f")] = inp.value; };
+      });
+    }
+  }
+
+  function topbar(){
+    return '<div class="topbar">'
+      + '<div class="brand">MMAH <span>Cutting Spec Portal</span></div>'
+      + '<div class="nav">'
+      + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Library</button>'
+      + '<button class="btn-primary btn-sm" onclick="goNew()">+ New Spec</button>'
+      + '</div></div>'
+      + '<div class="subnote">Anyone with this link can view. Adding, editing, or deleting needs the shared password.</div>';
+  }
+
+  function renderView(){
+    var html = topbar();
+    if(!SETUP_OK){
+      html += '<div class="setup-warning"><b>Setup needed:</b> open the HTML file and paste your Supabase Project URL and anon public key at the top, then re-upload it. See the setup instructions for where to find them.</div>';
+    }
+    if(S.toast) html += '<div class="toast">'+esc(S.toast)+'</div>';
+    if(S.view==="library") html += renderLibrary();
+    else if(S.view==="form") html += renderForm();
+    else if(S.view==="print") html += renderPrintChrome();
+    if(S.lightbox){
+      html += '<div class="lightbox-overlay" data-action="closeLightbox">'
+        + '<button class="lightbox-close" data-action="closeLightbox">\u00d7</button>'
+        + '<img src="'+esc(S.lightbox.url)+'" style="transform:rotate('+(S.lightbox.rotation||0)+'deg)" onclick="event.stopPropagation()">'
+        + '</div>';
+    }
+    if(S.confirmDelete){
+      html += '<div class="confirm-overlay" data-action="cancelDelete">'
+        + '<div class="confirm-box" onclick="event.stopPropagation()">'
+        + '<p>Delete this spec sheet permanently? This can\'t be undone.</p>'
+        + '<div class="row"><button class="btn-ghost btn-sm" data-action="cancelDelete">Cancel</button>'
+        + '<button class="btn-primary btn-sm" data-action="reallyDelete" data-id="'+esc(S.confirmDelete)+'">Delete</button></div>'
+        + '</div></div>';
+    }
+    return html;
+  }
+
+  function renderLibrary(){
+    var q = S.search.trim().toLowerCase();
+    var list = S.specs.filter(function(s){
+      if(!q) return true;
+      return (s.productName||"").toLowerCase().indexOf(q)>=0 || (s.outputSku||"").toLowerCase().indexOf(q)>=0
+        || (s.inputSku||"").toLowerCase().indexOf(q)>=0 || (s.outputSageDesc||"").toLowerCase().indexOf(q)>=0;
+    });
+    var out = '<div class="field search-bar"><input type="text" placeholder="Search by product name, Sage description, or SKU\u2026" value="'+esc(S.search)+'" oninput="S.search=this.value; render();">'
+      + '<button class="btn-sm" onclick="loadSpecs()">\u21bb Refresh</button></div>';
+    if(S.loadingSpecs) out += '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>';
+    else if(!list.length) out += '<div class="empty">No spec sheets yet. Click <b>+ New Spec</b> to get started.</div>';
+    else{
+      out += '<div class="catalog-grid">';
+      list.forEach(function(s){
+        var thumb = (s.referenceImages||[])[0];
+        out += '<div class="catalog-card">';
+        if(thumb){
+          out += '<img class="catalog-thumb" src="'+esc(thumb.url)+'" style="transform:rotate('+(thumb.rotation||0)+'deg)" data-action="lightbox" data-url="'+esc(thumb.url)+'" data-rot="'+(thumb.rotation||0)+'">';
+        } else {
+          out += '<div class="catalog-thumb-ph">\ud83e\udd69</div>';
+        }
+        out += '<div class="catalog-body">'
+          + '<h3>'+esc(s.productName||"(untitled)")+'</h3>'
+          + '<div class="catalog-sage">'+esc(s.outputSageDesc||"")+'</div>'
+          + '<div class="catalog-meta">'+esc(s.outputSku||"\u2014")+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
+          + '<div class="catalog-actions">'
+          + '<button class="btn-sm" data-action="print" data-id="'+esc(s.id)+'">View / Print</button>'
+          + '<button class="btn-sm" data-action="edit" data-id="'+esc(s.id)+'">Edit</button>'
+          + '<button class="btn-ghost btn-sm" data-action="delete" data-id="'+esc(s.id)+'">Delete</button>'
+          + '</div></div></div>';
+      });
+      out += '</div>';
+    }
+    return out;
+  }
+
+  function renderForm(){
+    var f = S.form;
+    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;">'
+      + '<h2 style="margin:0;font-size:17px;">'+(S.formId?"Edit spec sheet":"New spec sheet")+'</h2>'
+      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Cancel</button>'
+      + '<button class="btn-dark btn-sm" onclick="saveSpec()">Save</button></div></div>';
+
+    out += '<div id="specForm">';
+
+    out += '<div class="card"><div class="row">'
+      + fieldText("productName","Product name",f.productName,true)
+      + '</div><div class="row">'
+      + fieldText("outputSku","Output SKU",f.outputSku)
+      + fieldText("inputSku","Input SKU",f.inputSku)
+      + '</div><div class="row">'
+      + fieldText("outputSageDesc","Output Sage description",f.outputSageDesc)
+      + fieldText("inputSageDesc","Input Sage description",f.inputSageDesc)
+      + '</div><div class="row">'
+      + fieldText("issuedDate","Issued date",f.issuedDate,false,"date")
+      + fieldText("issuedByInitials","Done by (initials)",f.issuedByInitials)
+      + '</div></div>';
+
+    out += '<div class="section-bar">1 CUTTING DETAILS</div><div class="section-body">';
+    out += '<div class="field"><label class="field-label">Weight band</label><div class="row">'
+      + fieldText("minWeight","Absolute legal minimum (g)",f.minWeight,false,"number")
+      + fieldText("targetWeight","Target weight (g)",f.targetWeight,false,"number")
+      + fieldText("maxWeight","Maximum weight (g)",f.maxWeight,false,"number")
+      + '</div>'
+      + fieldText("toleranceNote","Minimum weight formula / note",f.toleranceNote)
+      + '</div>';
+    out += '<div class="field"><label class="field-label">Input product condition</label>'
+      + checkGroupHTML(CONDITION_OPTS, f.inputCondition, true, "inputCondition") + '</div>';
+    out += fieldText("fatCover","Fat cover on finished product",f.fatCover);
+    out += '<div class="field"><label class="field-label">Cutting machine</label>'
+      + checkGroupHTML(MACHINE_OPTS, f.cuttingMachine, true, "cuttingMachine") + '</div>';
+    out += '<div class="field"><label class="field-label">Use of trim</label>'
+      + checkGroupHTML(TRIM_OPTS, f.trimUse, true, "trimUse")
+      + (f.trimUse==="repurpose" ? '<div style="margin-top:8px">'+fieldText("trimRepurposeNote","Repurposed into (Sage code(s))",f.trimRepurposeNote)+'</div>' : '')
+      + '</div>';
+    out += fieldTextarea("weightRecordingNote","Weight recording",f.weightRecordingNote);
+    out += fieldTextarea("cuttingNotes","Cutting notes",f.cuttingNotes);
+    out += '</div>';
+
+    out += '<div class="section-bar">2 PACKING INSTRUCTIONS</div><div class="section-body">';
+    out += fieldText("packingPrep","Packing preparation",f.packingPrep);
+    out += '<div class="field"><label class="field-label">Packaging</label>'
+      + checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType")
+      + '<div style="margin-top:8px">'+fieldText("packagingNote","Bag size / other note (if applicable)",f.packagingNote)+'</div></div>';
+    out += fieldText("positionInTray","Position in tray",f.positionInTray);
+    out += '<div class="field"><label class="field-label">Label type \u2014 Cutting plant</label>'
+      + checkGroupHTML(LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant") + '</div>';
+    out += '<div class="field"><label class="field-label">Label type \u2014 Warehouse</label>'
+      + checkGroupHTML(LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse") + '</div>';
+    out += '</div>';
+
+    out += '<div class="section-bar">3 FINISHED PRODUCT DETAILS</div><div class="section-body">';
+    out += '<div class="field"><label class="field-label">Finished product state</label>'
+      + checkGroupHTML(FINISHED_OPTS, f.finishedState, true, "finishedState") + '</div>';
+    out += '</div>';
+
+    out += '<div class="section-bar">4 REFERENCE IMAGES</div><div class="section-body">';
+    out += '<button class="btn-sm" onclick="document.getElementById(\'imgUploadInput\').click()">+ Upload image(s)</button>'
+      + '<input type="file" id="imgUploadInput" accept="image/*" multiple style="display:none">';
+    out += '<div class="imgs-grid">' + (f.referenceImages||[]).map(function(img,idx){
+      return '<div class="img-box"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'">'
+        + '<div class="cap"><input type="text" placeholder="Caption" value="'+esc(img.caption||"")+'" oninput="setImgCaption('+idx+', this.value)"></div>'
+        + '<div style="display:flex">'
+        + '<button class="img-remove" style="border-right:1px solid var(--line)" data-action="rotateImg" data-idx="'+idx+'">\u27f3 Rotate</button>'
+        + '<button class="img-remove" data-action="removeImg" data-idx="'+idx+'">Remove</button>'
+        + '</div></div>';
+    }).join("") + '</div>';
+    if((f.referenceImages||[]).length){
+      out += '<div style="margin-top:18px"><label class="field-label">Preview on printed sheet</label>'
+        + '<div class="ss-imgs" style="max-width:520px">' + f.referenceImages.map(function(img){
+            return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg)"><div class="cap">'+esc(img.caption||"")+'</div></div>';
+          }).join("") + '</div></div>';
+    }
+    out += '</div>';
+
+    out += '<div class="section-bar">CUSTOM NOTES</div><div class="section-body">';
+    out += fieldTextarea("customNotes","Any extra lines for this product (optional \u2014 appears at the bottom of the sheet)",f.customNotes);
+    out += '</div>';
+
+    out += '</div>';
+
+    out += '<div style="margin-top:20px;display:flex;gap:8px;">'
+      + '<button class="btn-dark" onclick="saveSpec()">Save</button>'
+      + '<button class="btn-ghost" onclick="goLibrary()">Cancel</button>'
+      + '</div>';
+
+    return out;
+  }
+
+  function fieldText(name,label,val,required,type){
+    return '<div class="field"><label class="field-label">'+esc(label)+(required?' *':'')+'</label>'
+      + '<input type="'+(type||"text")+'" data-f="'+name+'" value="'+esc(val||"")+'"></div>';
+  }
+  function fieldTextarea(name,label,val){
+    return '<div class="field"><label class="field-label">'+esc(label)+'</label>'
+      + '<textarea data-f="'+name+'">'+esc(val||"")+'</textarea></div>';
+  }
+
+  function renderPrintChrome(){
+    var out = '<div class="topbar" style="margin-top:-8px;">'
+      + '<h2 style="margin:0;font-size:17px;">'+esc(S.printSpec.productName||"")+'</h2>'
+      + '<div class="nav">'
+      + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button>'
+      + '<button class="btn-sm" data-action="edit" data-id="'+esc(S.printSpec.id)+'">Edit</button>'
+      + '<button class="btn-primary btn-sm" onclick="doPrint()">Print / Save as PDF</button>'
+      + '</div></div>'
+      + '<div class="card" style="background:var(--panel)">'
+      + renderPrintable(S.printSpec)
+      + '</div>';
+    return out;
+  }
+
+  function renderPrintable(s){
+    var out = '<div class="spec-sheet">';
+    out += '<div class="title">PRODUCT CUTTING SPECIFICATION</div>';
+    out += '<div class="subtitle">'+esc(s.productName||"")+'</div>';
+
+    out += '<table class="ss-table"><tr><td class="lbl">Output SKU</td><td>'+esc(s.outputSku||"\u2014")+(s.outputSageDesc?' <span style="color:#606060">&mdash; '+esc(s.outputSageDesc)+'</span>':'')+'</td></tr>'
+      + '<tr><td class="lbl">Input SKU</td><td>'+esc(s.inputSku||"\u2014")+(s.inputSageDesc?' <span style="color:#606060">&mdash; '+esc(s.inputSageDesc)+'</span>':'')+'</td></tr>'
+      + '<tr><td class="lbl">Issued / By</td><td>'+fmtDate(s.issuedDate)+' \u00b7 Done by <b>'+esc(s.issuedByInitials||"\u2014")+'</b></td></tr></table>';
+
+    out += '<div class="ss-bar">1 CUTTING DETAILS</div>';
+    out += '<table class="ss-table ss-weightband"><tr>'
+      + '<td class="mincell"><span class="k">ABSOLUTE LEGAL MINIMUM</span><span class="v">'+esc(s.minWeight||"\u2014")+' g</span><span class="d">'+esc(s.toleranceNote||"")+'</span></td>'
+      + '<td class="targetcell"><span class="k">TARGET WEIGHT (W)</span><span class="v">'+esc(s.targetWeight||"\u2014")+' g</span><span class="d">Advertised weight</span></td>'
+      + '<td class="mincell"><span class="k">MAXIMUM WEIGHT</span><span class="v">'+esc(s.maxWeight||"\u2014")+' g</span><span class="d">Do not exceed</span></td>'
+      + '</tr></table>';
+    out += '<table class="ss-table">'
+      + '<tr><td class="lbl">Input product condition</td><td>'+ssCheckGroup(CONDITION_OPTS,s.inputCondition)+'</td></tr>'
+      + '<tr><td class="lbl">Fat cover on finished product</td><td><b>'+esc(s.fatCover||"\u2014")+'</b></td></tr>'
+      + '<tr><td class="lbl">Cutting machine</td><td>'+ssCheckGroup(MACHINE_OPTS,s.cuttingMachine)+'</td></tr>'
+      + '<tr><td class="lbl">Use of trim</td><td>'+ssCheckGroup(TRIM_OPTS,s.trimUse)
+        + (s.trimUse==="repurpose" && s.trimRepurposeNote ? ' &mdash; <i>'+esc(s.trimRepurposeNote)+'</i>' : '')+'</td></tr>'
+      + '<tr><td class="lbl">Weight recording</td><td>'+esc(s.weightRecordingNote||"\u2014")+'</td></tr>'
+      + '<tr><td class="lbl">Cutting notes</td><td>'+esc(s.cuttingNotes||"\u2014")+'</td></tr>'
+      + '</table>';
+
+    out += '<div class="ss-bar">2 PACKING INSTRUCTIONS</div>';
+    out += '<table class="ss-table">'
+      + '<tr><td class="lbl">Packing preparation</td><td><b>'+esc(s.packingPrep||"\u2014")+'</b></td></tr>'
+      + '<tr><td class="lbl">Packaging</td><td>'+ssCheckGroup(PACKAGING_OPTS,s.packagingType)
+        + (s.packagingNote ? ' &mdash; <i>'+esc(s.packagingNote)+'</i>' : '')+'</td></tr>'
+      + '<tr><td class="lbl">Position in tray</td><td>'+esc(s.positionInTray||"\u2014")+'</td></tr>'
+      + '<tr><td class="lbl">Label type \u2014 Cutting plant</td><td>'+ssCheckGroup(LABEL_CP_OPTS,s.labelCuttingPlant)+'</td></tr>'
+      + '<tr><td class="lbl">Label type \u2014 Warehouse</td><td>'+ssCheckGroup(LABEL_WH_OPTS,s.labelWarehouse)+'</td></tr>'
+      + '</table>';
+
+    out += '<div class="ss-bar">3 FINISHED PRODUCT DETAILS</div>';
+    out += '<table class="ss-table"><tr><td class="lbl">Finished product state</td><td>'+ssCheckGroup(FINISHED_OPTS,s.finishedState)+'</td></tr></table>';
+
+    if(s.customNotes){
+      out += '<div class="ss-bar">CUSTOM NOTES</div><div class="ss-custom">'+nl2br(s.customNotes)+'</div>';
+    }
+
+    if((s.referenceImages||[]).length){
+      out += '<div class="ss-bar">4 REFERENCE IMAGES</div><div class="ss-imgs">'
+        + s.referenceImages.map(function(img){
+            return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'"><div class="cap">'+esc(img.caption||"")+'</div></div>';
+          }).join("") + '</div>';
+    }
+
+    out += '<div class="ss-footer">'+esc(s.outputSku||"\u2014")
+      + (s.outputSageDesc ? ' \u2014 '+esc(s.outputSageDesc) : '');
+    if((s.editHistory||[]).length){
+      var last = s.editHistory[s.editHistory.length-1];
+      out += '<div class="ss-edit-note">Amended on '+fmtDate(last.at)+' by '+esc(last.by||"someone")+'</div>';
+    } else {
+      out += '<div class="ss-edit-note">Amended on \u2014 by \u2014</div>';
+    }
+    out += '</div>';
+
+    out += '</div>';
+    return out;
+  }
+
+  window.goLibrary=goLibrary; window.goNew=goNew; window.goEdit=goEdit; window.goPrint=goPrint;
+  window.saveSpec=saveSpec; window.doPrint=doPrint; window.loadSpecs=loadSpecs; window.S=S; window.render=render;
+
+  (function boot(){
+    var appEl = document.getElementById("app");
+    if(appEl) appEl.addEventListener("click", onAppClick);
+    render();
+    loadSpecs();
+  })();
+})();
+</script>
+</body>
+</html>
