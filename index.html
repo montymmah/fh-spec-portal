@@ -91,7 +91,7 @@
   .setup-warning{background:#fdecea;border:1px solid #f2b8b5;color:#821E20;padding:14px 16px;border-radius:8px;font-size:13.5px;margin-bottom:18px;}
   .import-drop{border:2px dashed var(--line);border-radius:10px;padding:34px 16px;text-align:center;color:var(--grey2);cursor:pointer;}
   .import-drop:hover{border-color:var(--red);color:var(--red);}
-  .banner{background:var(--highlight);border:1px solid #e8c9a8;color:#5c3a1a;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;}
+  .banner{background:var(--panel);border:1px solid var(--line);color:var(--ink);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;}
 
   #printArea{display:none;}
   .spec-sheet{max-width:760px;margin:0 auto;background:#fff;color:#1A1A1A;font-size:13px;}
@@ -178,9 +178,8 @@
       targetWeight:"", minWeight:"", maxWeight:"", toleranceNote:"",
       inputCondition:"chilled", fatCover:"", cuttingMachine:"na",
       trimUse:"discard", trimRepurposeNote:"", cuttingNotes:"",
-      weightRecordingNote:"",
       packingPrep:"", packagingType:"transparentDeep", packagingNote:"",
-      positionInTray:"Centred, see reference image",
+      positionInTray:"Centred (see reference image)",
       labelCuttingPlant:"smallWhite", labelWarehouse:"bottom",
       finishedState:"frozen", frozenBestBefore:"Production date + X months", thawedProduct:"", customNotes:"",
       referenceImages:[], imageDisplaySize:"large", issuedDate:"", issuedByInitials:""
@@ -336,8 +335,8 @@
     var el = document.getElementById("specForm");
     if(!el) return;
     ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight","toleranceNote",
-     "fatCover","cuttingNotes","weightRecordingNote","packingPrep","packagingNote","positionInTray",
-     "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","issuedDate","issuedByInitials"].forEach(function(name){
+     "fatCover","cuttingNotes","packingPrep","packagingNote","positionInTray",
+     "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","issuedDate"].forEach(function(name){
       var input = el.querySelector('[data-f="'+name+'"]');
       if(input) S.form[name] = input.value;
     });
@@ -353,6 +352,7 @@
     if(!pwd) return;
     localStorage.setItem("mmah_editor_name", name);
     var payload = JSON.parse(JSON.stringify(S.form));
+    payload.issuedByInitials = name;
     delete payload.id;
     if(S.formId){
       payload.editHistory = (payload.editHistory||[]).concat([{by:name, at:new Date().toISOString()}]);
@@ -516,11 +516,9 @@
       + fieldText("inputSageDesc","Input Sage description",f.inputSageDesc)
       + '</div><div class="row">'
       + fieldText("issuedDate","Issued date",f.issuedDate,false,"date")
-      + fieldText("issuedByInitials","Done by (initials)",f.issuedByInitials)
-      + '</div><div class="row">'
-      + '<div class="field"><label class="field-label">Your name *</label>'
+      + '<div class="field"><label class="field-label">Amended by *</label>'
       + '<input type="text" id="editorNameInput" value="'+esc(S.editorName)+'" oninput="S.editorName=this.value">'
-      + '<p class="note">Shown as who amended this sheet. Required to save.</p></div>'
+      + '</div>'
       + '</div></div>';
 
     out += '<div class="section-bar">1 CUTTING DETAILS</div><div class="section-body">';
@@ -529,8 +527,7 @@
       + fieldText("targetWeight","Target weight (g)",f.targetWeight,false,"number")
       + fieldText("maxWeight","Maximum weight (g)",f.maxWeight,false,"number")
       + '</div>'
-      + fieldText("toleranceNote","Absolute legal minimum (formula or note)",f.toleranceNote)
-      + '<p class="note" style="margin-top:-10px">\u201c(For retail)\u201d is added automatically on the printed sheet, if filled in.</p>'
+      + fieldText("toleranceNote","Absolute legal minimum (formula or note) (For retail)",f.toleranceNote)
       + '</div>';
     out += '<div class="field"><label class="field-label">Input product condition</label>'
       + checkGroupHTML(CONDITION_OPTS, f.inputCondition, true, "inputCondition") + '</div>';
@@ -541,7 +538,6 @@
       + checkGroupHTML(TRIM_OPTS, f.trimUse, true, "trimUse")
       + (f.trimUse==="repurpose" ? '<div style="margin-top:8px">'+fieldText("trimRepurposeNote","Repurposed into (Sage code(s))",f.trimRepurposeNote)+'</div>' : '')
       + '</div>';
-    out += fieldTextarea("weightRecordingNote","Weight recording",f.weightRecordingNote);
     out += fieldTextarea("cuttingNotes","Cutting notes",f.cuttingNotes);
     out += '</div>';
 
@@ -616,7 +612,7 @@
   }
 
   var SCHEMA_FIELDS = ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
-    "toleranceNote","inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes","weightRecordingNote",
+    "toleranceNote","inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes",
     "packingPrep","packagingType","packagingNote","positionInTray","labelCuttingPlant","labelWarehouse","finishedState",
     "frozenBestBefore","thawedProduct","customNotes","issuedDate","issuedByInitials"];
 
@@ -691,7 +687,7 @@
   function applyImportedData(data){
     var f = blankSpec();
     SCHEMA_FIELDS.forEach(function(k){
-      if(data && data[k] !== undefined && data[k] !== null && typeof data[k] !== "object"){ f[k]=data[k]; }
+      if(data && data[k] !== undefined && data[k] !== null && data[k] !== "" && typeof data[k] !== "object"){ f[k]=data[k]; }
     });
     f.referenceImages = [];
     S.form = f; S.formId = null; S.view = "form";
@@ -744,7 +740,6 @@
       + '<tr><td class="lbl">Cutting machine</td><td>'+ssSelectedOnly(MACHINE_OPTS,s.cuttingMachine)+'</td></tr>'
       + '<tr><td class="lbl">Use of trim</td><td>'+ssSelectedOnly(TRIM_OPTS,s.trimUse)
         + (s.trimUse==="repurpose" && s.trimRepurposeNote ? ' &mdash; <i>'+esc(s.trimRepurposeNote)+'</i>' : '')+'</td></tr>'
-      + (s.weightRecordingNote ? '<tr><td class="lbl">Weight recording</td><td>'+esc(s.weightRecordingNote)+'</td></tr>' : '')
       + '<tr><td class="lbl">Cutting notes</td><td>'+esc(s.cuttingNotes||"\u2014")+'</td></tr>'
       + '</table>';
 
