@@ -444,7 +444,7 @@
     }
     if(S.confirmDelete){
       html += '<div class="confirm-overlay" data-action="cancelDelete">'
-        + '<div class="confirm-box" onclick="event.stopPropagation()">'
+        + '<div class="confirm-box">'
         + '<p>Delete this spec sheet permanently? This can\'t be undone.</p>'
         + '<div class="row"><button class="btn-ghost btn-sm" data-action="cancelDelete">Cancel</button>'
         + '<button class="btn-primary btn-sm" data-action="reallyDelete" data-id="'+esc(S.confirmDelete)+'">Delete</button></div>'
