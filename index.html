@@ -260,12 +260,13 @@
   }
 
   // ---------- navigation ----------
-  function goLibrary(){ S.view="library"; S.form=null; S.formId=null; render(); loadSpecs(); }
-  function goNew(){ S.view="form"; S.form=blankSpec(); S.formId=null; render(); }
+  function goLibrary(){ S.view="library"; S.form=null; S.formId=null; S.pendingImport=null; render(); loadSpecs(); }
+  function goNew(){ S.view="form"; S.form=blankSpec(); S.formId=null; S.pendingImport=null; render(); }
   function goImport(){ S.view="import"; S.importBanner=""; render(); }
   function goEdit(id){
     var spec = S.specs.filter(function(s){return s.id===id;})[0];
     if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
+    S.pendingImport=null;
     S.form = JSON.parse(JSON.stringify(spec));
     S.formId = id;
     S.view="form";
@@ -499,6 +500,21 @@
     var f = S.form;
     var out = "";
     if(S.importBanner) out += '<div class="banner">'+esc(S.importBanner)+'</div>';
+    if(S.pendingImport && !S.formId){
+      out += '<div class="card">';
+      if(S.pendingImport.mode === "text"){
+        out += '<label class="field-label">Extracted text from \u201c'+esc(S.pendingImport.fileName)+'\u201d</label>'
+          + '<textarea readonly style="min-height:140px;font-family:monospace;font-size:12px;background:var(--panel)">'+esc(S.pendingImport.content)+'</textarea>'
+          + '<p class="note" style="margin-top:6px">Copy what you need into the fields below.</p>';
+      } else {
+        out += '<p class="note" style="margin:0">Image file \u201c'+esc(S.pendingImport.fileName)+'\u201d \u2014 no text to extract locally.</p>';
+      }
+      out += '<button class="btn-sm" style="margin-top:10px" onclick="tryAiAutoFill()"'+(S.aiBusy?' disabled':'')+'>'
+        + (S.aiBusy ? '<span class="spinner"></span> Reading with AI\u2026' : '\u2728 Try AI auto-fill')
+        + '</button>'
+        + '<button class="btn-ghost btn-sm" style="margin-top:10px" onclick="S.pendingImport=null; render();">Dismiss</button>'
+        + '</div>';
+    }
     out += '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;">'
       + '<h2 style="margin:0;font-size:17px;">'+(S.formId?"Edit spec sheet":"New spec sheet")+'</h2>'
       + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Cancel</button>'
@@ -606,12 +622,11 @@
 
   function renderImport(){
     var out = '<div class="card">'
-      + '<p style="margin-top:0">Upload an old spec sheet \u2014 a PDF export or a photo/scan \u2014 and it\'ll be read automatically and dropped into the current format for you to check over before saving.</p>'
+      + '<p style="margin-top:0">Upload an old spec sheet PDF \u2014 the text comes out instantly (no waiting, no AI involved) so you can copy the details straight into a new spec. For a photo/scan, there\'s an optional AI reading step since there\'s no text to pull out directly.</p>'
       + '<div class="import-drop" onclick="document.getElementById(\'importFileInput\').click()">'
-      + (S.importBusy ? '<span class="spinner"></span> Reading the document\u2026 this can take up to a minute.' : 'Click to choose a PDF or image file')
+      + (S.importBusy ? '<span class="spinner"></span> Reading the document\u2026' : 'Click to choose a PDF or image file')
       + '</div>'
       + '<input type="file" id="importFileInput" accept="application/pdf,image/*" style="display:none">'
-      + '<p class="note" style="margin-top:14px">This needs the shared password (same one as editing) and a small Gemini API call \u2014 nothing is saved until you review the fields and click Save. Reference photos aren\'t pulled in automatically \u2014 add them yourself afterwards with the Upload image(s) button.</p>'
       + '</div>';
     return out;
   }
@@ -638,13 +653,9 @@
   }
 
   async function handleImportFile(file){
-    if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
-    var pwd = getPassword();
-    if(!pwd) return;
     S.importBusy = true; render();
     console.log("Import: starting, file type", file.type);
     try{
-      var body;
       if(file.type === "application/pdf"){
         console.log("Import: loading PDF\u2026");
         var buf = await file.arrayBuffer();
@@ -656,44 +667,58 @@
           var tc = await page.getTextContent();
           extracted += tc.items.map(function(it){return it.str;}).join(" ") + "\n";
         }
-        console.log("Import: text extracted (" + extracted.length + " chars)");
-        body = {pwd:pwd, mode:"text", content:extracted};
+        console.log("Import: text extracted (" + extracted.length + " chars) \u2014 done, instantly");
+        S.pendingImport = {mode:"text", content:extracted, mediaType:null, fileName:file.name};
+        S.form = blankSpec(); S.formId = null; S.view = "form";
+        S.importBanner = "Text pulled from \u201c" + file.name + "\u201d below \u2014 copy what you need into the fields, or try AI auto-fill.";
       } else if(file.type.indexOf("image/")===0){
         var b64 = await fileToBase64(file);
-        body = {pwd:pwd, mode:"image", content:b64, mediaType:file.type};
+        S.pendingImport = {mode:"image", content:b64, mediaType:file.type, fileName:file.name};
+        S.form = blankSpec(); S.formId = null; S.view = "form";
+        S.importBanner = "Image files can't be read locally \u2014 there's no text to pull out directly. Try AI auto-fill below, or fill in the form manually.";
       } else {
         showToast("Please upload a PDF or an image file.");
-        S.importBusy=false; render(); return;
       }
+    }catch(e){
+      showToast("Couldn't read that file: " + (e.message||e) + ". You can still fill the form manually.");
+      S.form = blankSpec(); S.formId=null; S.view="form";
+      S.importBanner = "Couldn't read that file automatically \u2014 fill in the details manually below.";
+    }
+    S.importBusy = false;
+    render();
+  }
 
-      console.log("Import: calling AI\u2026");
+  window.tryAiAutoFill = async function(){
+    if(!S.pendingImport){ return; }
+    if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
+    var pwd = getPassword();
+    if(!pwd) return;
+    S.aiBusy = true; render();
+    try{
+      console.log("AI auto-fill: calling Gemini\u2026");
       var res = await withTimeout(fetch(EDGE_FUNCTION_URL, {
         method:"POST",
         headers:{
           "Content-Type":"application/json",
           "apikey": SUPABASE_ANON_KEY
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify({pwd:pwd, mode:S.pendingImport.mode, content:S.pendingImport.content, mediaType:S.pendingImport.mediaType})
       }), 60000);
-      console.log("Import: AI responded, status", res.status);
+      console.log("AI auto-fill: responded, status", res.status);
       var data = await res.json();
       if(!res.ok || data.error){
-        console.error("Import: AI call failed \u2014 full response:", data);
+        console.error("AI auto-fill failed \u2014 full response:", data);
         if(String(data.error||"").toLowerCase().indexOf("password")>=0) sessionStorage.removeItem("mmah_pwd");
-        showToast("Import failed: " + (data.error || res.status) + ". You can still fill the form manually.");
-        S.form = blankSpec(); S.formId=null; S.view="form";
-        S.importBanner = "Automatic import didn't work for this file \u2014 fill in the details manually below.";
+        showToast("AI auto-fill failed: " + (data.error || res.status) + ". You can still fill the form manually.");
       } else {
         applyImportedData(data);
       }
     }catch(e){
-      showToast("Import failed: " + (e.message||e) + ". You can still fill the form manually.");
-      S.form = blankSpec(); S.formId=null; S.view="form";
-      S.importBanner = "Automatic import didn't work for this file \u2014 fill in the details manually below.";
+      showToast("AI auto-fill failed: " + (e.message||e) + ". You can still fill the form manually.");
     }
-    S.importBusy = false;
+    S.aiBusy = false;
     render();
-  }
+  };
 
   function applyImportedData(data){
     var f = blankSpec();
