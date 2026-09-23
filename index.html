@@ -622,7 +622,7 @@
 
   function renderImport(){
     var out = '<div class="card">'
-      + '<p style="margin-top:0">Upload an old spec sheet PDF \u2014 the text comes out instantly (no waiting, no AI involved) so you can copy the details straight into a new spec. For a photo/scan, there\'s an optional AI reading step since there\'s no text to pull out directly.</p>'
+      + '<p style="margin-top:0">Upload an old spec sheet PDF \u2014 the text comes out instantly (no waiting, no AI involved) so you can copy the details straight into a new spec, and any photos in the file are pulled in automatically too. For a photo/scan upload, there\'s an optional AI reading step since there\'s no text to pull out directly.</p>'
       + '<div class="import-drop" onclick="document.getElementById(\'importFileInput\').click()">'
       + (S.importBusy ? '<span class="spinner"></span> Reading the document\u2026' : 'Click to choose a PDF or image file')
       + '</div>'
@@ -652,6 +652,53 @@
     ]);
   }
 
+  async function extractPdfPhotos(pdf){
+    // Pulls out the actual embedded photo objects (not a page screenshot),
+    // so images come through at their real resolution \u2014 no blur, no
+    // cropping needed. Each image object gets its own short timeout so one
+    // stubborn image can't hold up the rest; the whole step is capped too.
+    var found = [];
+    outer:
+    for(var p=1;p<=pdf.numPages;p++){
+      var page = await pdf.getPage(p);
+      var opList = await page.getOperatorList();
+      var OPS = pdfjsLib.OPS;
+      for(var i=0;i<opList.fnArray.length;i++){
+        if(found.length>=6) break outer;
+        if(opList.fnArray[i]===OPS.paintImageXObject || opList.fnArray[i]===OPS.paintJpegXObject){
+          var name = opList.argsArray[i][0];
+          try{
+            var imgObj = await withTimeout(new Promise(function(resolve){ page.objs.get(name, resolve); }), 4000);
+            if(!imgObj || !imgObj.width || imgObj.width<250 || imgObj.height<250) continue;
+            var canvas = document.createElement("canvas");
+            canvas.width = imgObj.width; canvas.height = imgObj.height;
+            var ctx = canvas.getContext("2d");
+            var idata = ctx.createImageData(imgObj.width, imgObj.height);
+            var src = imgObj.data, out = idata.data;
+            if(src.length === imgObj.width*imgObj.height*4){
+              out.set(src);
+            } else if(src.length === imgObj.width*imgObj.height*3){
+              for(var j=0,k=0; j<src.length; j+=3,k+=4){ out[k]=src[j]; out[k+1]=src[j+1]; out[k+2]=src[j+2]; out[k+3]=255; }
+            } else { continue; }
+            ctx.putImageData(idata,0,0);
+            found.push(canvas.toDataURL("image/jpeg",0.92));
+          }catch(e){ /* skip images that can't be decoded in time */ }
+        }
+      }
+    }
+    return found;
+  }
+
+  async function uploadDataUrlAsImage(dataUrl){
+    var fetched = await fetch(dataUrl);
+    var blob = await fetched.blob();
+    var path = Date.now()+"_"+Math.random().toString(36).slice(2)+".jpg";
+    var up = await sb.storage.from("spec-images").upload(path, blob, {upsert:false, contentType:"image/jpeg"});
+    if(up.error) throw up.error;
+    var pub = sb.storage.from("spec-images").getPublicUrl(path);
+    return {id:path, url:pub.data.publicUrl, caption:"", rotation:0};
+  }
+
   async function handleImportFile(file){
     S.importBusy = true; render();
     console.log("Import: starting, file type", file.type);
@@ -667,10 +714,23 @@
           var tc = await page.getTextContent();
           extracted += tc.items.map(function(it){return it.str;}).join(" ") + "\n";
         }
-        console.log("Import: text extracted (" + extracted.length + " chars) \u2014 done, instantly");
+        console.log("Import: text extracted (" + extracted.length + " chars) \u2014 looking for photos\u2026");
         S.pendingImport = {mode:"text", content:extracted, mediaType:null, fileName:file.name};
         S.form = blankSpec(); S.formId = null; S.view = "form";
-        S.importBanner = "Text pulled from \u201c" + file.name + "\u201d below \u2014 copy what you need into the fields, or try AI auto-fill.";
+        S.importBanner = "Text pulled from \u201c" + file.name + "\u201d below \u2014 copy what you need into the fields, or try AI auto-fill. Checking for photos in the file too\u2026";
+        render();
+        try{
+          var photos = await withTimeout(extractPdfPhotos(pdf), 20000);
+          console.log("Import: found", photos.length, "photo(s)");
+          if(photos.length){
+            showToast("Uploading " + photos.length + " photo(s) found in the PDF\u2026");
+            for(var pi=0; pi<photos.length; pi++){
+              try{ var uploaded = await uploadDataUrlAsImage(photos[pi]); S.form.referenceImages.push(uploaded); }
+              catch(e){ console.error("Photo upload failed:", e); }
+            }
+            render();
+          }
+        }catch(e){ console.error("Photo extraction failed or timed out:", e); }
       } else if(file.type.indexOf("image/")===0){
         var b64 = await fileToBase64(file);
         S.pendingImport = {mode:"image", content:b64, mediaType:file.type, fileName:file.name};
@@ -721,13 +781,15 @@
   };
 
   function applyImportedData(data){
+    var existingImages = (S.form && S.form.referenceImages) || [];
     var f = blankSpec();
     SCHEMA_FIELDS.forEach(function(k){
       if(data && data[k] !== undefined && data[k] !== null && typeof data[k] !== "object"){ f[k]=data[k]; }
     });
-    f.referenceImages = [];
+    f.referenceImages = existingImages;
     S.form = f; S.formId = null; S.view = "form";
-    S.importBanner = "Imported from an old spec sheet \u2014 please check every field carefully before saving, then add current reference photos.";
+    S.importBanner = "Imported from an old spec sheet \u2014 please check every field carefully before saving"
+      + (existingImages.length ? "." : ", then add reference photos.");
     render();
   }
 
