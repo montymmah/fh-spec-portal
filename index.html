@@ -76,17 +76,6 @@
   .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--red);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:-2px;}
   @keyframes spin{to{transform:rotate(360deg);}}
   .lightbox-overlay{position:fixed;inset:0;background:rgba(0,0,0,.87);display:flex;align-items:center;justify-content:center;z-index:200;padding:30px;}
-  .crop-overlay{position:fixed;inset:0;background:rgba(0,0,0,.87);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:210;padding:20px;gap:16px;}
-  .crop-wrap{position:relative;max-width:90vw;max-height:72vh;overflow:hidden;line-height:0;touch-action:none;}
-  .crop-wrap img{display:block;max-width:90vw;max-height:72vh;-webkit-user-drag:none;user-select:none;pointer-events:none;}
-  .crop-box{position:absolute;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.55);cursor:move;touch-action:none;}
-  .crop-handle{position:absolute;width:16px;height:16px;background:#fff;border:2px solid var(--red);border-radius:50%;touch-action:none;}
-  .crop-handle.tl{left:-9px;top:-9px;cursor:nwse-resize;}
-  .crop-handle.tr{right:-9px;top:-9px;cursor:nesw-resize;}
-  .crop-handle.bl{left:-9px;bottom:-9px;cursor:nesw-resize;}
-  .crop-handle.br{right:-9px;bottom:-9px;cursor:nwse-resize;}
-  .crop-actions{display:flex;gap:10px;}
-  .crop-hint{color:#eee;font-size:12.5px;text-align:center;}
   .lightbox-overlay img{max-width:92vw;max-height:88vh;object-fit:contain;box-shadow:0 10px 40px rgba(0,0,0,.5);}
   .lightbox-close{position:fixed;top:18px;right:22px;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:18px;cursor:pointer;z-index:201;}
   .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
@@ -195,7 +184,8 @@
   // ---------- state ----------
   var S = {
     view:"library", specs:[], loadingSpecs:true, search:"",
-    form:null, formId:null, toast:""
+    form:null, formId:null, toast:"",
+    editorName: localStorage.getItem("mmah_editor_name") || ""
   };
 
   function showToast(msg){ S.toast = msg; render(); setTimeout(function(){ S.toast=""; render(); }, 3200); }
@@ -208,14 +198,6 @@
       if(p) sessionStorage.setItem("mmah_pwd", p);
     }
     return p || null;
-  }
-  function getEditorName(){
-    var n = localStorage.getItem("mmah_editor_name");
-    if(!n){
-      n = prompt("Your name (shown as who amended each sheet):") || "Someone";
-      localStorage.setItem("mmah_editor_name", n);
-    }
-    return n;
   }
   function handleWriteError(e){
     var msg = (e && e.message) || String(e);
@@ -306,7 +288,6 @@
       else if(action==="cancelDelete"){ S.confirmDelete = null; render(); }
       else if(action==="removeImg") removeImg(parseInt(el.getAttribute("data-idx"),10));
       else if(action==="rotateImg") rotateImg(parseInt(el.getAttribute("data-idx"),10));
-      else if(action==="cropImg") openCropTool(parseInt(el.getAttribute("data-idx"),10));
       else if(action==="lightbox") openLightbox(el.getAttribute("data-url"), parseInt(el.getAttribute("data-rot")||"0",10));
       else if(action==="closeLightbox") closeLightbox();
     }catch(err){
@@ -329,105 +310,6 @@
   };
   window.openLightbox = function(url, rotation){ S.lightbox = {url:url, rotation:rotation||0}; render(); };
   window.closeLightbox = function(){ S.lightbox = null; render(); };
-
-  window.openCropTool = async function(idx){
-    var img = S.form.referenceImages[idx];
-    if(!img) return;
-    showToast("Loading image\u2026");
-    try{
-      var res = await fetch(img.url);
-      var blob = await res.blob();
-      var blobUrl = URL.createObjectURL(blob);
-      S.cropTarget = {idx:idx, blobUrl:blobUrl, box:{left:10,top:10,width:80,height:80}};
-      render();
-    }catch(e){
-      showToast("Couldn't open that image for cropping: " + (e.message||e));
-    }
-  };
-  window.cancelCrop = function(){
-    if(S.cropTarget && S.cropTarget.blobUrl) URL.revokeObjectURL(S.cropTarget.blobUrl);
-    S.cropTarget = null; render();
-  };
-
-  function clampNum(v,min,max){ return Math.max(min, Math.min(max, v)); }
-
-  function wireCropTool(){
-    var wrap = document.getElementById("cropWrap");
-    var box = document.getElementById("cropBox");
-    if(!wrap || !box || !S.cropTarget) return;
-    var dragging = null;
-
-    function onMove(e){
-      if(!dragging) return;
-      var dxPct = (e.clientX - dragging.startX) / dragging.rectW * 100;
-      var dyPct = (e.clientY - dragging.startY) / dragging.rectH * 100;
-      var sb = dragging.startBox, b = {left:sb.left, top:sb.top, width:sb.width, height:sb.height};
-      if(dragging.mode === "move"){
-        b.left = clampNum(sb.left + dxPct, 0, 100 - sb.width);
-        b.top = clampNum(sb.top + dyPct, 0, 100 - sb.height);
-      } else {
-        var h = dragging.handle;
-        if(h.indexOf("l")>=0){ var nl = clampNum(sb.left+dxPct, 0, sb.left+sb.width-5); b.width = sb.width - (nl-sb.left); b.left = nl; }
-        if(h.indexOf("r")>=0){ b.width = clampNum(sb.width+dxPct, 5, 100-sb.left); }
-        if(h.indexOf("t")>=0){ var nt = clampNum(sb.top+dyPct, 0, sb.top+sb.height-5); b.height = sb.height - (nt-sb.top); b.top = nt; }
-        if(h.indexOf("b")>=0){ b.height = clampNum(sb.height+dyPct, 5, 100-sb.top); }
-      }
-      S.cropTarget.box = b;
-      box.style.left=b.left+"%"; box.style.top=b.top+"%"; box.style.width=b.width+"%"; box.style.height=b.height+"%";
-    }
-    function onUp(){
-      dragging = null;
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    }
-    function startDrag(e, mode, handle){
-      e.preventDefault(); e.stopPropagation();
-      var rect = wrap.getBoundingClientRect();
-      dragging = {
-        mode:mode, handle:handle, startX:e.clientX, startY:e.clientY,
-        startBox:{left:S.cropTarget.box.left, top:S.cropTarget.box.top, width:S.cropTarget.box.width, height:S.cropTarget.box.height},
-        rectW:rect.width, rectH:rect.height
-      };
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", onUp);
-    }
-    box.onpointerdown = function(e){ if(e.target===box) startDrag(e,"move"); };
-    box.querySelectorAll(".crop-handle").forEach(function(h){
-      h.onpointerdown = function(e){ startDrag(e,"resize", h.getAttribute("data-handle")); };
-    });
-  }
-
-  window.applyCrop = async function(){
-    if(!S.cropTarget) return;
-    var imgEl = document.getElementById("cropImg");
-    if(!imgEl || !imgEl.naturalWidth){ showToast("Image isn't ready yet \u2014 try again in a second."); return; }
-    var b = S.cropTarget.box;
-    var blobUrlToRevoke = S.cropTarget.blobUrl;
-    var nw = imgEl.naturalWidth, nh = imgEl.naturalHeight;
-    var sx = nw*b.left/100, sy = nh*b.top/100, sw = nw*b.width/100, sh = nh*b.height/100;
-    var canvas = document.createElement("canvas");
-    canvas.width = Math.max(1,Math.round(sw)); canvas.height = Math.max(1,Math.round(sh));
-    var ctx = canvas.getContext("2d");
-    try{
-      ctx.drawImage(imgEl, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-      var dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-      var idx = S.cropTarget.idx;
-      S.cropTarget = null;
-      if(blobUrlToRevoke) URL.revokeObjectURL(blobUrlToRevoke);
-      showToast("Cropping\u2026");
-      render();
-      var uploaded = await uploadDataUrlAsImage(dataUrl);
-      S.form.referenceImages[idx].url = uploaded.url;
-      S.form.referenceImages[idx].id = uploaded.id;
-      S.form.referenceImages[idx].rotation = 0;
-      showToast("Cropped.");
-      render();
-    }catch(e){
-      if(blobUrlToRevoke) URL.revokeObjectURL(blobUrlToRevoke);
-      showToast("Crop failed: " + (e.message||e));
-      render();
-    }
-  };
 
   async function handleImageUpload(files){
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
@@ -458,10 +340,12 @@
   async function saveSpec(){
     readFormFromInputs();
     if(!S.form.productName.trim()){ showToast("Product name is required."); return; }
+    var name = (S.editorName||"").trim();
+    if(!name){ showToast("Your name is required before saving."); return; }
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     var pwd = getPassword();
     if(!pwd) return;
-    var name = getEditorName();
+    localStorage.setItem("mmah_editor_name", name);
     var payload = JSON.parse(JSON.stringify(S.form));
     delete payload.id;
     if(S.formId){
@@ -520,13 +404,15 @@
     if(imgInput){ imgInput.onchange = function(e){ handleImageUpload(e.target.files); e.target.value=""; }; }
     var impInput = document.getElementById("importFileInput");
     if(impInput){ impInput.onchange = function(e){ if(e.target.files[0]) handleImportFile(e.target.files[0]); e.target.value=""; }; }
-    wireCropTool();
     var el = document.getElementById("specForm");
     if(el){
       el.querySelectorAll("textarea, input[type=text], input[type=date]").forEach(function(inp){
-        inp.oninput = function(){ S.form[inp.getAttribute("data-f")] = inp.value; };
+        var f = inp.getAttribute("data-f");
+        if(f) inp.oninput = function(){ S.form[f] = inp.value; };
       });
     }
+    var editorInput = document.getElementById("editorNameInput");
+    if(editorInput){ editorInput.oninput = function(){ S.editorName = editorInput.value; }; }
   }
 
   function topbar(){
@@ -555,26 +441,6 @@
         + '<button class="lightbox-close" data-action="closeLightbox">\u00d7</button>'
         + '<img src="'+esc(S.lightbox.url)+'" style="transform:rotate('+(S.lightbox.rotation||0)+'deg)" onclick="event.stopPropagation()">'
         + '</div>';
-    }
-    if(S.cropTarget){
-      var cropImg = S.form.referenceImages[S.cropTarget.idx];
-      if(cropImg){
-        var cb = S.cropTarget.box;
-        html += '<div class="crop-overlay">'
-          + '<div class="crop-wrap" id="cropWrap">'
-          + '<img id="cropImg" src="'+esc(S.cropTarget.blobUrl)+'">'
-          + '<div class="crop-box" id="cropBox" style="left:'+cb.left+'%;top:'+cb.top+'%;width:'+cb.width+'%;height:'+cb.height+'%">'
-          + '<div class="crop-handle tl" data-handle="tl"></div>'
-          + '<div class="crop-handle tr" data-handle="tr"></div>'
-          + '<div class="crop-handle bl" data-handle="bl"></div>'
-          + '<div class="crop-handle br" data-handle="br"></div>'
-          + '</div></div>'
-          + '<p class="crop-hint">Drag the box to move it, drag a corner to resize.</p>'
-          + '<div class="crop-actions">'
-          + '<button class="btn-ghost" onclick="cancelCrop()">Cancel</button>'
-          + '<button class="btn-primary" onclick="applyCrop()">Apply Crop</button>'
-          + '</div></div>';
-      } else { S.cropTarget = null; }
     }
     if(S.confirmDelete){
       html += '<div class="confirm-overlay" data-action="cancelDelete">'
@@ -645,6 +511,10 @@
       + '</div><div class="row">'
       + fieldText("issuedDate","Issued date",f.issuedDate,false,"date")
       + fieldText("issuedByInitials","Done by (initials)",f.issuedByInitials)
+      + '</div><div class="row">'
+      + '<div class="field"><label class="field-label">Your name *</label>'
+      + '<input type="text" id="editorNameInput" value="'+esc(S.editorName)+'" oninput="S.editorName=this.value">'
+      + '<p class="note">Shown as who amended this sheet. Required to save.</p></div>'
       + '</div></div>';
 
     out += '<div class="section-bar">1 CUTTING DETAILS</div><div class="section-body">';
@@ -702,7 +572,6 @@
       return '<div class="img-box"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'">'
         + '<div class="cap"><input type="text" placeholder="Caption" value="'+esc(img.caption||"")+'" oninput="setImgCaption('+idx+', this.value)"></div>'
         + '<div style="display:flex">'
-        + '<button class="img-remove" style="border-right:1px solid var(--line)" data-action="cropImg" data-idx="'+idx+'">\u2702 Crop</button>'
         + '<button class="img-remove" style="border-right:1px solid var(--line)" data-action="rotateImg" data-idx="'+idx+'">\u27f3 Rotate</button>'
         + '<button class="img-remove" data-action="removeImg" data-idx="'+idx+'">Remove</button>'
         + '</div></div>';
@@ -736,7 +605,7 @@
       + (S.importBusy ? '<span class="spinner"></span> Reading the document\u2026 this can take up to a minute.' : 'Click to choose a PDF or image file')
       + '</div>'
       + '<input type="file" id="importFileInput" accept="application/pdf,image/*" style="display:none">'
-      + '<p class="note" style="margin-top:14px">This needs the shared password (same one as editing) and a small Claude API call \u2014 nothing is saved until you review the fields and click Save.</p>'
+      + '<p class="note" style="margin-top:14px">This needs the shared password (same one as editing) and a small Gemini API call \u2014 nothing is saved until you review the fields and click Save. Reference photos aren\'t pulled in automatically \u2014 add them yourself afterwards with the Upload image(s) button.</p>'
       + '</div>';
     return out;
   }
@@ -762,34 +631,6 @@
     ]);
   }
 
-  async function extractPdfImages(pdf){
-    // Renders each page (up to 4) as a plain image. Simpler and far more
-    // reliable than trying to pull out embedded photo objects individually,
-    // which can hang or fail depending on how the PDF was generated.
-    var found = [];
-    var n = Math.min(pdf.numPages, 4);
-    for(var p=1;p<=n;p++){
-      var page = await pdf.getPage(p);
-      var viewport = page.getViewport({scale:1.5});
-      var canvas = document.createElement("canvas");
-      canvas.width = viewport.width; canvas.height = viewport.height;
-      var ctx = canvas.getContext("2d");
-      await page.render({canvasContext:ctx, viewport:viewport}).promise;
-      found.push(canvas.toDataURL("image/jpeg",0.85));
-    }
-    return found;
-  }
-
-  async function uploadDataUrlAsImage(dataUrl){
-    var fetched = await fetch(dataUrl);
-    var blob = await fetched.blob();
-    var path = Date.now()+"_"+Math.random().toString(36).slice(2)+".jpg";
-    var up = await sb.storage.from("spec-images").upload(path, blob, {upsert:false, contentType:"image/jpeg"});
-    if(up.error) throw up.error;
-    var pub = sb.storage.from("spec-images").getPublicUrl(path);
-    return {id:path, url:pub.data.publicUrl, caption:"", rotation:0};
-  }
-
   async function handleImportFile(file){
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     var pwd = getPassword();
@@ -798,7 +639,6 @@
     console.log("Import: starting, file type", file.type);
     try{
       var body;
-      var extractedImages = [];
       if(file.type === "application/pdf"){
         console.log("Import: loading PDF\u2026");
         var buf = await file.arrayBuffer();
@@ -810,10 +650,8 @@
           var tc = await page.getTextContent();
           extracted += tc.items.map(function(it){return it.str;}).join(" ") + "\n";
         }
-        console.log("Import: text extracted (" + extracted.length + " chars) \u2014 looking for images\u2026");
+        console.log("Import: text extracted (" + extracted.length + " chars)");
         body = {pwd:pwd, mode:"text", content:extracted};
-        try{ extractedImages = await withTimeout(extractPdfImages(pdf), 25000); }catch(e){ console.error("PDF image extraction failed or timed out:", e); }
-        console.log("Import: image extraction done, found", extractedImages.length);
       } else if(file.type.indexOf("image/")===0){
         var b64 = await fileToBase64(file);
         body = {pwd:pwd, mode:"image", content:b64, mediaType:file.type};
@@ -841,14 +679,6 @@
         S.importBanner = "Automatic import didn't work for this file \u2014 fill in the details manually below.";
       } else {
         applyImportedData(data);
-        if(extractedImages.length){
-          showToast("Uploading " + extractedImages.length + " image(s) found in the PDF\u2026");
-          for(var ii=0; ii<extractedImages.length; ii++){
-            try{ var uploaded = await uploadDataUrlAsImage(extractedImages[ii]); S.form.referenceImages.push(uploaded); }
-            catch(e){ console.error("Image upload failed:", e); }
-          }
-          render();
-        }
       }
     }catch(e){
       showToast("Import failed: " + (e.message||e) + ". You can still fill the form manually.");
