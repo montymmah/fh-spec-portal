@@ -630,34 +630,19 @@
   }
 
   async function extractPdfImages(pdf){
+    // Renders each page (up to 4) as a plain image. Simpler and far more
+    // reliable than trying to pull out embedded photo objects individually,
+    // which can hang or fail depending on how the PDF was generated.
     var found = [];
-    outer:
-    for(var p=1;p<=pdf.numPages;p++){
+    var n = Math.min(pdf.numPages, 4);
+    for(var p=1;p<=n;p++){
       var page = await pdf.getPage(p);
-      var opList = await page.getOperatorList();
-      var OPS = pdfjsLib.OPS;
-      for(var i=0;i<opList.fnArray.length;i++){
-        if(found.length>=6) break outer; // cap so a busy PDF can't run away
-        if(opList.fnArray[i]===OPS.paintImageXObject || opList.fnArray[i]===OPS.paintJpegXObject){
-          var name = opList.argsArray[i][0];
-          try{
-            var imgObj = await withTimeout(new Promise(function(resolve){ page.objs.get(name, resolve); }), 4000);
-            if(!imgObj || !imgObj.width || imgObj.width<250 || imgObj.height<250) continue;
-            var canvas = document.createElement("canvas");
-            canvas.width = imgObj.width; canvas.height = imgObj.height;
-            var ctx = canvas.getContext("2d");
-            var idata = ctx.createImageData(imgObj.width, imgObj.height);
-            var src = imgObj.data, out = idata.data;
-            if(src.length === imgObj.width*imgObj.height*4){
-              out.set(src);
-            } else if(src.length === imgObj.width*imgObj.height*3){
-              for(var j=0,k=0; j<src.length; j+=3,k+=4){ out[k]=src[j]; out[k+1]=src[j+1]; out[k+2]=src[j+2]; out[k+3]=255; }
-            } else { continue; }
-            ctx.putImageData(idata,0,0);
-            found.push(canvas.toDataURL("image/jpeg",0.87));
-          }catch(e){ /* skip images we can't decode in time */ }
-        }
-      }
+      var viewport = page.getViewport({scale:1.5});
+      var canvas = document.createElement("canvas");
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      var ctx = canvas.getContext("2d");
+      await page.render({canvasContext:ctx, viewport:viewport}).promise;
+      found.push(canvas.toDataURL("image/jpeg",0.85));
     }
     return found;
   }
