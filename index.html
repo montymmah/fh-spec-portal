@@ -697,10 +697,11 @@
           "apikey": SUPABASE_ANON_KEY
         },
         body: JSON.stringify(body)
-      }), 45000);
+      }), 60000);
       console.log("Import: AI responded, status", res.status);
       var data = await res.json();
       if(!res.ok || data.error){
+        console.error("Import: AI call failed \u2014 full response:", data);
         if(String(data.error||"").toLowerCase().indexOf("password")>=0) sessionStorage.removeItem("mmah_pwd");
         showToast("Import failed: " + (data.error || res.status) + ". You can still fill the form manually.");
         S.form = blankSpec(); S.formId=null; S.view="form";
