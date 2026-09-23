@@ -443,11 +443,11 @@
         + '</div>';
     }
     if(S.confirmDelete){
-      html += '<div class="confirm-overlay" data-action="cancelDelete">'
-        + '<div class="confirm-box">'
+      html += '<div class="confirm-overlay" onclick="cancelDelete()">'
+        + '<div class="confirm-box" onclick="event.stopPropagation()">'
         + '<p>Delete this spec sheet permanently? This can\'t be undone.</p>'
-        + '<div class="row"><button class="btn-ghost btn-sm" data-action="cancelDelete">Cancel</button>'
-        + '<button class="btn-primary btn-sm" data-action="reallyDelete" data-id="'+esc(S.confirmDelete)+'">Delete</button></div>'
+        + '<div class="row"><button class="btn-ghost btn-sm" onclick="cancelDelete()">Cancel</button>'
+        + '<button class="btn-primary btn-sm" onclick="performDelete(\''+esc(S.confirmDelete)+'\')">Delete</button></div>'
         + '</div></div>';
     }
     return html;
@@ -790,8 +790,11 @@
     return out;
   }
 
+  function cancelDelete(){ S.confirmDelete = null; render(); }
+
   window.goLibrary=goLibrary; window.goNew=goNew; window.goImport=goImport; window.goEdit=goEdit; window.goPrint=goPrint;
   window.saveSpec=saveSpec; window.doPrint=doPrint; window.loadSpecs=loadSpecs; window.S=S; window.render=render;
+  window.performDelete=performDelete; window.cancelDelete=cancelDelete;
 
   (function boot(){
     var appEl = document.getElementById("app");
