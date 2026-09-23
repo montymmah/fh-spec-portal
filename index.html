@@ -622,17 +622,26 @@
     });
   }
 
+  function withTimeout(promise, ms){
+    return Promise.race([
+      promise,
+      new Promise(function(_, reject){ setTimeout(function(){ reject(new Error("timeout")); }, ms); })
+    ]);
+  }
+
   async function extractPdfImages(pdf){
     var found = [];
+    outer:
     for(var p=1;p<=pdf.numPages;p++){
       var page = await pdf.getPage(p);
       var opList = await page.getOperatorList();
       var OPS = pdfjsLib.OPS;
       for(var i=0;i<opList.fnArray.length;i++){
+        if(found.length>=6) break outer; // cap so a busy PDF can't run away
         if(opList.fnArray[i]===OPS.paintImageXObject || opList.fnArray[i]===OPS.paintJpegXObject){
           var name = opList.argsArray[i][0];
           try{
-            var imgObj = await new Promise(function(resolve){ page.objs.get(name, resolve); });
+            var imgObj = await withTimeout(new Promise(function(resolve){ page.objs.get(name, resolve); }), 4000);
             if(!imgObj || !imgObj.width || imgObj.width<250 || imgObj.height<250) continue;
             var canvas = document.createElement("canvas");
             canvas.width = imgObj.width; canvas.height = imgObj.height;
@@ -646,7 +655,7 @@
             } else { continue; }
             ctx.putImageData(idata,0,0);
             found.push(canvas.toDataURL("image/jpeg",0.87));
-          }catch(e){ /* skip images we can't decode */ }
+          }catch(e){ /* skip images we can't decode in time */ }
         }
       }
     }
@@ -681,7 +690,7 @@
           extracted += tc.items.map(function(it){return it.str;}).join(" ") + "\n";
         }
         body = {pwd:pwd, mode:"text", content:extracted};
-        try{ extractedImages = await extractPdfImages(pdf); }catch(e){ console.error("PDF image extraction failed:", e); }
+        try{ extractedImages = await withTimeout(extractPdfImages(pdf), 25000); }catch(e){ console.error("PDF image extraction failed or timed out:", e); }
       } else if(file.type.indexOf("image/")===0){
         var b64 = await fileToBase64(file);
         body = {pwd:pwd, mode:"image", content:b64, mediaType:file.type};
