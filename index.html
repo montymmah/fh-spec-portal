@@ -260,7 +260,11 @@
 
   // ---------- navigation ----------
   function goLibrary(){ S.view="library"; S.form=null; S.formId=null; render(); loadSpecs(); }
-  function goNew(){ S.view="form"; S.form=blankSpec(); S.formId=null; render(); }
+  function goNew(){
+    S.view="form"; S.form=blankSpec(); S.formId=null; render();
+    var pn = document.querySelector('[data-f="productName"]');
+    if(pn) pn.focus();
+  }
   function goImport(){ S.view="import"; S.importBanner=""; render(); }
   function goEdit(id){
     var spec = S.specs.filter(function(s){return s.id===id;})[0];
@@ -392,10 +396,18 @@
 
   // ---------- rendering ----------
   function render(){
+    var active = document.activeElement;
+    var refocusId = (active && active.id === "librarySearchInput") ? active.id : null;
+    var selStart = refocusId ? active.selectionStart : null;
+    var selEnd = refocusId ? active.selectionEnd : null;
     try{
       document.getElementById("app").innerHTML = renderView();
       document.getElementById("printArea").innerHTML = (S.view==="print" && S.printSpec) ? renderPrintable(S.printSpec) : "";
       wireFileInputs();
+      if(refocusId){
+        var el = document.getElementById(refocusId);
+        if(el){ el.focus(); if(selStart!=null){ try{ el.setSelectionRange(selStart, selEnd); }catch(e){} } }
+      }
     }catch(err){
       console.error("Portal render error:", err);
       document.getElementById("app").innerHTML =
@@ -466,7 +478,8 @@
       return (s.productName||"").toLowerCase().indexOf(q)>=0 || (s.outputSku||"").toLowerCase().indexOf(q)>=0
         || (s.inputSku||"").toLowerCase().indexOf(q)>=0 || (s.outputSageDesc||"").toLowerCase().indexOf(q)>=0;
     });
-    var out = '<div class="field search-bar"><input type="text" placeholder="Search by product name, Sage description, or SKU\u2026" value="'+esc(S.search)+'" oninput="S.search=this.value; render();">'
+    var out = '<div class="field search-bar"><input type="text" id="librarySearchInput" placeholder="Search by product name, Sage description, or SKU\u2026" value="'+esc(S.search)+'" oninput="S.search=this.value; render();">'
+      + (S.search ? '<button class="btn-ghost btn-sm" onclick="S.search=\'\'; render();">\u00d7 Clear</button>' : '')
       + '<button class="btn-sm" onclick="loadSpecs()">\u21bb Refresh</button></div>';
     if(S.loadingSpecs) out += '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>';
     else if(!list.length) out += '<div class="empty">No spec sheets yet. Click <b>+ New Spec</b> to get started.</div>';
@@ -793,6 +806,12 @@
   (function boot(){
     var appEl = document.getElementById("app");
     if(appEl) appEl.addEventListener("click", onAppClick);
+    document.addEventListener("keydown", function(e){
+      if(e.key === "Escape"){
+        if(S.lightbox){ closeLightbox(); }
+        else if(S.confirmDelete){ cancelDelete(); }
+      }
+    });
     render();
     loadSpecs();
   })();
