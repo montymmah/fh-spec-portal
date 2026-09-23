@@ -260,13 +260,12 @@
   }
 
   // ---------- navigation ----------
-  function goLibrary(){ S.view="library"; S.form=null; S.formId=null; S.pendingImport=null; render(); loadSpecs(); }
-  function goNew(){ S.view="form"; S.form=blankSpec(); S.formId=null; S.pendingImport=null; render(); }
+  function goLibrary(){ S.view="library"; S.form=null; S.formId=null; render(); loadSpecs(); }
+  function goNew(){ S.view="form"; S.form=blankSpec(); S.formId=null; render(); }
   function goImport(){ S.view="import"; S.importBanner=""; render(); }
   function goEdit(id){
     var spec = S.specs.filter(function(s){return s.id===id;})[0];
     if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
-    S.pendingImport=null;
     S.form = JSON.parse(JSON.stringify(spec));
     S.formId = id;
     S.view="form";
@@ -500,21 +499,6 @@
     var f = S.form;
     var out = "";
     if(S.importBanner) out += '<div class="banner">'+esc(S.importBanner)+'</div>';
-    if(S.pendingImport && !S.formId){
-      out += '<div class="card">';
-      if(S.pendingImport.mode === "text"){
-        out += '<label class="field-label">Extracted text from \u201c'+esc(S.pendingImport.fileName)+'\u201d</label>'
-          + '<textarea readonly style="min-height:140px;font-family:monospace;font-size:12px;background:var(--panel)">'+esc(S.pendingImport.content)+'</textarea>'
-          + '<p class="note" style="margin-top:6px">Copy what you need into the fields below.</p>';
-      } else {
-        out += '<p class="note" style="margin:0">Image file \u201c'+esc(S.pendingImport.fileName)+'\u201d \u2014 no text to extract locally.</p>';
-      }
-      out += '<button class="btn-sm" style="margin-top:10px" onclick="tryAiAutoFill()"'+(S.aiBusy?' disabled':'')+'>'
-        + (S.aiBusy ? '<span class="spinner"></span> Reading with AI\u2026' : '\u2728 Retry AI auto-fill')
-        + '</button>'
-        + '<button class="btn-ghost btn-sm" style="margin-top:10px" onclick="S.pendingImport=null; render();">Dismiss</button>'
-        + '</div>';
-    }
     out += '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;">'
       + '<h2 style="margin:0;font-size:17px;">'+(S.formId?"Edit spec sheet":"New spec sheet")+'</h2>'
       + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Cancel</button>'
@@ -622,7 +606,7 @@
 
   function renderImport(){
     var out = '<div class="card">'
-      + '<p style="margin-top:0">Upload an old spec sheet \u2014 text and any photos come out instantly (no AI involved, entirely free), and Claude fills in the fields automatically a moment later so you can review before saving. Needs the shared password and a very small AI cost per import.</p>'
+      + '<p style="margin-top:0">Upload an old spec sheet \u2014 a PDF export or a photo/scan \u2014 and it\'ll be read automatically and dropped into the current format for you to check over before saving.</p>'
       + '<div class="import-drop" onclick="document.getElementById(\'importFileInput\').click()">'
       + (S.importBusy ? '<span class="spinner"></span> Reading the document\u2026' : 'Click to choose a PDF or image file')
       + '</div>'
@@ -652,148 +636,66 @@
     ]);
   }
 
-  async function extractPdfPhotos(pdf){
-    // Pulls out the actual embedded photo objects (not a page screenshot),
-    // so images come through at their real resolution \u2014 no blur, no
-    // cropping needed. Each image object gets its own short timeout so one
-    // stubborn image can't hold up the rest; the whole step is capped too.
-    var found = [];
-    outer:
-    for(var p=1;p<=pdf.numPages;p++){
-      var page = await pdf.getPage(p);
-      var opList = await page.getOperatorList();
-      var OPS = pdfjsLib.OPS;
-      for(var i=0;i<opList.fnArray.length;i++){
-        if(found.length>=6) break outer;
-        if(opList.fnArray[i]===OPS.paintImageXObject || opList.fnArray[i]===OPS.paintJpegXObject){
-          var name = opList.argsArray[i][0];
-          try{
-            var imgObj = await withTimeout(new Promise(function(resolve){ page.objs.get(name, resolve); }), 4000);
-            if(!imgObj || !imgObj.width || imgObj.width<250 || imgObj.height<250) continue;
-            var canvas = document.createElement("canvas");
-            canvas.width = imgObj.width; canvas.height = imgObj.height;
-            var ctx = canvas.getContext("2d");
-            var idata = ctx.createImageData(imgObj.width, imgObj.height);
-            var src = imgObj.data, out = idata.data;
-            if(src.length === imgObj.width*imgObj.height*4){
-              out.set(src);
-            } else if(src.length === imgObj.width*imgObj.height*3){
-              for(var j=0,k=0; j<src.length; j+=3,k+=4){ out[k]=src[j]; out[k+1]=src[j+1]; out[k+2]=src[j+2]; out[k+3]=255; }
-            } else { continue; }
-            ctx.putImageData(idata,0,0);
-            found.push(canvas.toDataURL("image/jpeg",0.92));
-          }catch(e){ /* skip images that can't be decoded in time */ }
-        }
-      }
-    }
-    return found;
-  }
-
-  async function uploadDataUrlAsImage(dataUrl){
-    var fetched = await fetch(dataUrl);
-    var blob = await fetched.blob();
-    var path = Date.now()+"_"+Math.random().toString(36).slice(2)+".jpg";
-    var up = await sb.storage.from("spec-images").upload(path, blob, {upsert:false, contentType:"image/jpeg"});
-    if(up.error) throw up.error;
-    var pub = sb.storage.from("spec-images").getPublicUrl(path);
-    return {id:path, url:pub.data.publicUrl, caption:"", rotation:0};
-  }
-
   async function handleImportFile(file){
+    if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
+    var pwd = getPassword();
+    if(!pwd) return;
     S.importBusy = true; render();
     console.log("Import: starting, file type", file.type);
     try{
+      var mode, content, mediaType;
       if(file.type === "application/pdf"){
-        console.log("Import: loading PDF\u2026");
         var buf = await file.arrayBuffer();
         var pdf = await withTimeout(pdfjsLib.getDocument({data:buf}).promise, 20000);
-        console.log("Import: PDF loaded, pages =", pdf.numPages, "\u2014 extracting text\u2026");
         var extracted = "";
         for(var p=1;p<=pdf.numPages;p++){
           var page = await pdf.getPage(p);
           var tc = await page.getTextContent();
           extracted += tc.items.map(function(it){return it.str;}).join(" ") + "\n";
         }
-        console.log("Import: text extracted (" + extracted.length + " chars) \u2014 looking for photos\u2026");
-        S.pendingImport = {mode:"text", content:extracted, mediaType:null, fileName:file.name};
-        S.form = blankSpec(); S.formId = null; S.view = "form";
-        S.importBanner = "Text pulled from \u201c" + file.name + "\u201d below. Checking for photos and asking Claude to fill in the fields\u2026";
-        render();
-        try{
-          var photos = await withTimeout(extractPdfPhotos(pdf), 20000);
-          console.log("Import: found", photos.length, "photo(s)");
-          if(photos.length){
-            showToast("Uploading " + photos.length + " photo(s) found in the PDF\u2026");
-            for(var pi=0; pi<photos.length; pi++){
-              try{ var uploaded = await uploadDataUrlAsImage(photos[pi]); S.form.referenceImages.push(uploaded); }
-              catch(e){ console.error("Photo upload failed:", e); }
-            }
-            render();
-          }
-        }catch(e){ console.error("Photo extraction failed or timed out:", e); }
-        runAiAutoFill();
+        console.log("Import: text extracted (" + extracted.length + " chars)");
+        mode="text"; content=extracted; mediaType=null;
       } else if(file.type.indexOf("image/")===0){
-        var b64 = await fileToBase64(file);
-        S.pendingImport = {mode:"image", content:b64, mediaType:file.type, fileName:file.name};
-        S.form = blankSpec(); S.formId = null; S.view = "form";
-        S.importBanner = "Image files can't be read locally for text \u2014 asking Claude to read it\u2026";
-        render();
-        runAiAutoFill();
+        mode="image"; content=await fileToBase64(file); mediaType=file.type;
       } else {
         showToast("Please upload a PDF or an image file.");
+        S.importBusy=false; render(); return;
+      }
+
+      console.log("Import: calling AI\u2026");
+      var res = await withTimeout(fetch(EDGE_FUNCTION_URL, {
+        method:"POST",
+        headers:{"Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY},
+        body: JSON.stringify({pwd:pwd, mode:mode, content:content, mediaType:mediaType})
+      }), 45000);
+      console.log("Import: AI responded, status", res.status);
+      var data = await res.json();
+      if(!res.ok || data.error){
+        console.error("Import: AI call failed \u2014 full response:", data);
+        if(String(data.error||"").toLowerCase().indexOf("password")>=0) sessionStorage.removeItem("mmah_pwd");
+        showToast("Import failed: " + (data.error || res.status) + ". You can still fill the form manually.");
+        S.form = blankSpec(); S.formId=null; S.view="form";
+        S.importBanner = "Automatic import didn't work \u2014 fill in the details manually below.";
+      } else {
+        applyImportedData(data);
       }
     }catch(e){
-      showToast("Couldn't read that file: " + (e.message||e) + ". You can still fill the form manually.");
+      showToast("Import failed: " + (e.message||e) + ". You can still fill the form manually.");
       S.form = blankSpec(); S.formId=null; S.view="form";
-      S.importBanner = "Couldn't read that file automatically \u2014 fill in the details manually below.";
+      S.importBanner = "Automatic import didn't work \u2014 fill in the details manually below.";
     }
     S.importBusy = false;
     render();
   }
 
-  async function runAiAutoFill(){
-    if(!S.pendingImport){ return; }
-    if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
-    var pwd = getPassword();
-    if(!pwd) return;
-    S.aiBusy = true; render();
-    try{
-      console.log("AI auto-fill: calling Claude\u2026");
-      var res = await withTimeout(fetch(EDGE_FUNCTION_URL, {
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          "apikey": SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({pwd:pwd, mode:S.pendingImport.mode, content:S.pendingImport.content, mediaType:S.pendingImport.mediaType})
-      }), 45000);
-      console.log("AI auto-fill: responded, status", res.status);
-      var data = await res.json();
-      if(!res.ok || data.error){
-        console.error("AI auto-fill failed \u2014 full response:", data);
-        if(String(data.error||"").toLowerCase().indexOf("password")>=0) sessionStorage.removeItem("mmah_pwd");
-        showToast("AI auto-fill failed: " + (data.error || res.status) + ". You can still fill the form manually.");
-      } else {
-        applyImportedData(data);
-      }
-    }catch(e){
-      showToast("AI auto-fill failed: " + (e.message||e) + ". You can still fill the form manually.");
-    }
-    S.aiBusy = false;
-    render();
-  }
-  window.tryAiAutoFill = function(){ runAiAutoFill(); };
-
   function applyImportedData(data){
-    var existingImages = (S.form && S.form.referenceImages) || [];
     var f = blankSpec();
     SCHEMA_FIELDS.forEach(function(k){
       if(data && data[k] !== undefined && data[k] !== null && typeof data[k] !== "object"){ f[k]=data[k]; }
     });
-    f.referenceImages = existingImages;
+    f.referenceImages = [];
     S.form = f; S.formId = null; S.view = "form";
-    S.importBanner = "Imported from an old spec sheet \u2014 please check every field carefully before saving"
-      + (existingImages.length ? "." : ", then add reference photos.");
+    S.importBanner = "Imported \u2014 please check every field before saving, then add reference photos.";
     render();
   }
 
