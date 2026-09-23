@@ -107,6 +107,9 @@
   .ss-imgs{display:grid;grid-template-columns:1fr;gap:18px;margin-top:8px;}
   .ss-imgs .im{border:1px solid #BFBFBF;border-radius:4px;overflow:hidden;text-align:center;break-inside:avoid;page-break-inside:avoid;}
   .ss-imgs img{width:100%;max-height:850px;object-fit:contain;background:#f5f5f5;}
+  .ss-imgs.size-small img{max-height:220px;}
+  .ss-imgs.size-medium img{max-height:450px;}
+  .ss-imgs.size-large img{max-height:850px;}
   .ss-imgs .cap{font-size:12px;padding:6px;color:#404040;}
   .ss-footer{margin-top:20px;font-size:11px;color:#606060;border-top:1px solid #BFBFBF;padding-top:8px;}
   .ss-edit-note{font-size:11px;color:#909090;font-style:italic;margin-top:2px;}
@@ -152,8 +155,8 @@
   var MACHINE_OPTS = [["na","N/A"],["hand","Hand meat slicer"],["automatic","Automatic meat slicer"],["bonesaw","Bone saw"]];
   var TRIM_OPTS = [["discard","To be discarded"],["repurpose","To be repurposed into"]];
   var PACKAGING_OPTS = [
-    ["blackDeep","Black D15-27 (deep tray)"],["blackShallow","Black D15-13 (shallow tray)"],
     ["transparentDeep","Transparent D15-27 (deep tray)"],["transparentShallow","Transparent D15-13 (shallow tray)"],
+    ["blackDeep","Black D15-27 (deep tray)"],["blackShallow","Black D15-13 (shallow tray)"],
     ["vacuumTransparent","Vacuum packed transparent"],["vacuumGold","Vacuum packed gold"],
     ["boneGuard","Bone Guard"],["other","Other"]
   ];
@@ -161,18 +164,20 @@
   var LABEL_WH_OPTS = [["bottom","Bottom label"],["cwrap","C Wrap label"]];
   var FINISHED_OPTS = [["frozen","Frozen"],["chilled","Chilled"],["ambient","Ambient"]];
 
+  var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
+
   function blankSpec(){
     return {
       productName:"", outputSku:"", inputSku:"", outputSageDesc:"", inputSageDesc:"",
       targetWeight:"", minWeight:"", maxWeight:"", toleranceNote:"",
       inputCondition:"chilled", fatCover:"", cuttingMachine:"na",
       trimUse:"discard", trimRepurposeNote:"", cuttingNotes:"",
-      weightRecordingNote:"List the weight of each item overleaf on the Cutting Plant Production Sheet.",
-      packingPrep:"", packagingType:"blackDeep", packagingNote:"",
-      positionInTray:"Centre the item (cf. reference image)",
+      weightRecordingNote:"",
+      packingPrep:"", packagingType:"transparentDeep", packagingNote:"",
+      positionInTray:"Centred, see reference image",
       labelCuttingPlant:"smallWhite", labelWarehouse:"bottom",
-      finishedState:"frozen", customNotes:"",
-      referenceImages:[], issuedDate:"", issuedByInitials:""
+      finishedState:"frozen", frozenBestBefore:"Production date + X months", thawedProduct:"", customNotes:"",
+      referenceImages:[], imageDisplaySize:"large", issuedDate:"", issuedByInitials:""
     };
   }
 
@@ -333,7 +338,7 @@
     if(!el) return;
     ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight","toleranceNote",
      "fatCover","cuttingNotes","weightRecordingNote","packingPrep","packagingNote","positionInTray",
-     "customNotes","trimRepurposeNote","issuedDate","issuedByInitials"].forEach(function(name){
+     "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","issuedDate","issuedByInitials"].forEach(function(name){
       var input = el.querySelector('[data-f="'+name+'"]');
       if(input) S.form[name] = input.value;
     });
@@ -517,6 +522,7 @@
       + fieldText("maxWeight","Maximum weight (g)",f.maxWeight,false,"number")
       + '</div>'
       + fieldText("toleranceNote","Absolute legal minimum (formula or note)",f.toleranceNote)
+      + '<p class="note" style="margin-top:-10px">\u201c(For retail)\u201d is added automatically on the printed sheet, if filled in.</p>'
       + '</div>';
     out += '<div class="field"><label class="field-label">Input product condition</label>'
       + checkGroupHTML(CONDITION_OPTS, f.inputCondition, true, "inputCondition") + '</div>';
@@ -546,11 +552,20 @@
     out += '<div class="section-bar">3 FINISHED PRODUCT DETAILS</div><div class="section-body">';
     out += '<div class="field"><label class="field-label">Finished product state</label>'
       + checkGroupHTML(FINISHED_OPTS, f.finishedState, true, "finishedState") + '</div>';
+    out += '<div class="row">'
+      + fieldText("frozenBestBefore","Frozen best before",f.frozenBestBefore)
+      + fieldText("thawedProduct","Thawed product",f.thawedProduct)
+      + '</div>';
     out += '</div>';
 
     out += '<div class="section-bar">4 REFERENCE IMAGES</div><div class="section-body">';
     out += '<button class="btn-sm" onclick="document.getElementById(\'imgUploadInput\').click()">+ Upload image(s)</button>'
       + '<input type="file" id="imgUploadInput" accept="image/*" multiple style="display:none">';
+    out += '<div class="field" style="max-width:200px;margin-top:14px"><label class="field-label">Image display size</label>'
+      + '<select onchange="setField(\'imageDisplaySize\', this.value)">' + SIZE_OPTS.map(function(o){
+          return '<option value="'+o[0]+'"'+(f.imageDisplaySize===o[0]?' selected':'')+'>'+o[1]+'</option>';
+        }).join("") + '</select>'
+      + '<p class="note">Useful to shrink images down when a sheet has several.</p></div>';
     out += '<div class="imgs-grid">' + (f.referenceImages||[]).map(function(img,idx){
       return '<div class="img-box"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'">'
         + '<div class="cap"><input type="text" placeholder="Caption" value="'+esc(img.caption||"")+'" oninput="setImgCaption('+idx+', this.value)"></div>'
@@ -561,7 +576,7 @@
     }).join("") + '</div>';
     if((f.referenceImages||[]).length){
       out += '<div style="margin-top:18px"><label class="field-label">Preview on printed sheet</label>'
-        + '<div class="ss-imgs" style="max-width:520px">' + f.referenceImages.map(function(img){
+        + '<div class="ss-imgs size-'+(f.imageDisplaySize||"large")+'" style="max-width:520px">' + f.referenceImages.map(function(img){
             return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg)"><div class="cap">'+esc(img.caption||"")+'</div></div>';
           }).join("") + '</div></div>';
     }
@@ -595,8 +610,8 @@
 
   var SCHEMA_FIELDS = ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
     "toleranceNote","inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes","weightRecordingNote",
-    "packingPrep","packagingType","packagingNote","positionInTray","labelCuttingPlant","labelWarehouse","finishedState","customNotes",
-    "issuedDate","issuedByInitials"];
+    "packingPrep","packagingType","packagingNote","positionInTray","labelCuttingPlant","labelWarehouse","finishedState",
+    "frozenBestBefore","thawedProduct","customNotes","issuedDate","issuedByInitials"];
 
   function fileToBase64(file){
     return new Promise(function(resolve, reject){
@@ -607,6 +622,47 @@
     });
   }
 
+  async function extractPdfImages(pdf){
+    var found = [];
+    for(var p=1;p<=pdf.numPages;p++){
+      var page = await pdf.getPage(p);
+      var opList = await page.getOperatorList();
+      var OPS = pdfjsLib.OPS;
+      for(var i=0;i<opList.fnArray.length;i++){
+        if(opList.fnArray[i]===OPS.paintImageXObject || opList.fnArray[i]===OPS.paintJpegXObject){
+          var name = opList.argsArray[i][0];
+          try{
+            var imgObj = await new Promise(function(resolve){ page.objs.get(name, resolve); });
+            if(!imgObj || !imgObj.width || imgObj.width<250 || imgObj.height<250) continue;
+            var canvas = document.createElement("canvas");
+            canvas.width = imgObj.width; canvas.height = imgObj.height;
+            var ctx = canvas.getContext("2d");
+            var idata = ctx.createImageData(imgObj.width, imgObj.height);
+            var src = imgObj.data, out = idata.data;
+            if(src.length === imgObj.width*imgObj.height*4){
+              out.set(src);
+            } else if(src.length === imgObj.width*imgObj.height*3){
+              for(var j=0,k=0; j<src.length; j+=3,k+=4){ out[k]=src[j]; out[k+1]=src[j+1]; out[k+2]=src[j+2]; out[k+3]=255; }
+            } else { continue; }
+            ctx.putImageData(idata,0,0);
+            found.push(canvas.toDataURL("image/jpeg",0.87));
+          }catch(e){ /* skip images we can't decode */ }
+        }
+      }
+    }
+    return found;
+  }
+
+  async function uploadDataUrlAsImage(dataUrl){
+    var fetched = await fetch(dataUrl);
+    var blob = await fetched.blob();
+    var path = Date.now()+"_"+Math.random().toString(36).slice(2)+".jpg";
+    var up = await sb.storage.from("spec-images").upload(path, blob, {upsert:false, contentType:"image/jpeg"});
+    if(up.error) throw up.error;
+    var pub = sb.storage.from("spec-images").getPublicUrl(path);
+    return {id:path, url:pub.data.publicUrl, caption:"", rotation:0};
+  }
+
   async function handleImportFile(file){
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     var pwd = getPassword();
@@ -614,6 +670,7 @@
     S.importBusy = true; render();
     try{
       var body;
+      var extractedImages = [];
       if(file.type === "application/pdf"){
         var buf = await file.arrayBuffer();
         var pdf = await pdfjsLib.getDocument({data:buf}).promise;
@@ -624,6 +681,7 @@
           extracted += tc.items.map(function(it){return it.str;}).join(" ") + "\n";
         }
         body = {pwd:pwd, mode:"text", content:extracted};
+        try{ extractedImages = await extractPdfImages(pdf); }catch(e){ console.error("PDF image extraction failed:", e); }
       } else if(file.type.indexOf("image/")===0){
         var b64 = await fileToBase64(file);
         body = {pwd:pwd, mode:"image", content:b64, mediaType:file.type};
@@ -648,6 +706,14 @@
         S.importBanner = "Automatic import didn't work for this file \u2014 fill in the details manually below.";
       } else {
         applyImportedData(data);
+        if(extractedImages.length){
+          showToast("Uploading " + extractedImages.length + " image(s) found in the PDF\u2026");
+          for(var ii=0; ii<extractedImages.length; ii++){
+            try{ var uploaded = await uploadDataUrlAsImage(extractedImages[ii]); S.form.referenceImages.push(uploaded); }
+            catch(e){ console.error("Image upload failed:", e); }
+          }
+          render();
+        }
       }
     }catch(e){
       showToast("Import failed: " + (e.message||e) + ". You can still fill the form manually.");
@@ -708,13 +774,13 @@
       + '<td class="mincell"><span class="k">MAXIMUM WEIGHT</span><span class="v">'+esc(s.maxWeight||"\u2014")+' g</span><span class="d">Do not exceed</span></td>'
       + '</tr></table>';
     out += '<table class="ss-table">'
-      + (s.toleranceNote ? '<tr><td class="lbl">Absolute legal minimum</td><td>'+esc(s.toleranceNote)+'</td></tr>' : '')
+      + (s.toleranceNote ? '<tr><td class="lbl">Absolute legal minimum</td><td>'+esc(s.toleranceNote)+' (For retail)</td></tr>' : '')
       + '<tr><td class="lbl">Input product condition</td><td>'+ssSelectedOnly(CONDITION_OPTS,s.inputCondition)+'</td></tr>'
       + '<tr><td class="lbl">Fat cover on finished product</td><td><b>'+esc(s.fatCover||"\u2014")+'</b></td></tr>'
       + '<tr><td class="lbl">Cutting machine</td><td>'+ssSelectedOnly(MACHINE_OPTS,s.cuttingMachine)+'</td></tr>'
       + '<tr><td class="lbl">Use of trim</td><td>'+ssSelectedOnly(TRIM_OPTS,s.trimUse)
         + (s.trimUse==="repurpose" && s.trimRepurposeNote ? ' &mdash; <i>'+esc(s.trimRepurposeNote)+'</i>' : '')+'</td></tr>'
-      + '<tr><td class="lbl">Weight recording</td><td>'+esc(s.weightRecordingNote||"\u2014")+'</td></tr>'
+      + (s.weightRecordingNote ? '<tr><td class="lbl">Weight recording</td><td>'+esc(s.weightRecordingNote)+'</td></tr>' : '')
       + '<tr><td class="lbl">Cutting notes</td><td>'+esc(s.cuttingNotes||"\u2014")+'</td></tr>'
       + '</table>';
 
@@ -729,14 +795,17 @@
       + '</table>';
 
     out += '<div class="ss-bar">3 FINISHED PRODUCT DETAILS</div>';
-    out += '<table class="ss-table"><tr><td class="lbl">Finished product state</td><td>'+ssSelectedOnly(FINISHED_OPTS,s.finishedState)+'</td></tr></table>';
+    out += '<table class="ss-table"><tr><td class="lbl">Finished product state</td><td>'+ssSelectedOnly(FINISHED_OPTS,s.finishedState)+'</td></tr>'
+      + (s.frozenBestBefore ? '<tr><td class="lbl">Frozen best before</td><td>'+esc(s.frozenBestBefore)+'</td></tr>' : '')
+      + (s.thawedProduct ? '<tr><td class="lbl">Thawed product</td><td>'+esc(s.thawedProduct)+'</td></tr>' : '')
+      + '</table>';
 
     if(s.customNotes){
       out += '<div class="ss-bar">CUSTOM NOTES</div><div class="ss-custom">'+nl2br(s.customNotes)+'</div>';
     }
 
     if((s.referenceImages||[]).length){
-      out += '<div class="ss-bar">4 REFERENCE IMAGES</div><div class="ss-imgs">'
+      out += '<div class="ss-bar">4 REFERENCE IMAGES</div><div class="ss-imgs size-'+(s.imageDisplaySize||"large")+'">'
         + s.referenceImages.map(function(img){
             return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'"><div class="cap">'+esc(img.caption||"")+'</div></div>';
           }).join("") + '</div>';
