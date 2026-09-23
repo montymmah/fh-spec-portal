@@ -677,20 +677,25 @@
     var pwd = getPassword();
     if(!pwd) return;
     S.importBusy = true; render();
+    console.log("Import: starting, file type", file.type);
     try{
       var body;
       var extractedImages = [];
       if(file.type === "application/pdf"){
+        console.log("Import: loading PDF\u2026");
         var buf = await file.arrayBuffer();
-        var pdf = await pdfjsLib.getDocument({data:buf}).promise;
+        var pdf = await withTimeout(pdfjsLib.getDocument({data:buf}).promise, 20000);
+        console.log("Import: PDF loaded, pages =", pdf.numPages, "\u2014 extracting text\u2026");
         var extracted = "";
         for(var p=1;p<=pdf.numPages;p++){
           var page = await pdf.getPage(p);
           var tc = await page.getTextContent();
           extracted += tc.items.map(function(it){return it.str;}).join(" ") + "\n";
         }
+        console.log("Import: text extracted (" + extracted.length + " chars) \u2014 looking for images\u2026");
         body = {pwd:pwd, mode:"text", content:extracted};
         try{ extractedImages = await withTimeout(extractPdfImages(pdf), 25000); }catch(e){ console.error("PDF image extraction failed or timed out:", e); }
+        console.log("Import: image extraction done, found", extractedImages.length);
       } else if(file.type.indexOf("image/")===0){
         var b64 = await fileToBase64(file);
         body = {pwd:pwd, mode:"image", content:b64, mediaType:file.type};
@@ -699,14 +704,16 @@
         S.importBusy=false; render(); return;
       }
 
-      var res = await fetch(EDGE_FUNCTION_URL, {
+      console.log("Import: calling AI\u2026");
+      var res = await withTimeout(fetch(EDGE_FUNCTION_URL, {
         method:"POST",
         headers:{
           "Content-Type":"application/json",
           "apikey": SUPABASE_ANON_KEY
         },
         body: JSON.stringify(body)
-      });
+      }), 45000);
+      console.log("Import: AI responded, status", res.status);
       var data = await res.json();
       if(!res.ok || data.error){
         if(String(data.error||"").toLowerCase().indexOf("password")>=0) sessionStorage.removeItem("mmah_pwd");
