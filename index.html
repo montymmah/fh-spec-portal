@@ -172,7 +172,7 @@
   var FINISHED_OPTS = [["frozen","Frozen"],["chilled","Chilled"],["ambient","Ambient"]];
 
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
-  var GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
+  var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
   function blankSpec(){
     return {
@@ -195,7 +195,8 @@
   var S = {
     view:"library", specs:[], loadingSpecs:true, search:"",
     form:null, formId:null, toast:"",
-    editorName: localStorage.getItem("mmah_editor_name") || ""
+    editorName: localStorage.getItem("mmah_editor_name") || "",
+    groupOptions: DEFAULT_GROUP_OPTS.map(function(o){return {key:o[0], label:o[1]};})
   };
 
   function showToast(msg){ S.toast = msg; render(); setTimeout(function(){ S.toast=""; render(); }, 3200); }
@@ -220,6 +221,18 @@
   }
 
   // ---------- data ----------
+  async function loadGroupOptions(){
+    if(!SETUP_OK) return;
+    try{
+      var res = await sb.from("app_settings").select("groups").eq("id",1).single();
+      if(res.error) throw res.error;
+      if(res.data && Array.isArray(res.data.groups) && res.data.groups.length){
+        S.groupOptions = res.data.groups;
+        render();
+      }
+    }catch(e){ console.log("Using default groups (run groups_setup.sql to manage them on-site):", e.message||e); }
+  }
+
   async function loadSpecs(){
     if(!SETUP_OK){ S.loadingSpecs=false; render(); return; }
     S.loadingSpecs = true; render();
@@ -284,6 +297,72 @@
   }
 
   // ---------- navigation ----------
+  function goManageGroups(){
+    S.groupsDraft = S.groupOptions.map(function(g){ return {key:g.key, label:g.label}; });
+    S.newGroupLabel = "";
+    S.view = "manageGroups";
+    render();
+  }
+  function slugifyGroup(label){
+    return label.toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,24) || ("g"+Date.now());
+  }
+  window.addDraftGroup = function(){
+    var label = (S.newGroupLabel||"").trim();
+    if(!label) return;
+    var existingKeys = S.groupsDraft.map(function(g){return g.key;});
+    var key = slugifyGroup(label), i=1;
+    while(existingKeys.indexOf(key)>=0){ key = slugifyGroup(label)+i; i++; }
+    S.groupsDraft.push({key:key, label:label});
+    S.newGroupLabel = "";
+    render();
+  };
+  window.removeDraftGroup = function(idx){ S.groupsDraft.splice(idx,1); render(); };
+  window.renameDraftGroup = function(idx, val){ S.groupsDraft[idx].label = val; };
+  window.moveDraftGroup = function(idx, dir){
+    var newIdx = idx+dir;
+    if(newIdx<0 || newIdx>=S.groupsDraft.length) return;
+    var tmp = S.groupsDraft[idx]; S.groupsDraft[idx]=S.groupsDraft[newIdx]; S.groupsDraft[newIdx]=tmp;
+    render();
+  };
+  window.saveGroups = async function(){
+    if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
+    var pwd = getPassword();
+    if(!pwd) return;
+    try{
+      var res = await sb.rpc("update_groups", {pwd:pwd, new_groups: S.groupsDraft});
+      if(res.error) throw res.error;
+      S.groupOptions = S.groupsDraft;
+      showToast("Groups updated.");
+      S.view = "library";
+      render();
+    }catch(e){ handleWriteError(e); }
+  };
+  window.cancelManageGroups = function(){ S.view="library"; render(); };
+
+  function renderManageGroups(){
+    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;">'
+      + '<h2 style="margin:0;font-size:17px;">Manage groups</h2>'
+      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="cancelManageGroups()">Cancel</button>'
+      + '<button class="btn-dark btn-sm" onclick="saveGroups()">Save</button></div></div>';
+    out += '<div class="card">';
+    if(!S.groupsDraft.length) out += '<p class="note">No groups yet \u2014 add one below.</p>';
+    S.groupsDraft.forEach(function(g, idx){
+      out += '<div class="row" style="align-items:center;margin-bottom:8px">'
+        + '<button class="btn-ghost btn-sm" onclick="moveDraftGroup('+idx+',-1)"'+(idx===0?' disabled':'')+'>\u2191</button>'
+        + '<button class="btn-ghost btn-sm" onclick="moveDraftGroup('+idx+',1)"'+(idx===S.groupsDraft.length-1?' disabled':'')+'>\u2193</button>'
+        + '<input type="text" style="flex:1" value="'+esc(g.label)+'" oninput="renameDraftGroup('+idx+', this.value)">'
+        + '<button class="btn-ghost btn-sm" onclick="removeDraftGroup('+idx+')">Remove</button>'
+        + '</div>';
+    });
+    out += '<div class="row" style="margin-top:10px">'
+      + '<input type="text" style="flex:1" placeholder="New group name" value="'+esc(S.newGroupLabel||"")+'" oninput="S.newGroupLabel=this.value">'
+      + '<button class="btn-sm" onclick="addDraftGroup()">+ Add</button>'
+      + '</div>'
+      + '<p class="note" style="margin-top:14px">Renaming a group here doesn\u2019t move already-tagged specs \u2014 they stay tagged, just showing the new name. Removing a group here doesn\u2019t untag specs that already had it, it just stops appearing as a filter option.</p>'
+      + '</div>';
+    return out;
+  }
+
   function goLibrary(){ if(S.formId) releaseEditLock(S.formId); S.view="library"; S.form=null; S.formId=null; render(); loadSpecs(); }
   function goNew(){
     S.view="form"; S.form=blankSpec(); S.formId=null; render();
@@ -557,6 +636,7 @@
     else if(S.view==="import") html += renderImport();
     else if(S.view==="print") html += renderPrintChrome();
     else if(S.view==="version") html += renderVersionView();
+    else if(S.view==="manageGroups") html += renderManageGroups();
     if(S.lightbox){
       html += '<div class="lightbox-overlay" data-action="closeLightbox">'
         + '<button class="lightbox-close" data-action="closeLightbox">\u00d7</button>'
@@ -574,6 +654,21 @@
     return html;
   }
 
+  function autoDetectGroups(spec){
+    var tags = [];
+    var sku = ((spec.outputSku||"") + " " + (spec.inputSku||"")).toLowerCase();
+    var title = (spec.productName||"").toLowerCase();
+    if(sku.indexOf("mmah")>=0) tags.push("mmah");
+    if(title.indexOf("british")>=0) tags.push("brit");
+    if(title.indexOf("japan")>=0) tags.push("jap");
+    if(title.indexOf("chilean")>=0) tags.push("chilean");
+    return tags;
+  }
+  function effectiveGroups(spec){
+    var merged = (spec.groups||[]).slice();
+    autoDetectGroups(spec).forEach(function(g){ if(merged.indexOf(g)<0) merged.push(g); });
+    return merged;
+  }
   function isStale(s){
     var dateStr = s.issuedDate || s.updatedAt;
     if(!dateStr) return false;
@@ -588,7 +683,7 @@
     var groupFilter = (S.libraryFilter && S.libraryFilter !== "archived") ? S.libraryFilter : null;
     var list = S.specs.filter(function(s){
       if(!!s.archived !== showArchived) return false;
-      if(groupFilter && (s.groups||[]).indexOf(groupFilter)<0) return false;
+      if(groupFilter && effectiveGroups(s).indexOf(groupFilter)<0) return false;
       if(!q) return true;
       return (s.productName||"").toLowerCase().indexOf(q)>=0 || (s.outputSku||"").toLowerCase().indexOf(q)>=0
         || (s.inputSku||"").toLowerCase().indexOf(q)>=0 || (s.outputSageDesc||"").toLowerCase().indexOf(q)>=0;
@@ -596,13 +691,14 @@
     var out = '<div class="field search-bar"><input type="text" id="librarySearchInput" placeholder="Search by product name, Sage description, or SKU\u2026" value="'+esc(S.search)+'" oninput="S.search=this.value; render();">'
       + (S.search ? '<button class="btn-ghost btn-sm" onclick="S.search=\'\'; render();">\u00d7 Clear</button>' : '')
       + '<button class="btn-sm" onclick="loadSpecs()">\u21bb Refresh</button></div>';
-    out += '<div class="chk-group" style="margin-bottom:14px">'
+    out += '<div class="chk-group" style="margin-bottom:6px">'
       + '<div class="chk-opt'+(!S.libraryFilter?' sel':'')+'" onclick="S.libraryFilter=null; render();"><span>All</span></div>'
-      + GROUP_OPTS.map(function(o){
-          return '<div class="chk-opt'+(S.libraryFilter===o[0]?' sel':'')+'" onclick="S.libraryFilter=\''+o[0]+'\'; render();"><span>'+esc(o[1])+'</span></div>';
+      + S.groupOptions.map(function(o){
+          return '<div class="chk-opt'+(S.libraryFilter===o.key?' sel':'')+'" onclick="S.libraryFilter=\''+o.key+'\'; render();"><span>'+esc(o.label)+'</span></div>';
         }).join("")
       + '<div class="chk-opt'+(showArchived?' sel':'')+'" onclick="S.libraryFilter=\'archived\'; render();"><span>Archived</span></div>'
-      + '</div>';
+      + '</div>'
+      + '<div style="margin-bottom:14px"><button class="btn-ghost btn-sm" onclick="goManageGroups()">\u2699 Manage groups</button></div>';
     if(S.loadingSpecs) out += '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>';
     else if(!list.length) out += '<div class="empty">'+(showArchived ? 'No archived specs.' : 'No spec sheets yet. Click <b>+ New Spec</b> to get started.')+'</div>';
     else{
@@ -663,7 +759,8 @@
         }).join("")
       + '<button class="btn-sm" onclick="addFurtherOutput()">+ Add output</button></div>'
       + '<div class="field"><label class="field-label">Groups</label>'
-      + checkGroupMultiHTML(GROUP_OPTS, f.groups) + '</div>'
+      + checkGroupMultiHTML(S.groupOptions.map(function(g){return [g.key,g.label];}), f.groups)
+      + '<p class="note">MMAH (by SKU), British, Japanese and Chilean (by product name) also filter automatically \u2014 no need to tick those unless you want to override.</p></div>'
       + '<div class="row">'
       + fieldText("issuedDate","Issued date",f.issuedDate,false,"date")
       + '<div class="field"><label class="field-label">Amended by *</label>'
@@ -985,6 +1082,7 @@
     });
     render();
     loadSpecs();
+    loadGroupOptions();
   })();
 })();
 </script>
