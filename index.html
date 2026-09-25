@@ -62,6 +62,7 @@
   .catalog-body h3{margin:0 0 2px;font-size:14.5px;}
   .catalog-sage{font-size:12.5px;color:var(--grey1);margin-bottom:6px;min-height:16px;}
   .catalog-meta{font-size:11.5px;color:var(--grey2);margin-bottom:10px;}
+  .stale-flag{font-size:10px;font-weight:700;color:#946200;background:#fbe9c6;padding:2px 6px;border-radius:4px;vertical-align:middle;}
   .catalog-actions{display:flex;gap:6px;margin-top:auto;flex-wrap:wrap;}
   .empty{color:var(--grey2);text-align:center;padding:40px 10px;font-size:14px;}
   .section-bar{background:var(--ink);color:#fff;font-weight:800;font-size:13px;letter-spacing:.03em;padding:8px 14px;border-radius:6px 6px 0 0;margin-top:26px;}
@@ -158,7 +159,7 @@
 
   // ---------- schema / options ----------
   var CONDITION_OPTS = [["chilled","Chilled"],["tempered","Tempered"],["frozen","Solid frozen"]];
-  var MACHINE_OPTS = [["na","N/A"],["hand","Hand meat slicer"],["automatic","Automatic meat slicer"],["bonesaw","Bone saw"]];
+  var MACHINE_OPTS = [["na","N/A"],["hand","Hand meat slicer"],["automatic","Automatic meat slicer"],["bonesaw","Bone saw"],["tableTop","Table Top Slicer"]];
   var TRIM_OPTS = [["discard","To be discarded"],["repurpose","To be repurposed into"]];
   var PACKAGING_OPTS = [
     ["transparentDeep","Transparent D15-27 (deep tray)"],["transparentShallow","Transparent D15-13 (shallow tray)"],
@@ -171,18 +172,22 @@
   var FINISHED_OPTS = [["frozen","Frozen"],["chilled","Chilled"],["ambient","Ambient"]];
 
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
+  var GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
   function blankSpec(){
     return {
       productName:"", outputSku:"", inputSku:"", outputSageDesc:"", inputSageDesc:"",
+      furtherOutputs:[""],
       targetWeight:"", minWeight:"", maxWeight:"", toleranceNote:"",
+      avgWeightMin:"", avgWeightNote:"",
       inputCondition:"chilled", fatCover:"", cuttingMachine:"na",
       trimUse:"discard", trimRepurposeNote:"", cuttingNotes:"",
-      packingPrep:"", packagingType:"transparentDeep", packagingNote:"",
+      packingPrep:"", packagingType:"transparentDeep", packagingNote:"", secondaryPackaging:"",
       positionInTray:"Centred (see reference image)",
       labelCuttingPlant:"smallWhite", labelWarehouse:"bottom",
       finishedState:"frozen", frozenBestBefore:"Production date + X months", thawedProduct:"", customNotes:"",
-      referenceImages:[], imageDisplaySize:"large", issuedDate:"", issuedByInitials:""
+      referenceImages:[], imageDisplaySize:"large", issuedDate:"", issuedByInitials:"",
+      groups:[], archived:false
     };
   }
 
@@ -247,6 +252,26 @@
       return '<div class="'+cls+'"'+clickAttr+'><span class="box">'+(on?"\u2612":"\u2610")+'</span><span>'+esc(o[1])+'</span></div>';
     }).join("") + "</div>";
   }
+  function checkGroupMultiHTML(opts, selectedArr){
+    return '<div class="chk-group">' + opts.map(function(o){
+      var on = (selectedArr||[]).indexOf(o[0])>=0;
+      var cls = "chk-opt" + (on?" sel":"");
+      return '<div class="'+cls+'" onclick="toggleGroupTag(\''+o[0]+'\')"><span class="box">'+(on?"\u2611":"\u2610")+'</span><span>'+esc(o[1])+'</span></div>';
+    }).join("") + "</div>";
+  }
+  window.toggleGroupTag = function(val){
+    var arr = S.form.groups || (S.form.groups=[]);
+    var idx = arr.indexOf(val);
+    if(idx>=0) arr.splice(idx,1); else arr.push(val);
+    render();
+  };
+  window.setFurtherOutput = function(idx, val){ S.form.furtherOutputs[idx] = val; };
+  window.addFurtherOutput = function(){ S.form.furtherOutputs.push(""); render(); };
+  window.removeFurtherOutput = function(idx){
+    S.form.furtherOutputs.splice(idx,1);
+    if(!S.form.furtherOutputs.length) S.form.furtherOutputs.push("");
+    render();
+  };
   function ssCheckGroup(opts, val){
     return opts.map(function(o){
       var on=(o[0]===val);
@@ -259,13 +284,34 @@
   }
 
   // ---------- navigation ----------
-  function goLibrary(){ S.view="library"; S.form=null; S.formId=null; render(); loadSpecs(); }
+  function goLibrary(){ if(S.formId) releaseEditLock(S.formId); S.view="library"; S.form=null; S.formId=null; render(); loadSpecs(); }
   function goNew(){
     S.view="form"; S.form=blankSpec(); S.formId=null; render();
     var pn = document.querySelector('[data-f="productName"]');
     if(pn) pn.focus();
   }
   function goImport(){ S.view="import"; S.importBanner=""; render(); }
+  async function checkEditLock(id){
+    if(!SETUP_OK) return;
+    try{
+      var res = await sb.from("edit_locks").select("*").eq("spec_id", id);
+      if(res.error) throw res.error;
+      var rows = res.data||[];
+      if(rows.length){
+        var lock = rows[0];
+        var age = Date.now() - new Date(lock.locked_at).getTime();
+        if(age < 10*60*1000 && lock.editor_name && lock.editor_name !== (S.editorName||"")){
+          showToast("\u26a0 " + lock.editor_name + " may currently be editing this \u2014 check with them before saving.");
+        }
+      }
+      await sb.rpc("claim_edit_lock", {p_spec_id:id, p_editor_name:(S.editorName||"Someone")});
+    }catch(e){ console.error("Edit lock check failed:", e); }
+  }
+  function releaseEditLock(id){
+    if(!SETUP_OK || !id) return;
+    sb.rpc("release_edit_lock", {p_spec_id:id}).catch(function(e){ console.error("Release lock failed:", e); });
+  }
+
   function goEdit(id){
     var spec = S.specs.filter(function(s){return s.id===id;})[0];
     if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
@@ -273,6 +319,40 @@
     S.formId = id;
     S.view="form";
     render(); window.scrollTo(0,0);
+    checkEditLock(id);
+  }
+  function duplicateSpec(id){
+    var spec = S.specs.filter(function(s){return s.id===id;})[0];
+    if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
+    var clone = JSON.parse(JSON.stringify(spec));
+    delete clone.id; delete clone.updatedAt;
+    clone.productName = (clone.productName||"") + " (Copy)";
+    clone.editHistory = [];
+    clone.archived = false;
+    S.form = clone; S.formId = null; S.view = "form";
+    S.importBanner = "Duplicated from an existing spec \u2014 review before saving.";
+    render(); window.scrollTo(0,0);
+  }
+  async function archiveSpec(id, archivedFlag){
+    var spec = S.specs.filter(function(s){return s.id===id;})[0];
+    if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
+    var name = (S.editorName||"").trim();
+    if(!name){ showToast("Your name is required \u2014 enter it above first."); return; }
+    var pwd = getPassword();
+    if(!pwd) return;
+    localStorage.setItem("mmah_editor_name", name);
+    var payload = JSON.parse(JSON.stringify(spec));
+    delete payload.id;
+    payload.archived = archivedFlag;
+    payload.editHistory = (payload.editHistory||[]).concat([{by:name, at:new Date().toISOString(), action: archivedFlag?"archived":"unarchived"}]);
+    try{
+      var res = await sb.rpc("update_spec", {pwd:pwd, spec_id:id, payload:payload});
+      if(res.error) throw res.error;
+      showToast(archivedFlag ? "Archived." : "Restored.");
+      releaseEditLock(id);
+      S.view="library"; S.formId=null; S.form=null;
+      loadSpecs();
+    }catch(e){ handleWriteError(e); }
   }
   function openPrintSpec(spec){
     S.view="print"; S.printSpec=spec;
@@ -292,6 +372,20 @@
     try{
       if(action==="print") goPrint(id);
       else if(action==="edit") goEdit(id);
+      else if(action==="duplicate") duplicateSpec(id);
+      else if(action==="archive") archiveSpec(id, true);
+      else if(action==="unarchive") archiveSpec(id, false);
+      else if(action==="viewVersion"){
+        var vidx = parseInt(el.getAttribute("data-idx"),10);
+        var entry = (S.printSpec.editHistory||[])[vidx];
+        if(entry && entry.snapshot){
+          var snap = JSON.parse(JSON.stringify(entry.snapshot));
+          snap.productName = snap.productName || S.printSpec.productName;
+          S.versionSnapshot = snap;
+          S.view = "version";
+          render(); window.scrollTo(0,0);
+        }
+      }
       else if(action==="delete"){ S.confirmDelete = id; render(); }
       else if(action==="reallyDelete") performDelete(id);
       else if(action==="cancelDelete"){ S.confirmDelete = null; render(); }
@@ -339,7 +433,7 @@
     var el = document.getElementById("specForm");
     if(!el) return;
     ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight","toleranceNote",
-     "fatCover","cuttingNotes","packingPrep","packagingNote","positionInTray",
+     "fatCover","cuttingNotes","avgWeightMin","avgWeightNote","packingPrep","packagingNote","secondaryPackaging","positionInTray",
      "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","issuedDate"].forEach(function(name){
       var input = el.querySelector('[data-f="'+name+'"]');
       if(input) S.form[name] = input.value;
@@ -359,11 +453,18 @@
     payload.issuedByInitials = name;
     delete payload.id;
     if(S.formId){
-      payload.editHistory = (payload.editHistory||[]).concat([{by:name, at:new Date().toISOString()}]);
+      var priorSpec = S.specs.filter(function(s){return s.id===S.formId;})[0];
+      var snapshot = null;
+      if(priorSpec){
+        snapshot = JSON.parse(JSON.stringify(priorSpec));
+        delete snapshot.id; delete snapshot.updatedAt; delete snapshot.editHistory;
+      }
+      payload.editHistory = (payload.editHistory||[]).concat([{by:name, at:new Date().toISOString(), snapshot:snapshot}]);
       try{
         var res = await sb.rpc("update_spec", {pwd:pwd, spec_id:S.formId, payload:payload});
         if(res.error) throw res.error;
         showToast("Spec updated.");
+        releaseEditLock(S.formId);
         var updated = JSON.parse(JSON.stringify(payload)); updated.id = S.formId; updated.updatedAt = new Date().toISOString();
         openPrintSpec(updated);
         loadSpecs();
@@ -388,7 +489,8 @@
     try{
       var res = await sb.rpc("delete_spec", {pwd:pwd, spec_id:id});
       if(res.error) throw res.error;
-      S.confirmDelete = null; showToast("Deleted."); loadSpecs();
+      releaseEditLock(id);
+      S.confirmDelete = null; showToast("Deleted."); goLibrary();
     }catch(e){ S.confirmDelete=null; render(); handleWriteError(e); }
   }
 
@@ -454,6 +556,7 @@
     else if(S.view==="form") html += renderForm();
     else if(S.view==="import") html += renderImport();
     else if(S.view==="print") html += renderPrintChrome();
+    else if(S.view==="version") html += renderVersionView();
     if(S.lightbox){
       html += '<div class="lightbox-overlay" data-action="closeLightbox">'
         + '<button class="lightbox-close" data-action="closeLightbox">\u00d7</button>'
@@ -471,9 +574,21 @@
     return html;
   }
 
+  function isStale(s){
+    var dateStr = s.issuedDate || s.updatedAt;
+    if(!dateStr) return false;
+    var t = new Date(dateStr).getTime();
+    if(isNaN(t)) return false;
+    return (Date.now() - t) > 365*24*60*60*1000;
+  }
+
   function renderLibrary(){
     var q = S.search.trim().toLowerCase();
+    var showArchived = S.libraryFilter === "archived";
+    var groupFilter = (S.libraryFilter && S.libraryFilter !== "archived") ? S.libraryFilter : null;
     var list = S.specs.filter(function(s){
+      if(!!s.archived !== showArchived) return false;
+      if(groupFilter && (s.groups||[]).indexOf(groupFilter)<0) return false;
       if(!q) return true;
       return (s.productName||"").toLowerCase().indexOf(q)>=0 || (s.outputSku||"").toLowerCase().indexOf(q)>=0
         || (s.inputSku||"").toLowerCase().indexOf(q)>=0 || (s.outputSageDesc||"").toLowerCase().indexOf(q)>=0;
@@ -481,8 +596,15 @@
     var out = '<div class="field search-bar"><input type="text" id="librarySearchInput" placeholder="Search by product name, Sage description, or SKU\u2026" value="'+esc(S.search)+'" oninput="S.search=this.value; render();">'
       + (S.search ? '<button class="btn-ghost btn-sm" onclick="S.search=\'\'; render();">\u00d7 Clear</button>' : '')
       + '<button class="btn-sm" onclick="loadSpecs()">\u21bb Refresh</button></div>';
+    out += '<div class="chk-group" style="margin-bottom:14px">'
+      + '<div class="chk-opt'+(!S.libraryFilter?' sel':'')+'" onclick="S.libraryFilter=null; render();"><span>All</span></div>'
+      + GROUP_OPTS.map(function(o){
+          return '<div class="chk-opt'+(S.libraryFilter===o[0]?' sel':'')+'" onclick="S.libraryFilter=\''+o[0]+'\'; render();"><span>'+esc(o[1])+'</span></div>';
+        }).join("")
+      + '<div class="chk-opt'+(showArchived?' sel':'')+'" onclick="S.libraryFilter=\'archived\'; render();"><span>Archived</span></div>'
+      + '</div>';
     if(S.loadingSpecs) out += '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>';
-    else if(!list.length) out += '<div class="empty">No spec sheets yet. Click <b>+ New Spec</b> to get started.</div>';
+    else if(!list.length) out += '<div class="empty">'+(showArchived ? 'No archived specs.' : 'No spec sheets yet. Click <b>+ New Spec</b> to get started.')+'</div>';
     else{
       out += '<div class="catalog-grid">';
       list.forEach(function(s){
@@ -494,13 +616,13 @@
           out += '<div class="catalog-thumb-ph">\ud83e\udd69</div>';
         }
         out += '<div class="catalog-body">'
-          + '<h3>'+esc(s.productName||"(untitled)")+'</h3>'
+          + '<h3>'+esc(s.productName||"(untitled)")+(isStale(s) ? ' <span class="stale-flag" title="Issued over a year ago">\u26a0 1yr+</span>' : '')+'</h3>'
           + '<div class="catalog-sage">'+esc(s.outputSageDesc||"")+'</div>'
           + '<div class="catalog-meta">'+esc(s.outputSku||"\u2014")+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
           + '<div class="catalog-actions">'
           + '<button class="btn-sm" data-action="print" data-id="'+esc(s.id)+'">View / Print</button>'
-          + '<button class="btn-sm" data-action="edit" data-id="'+esc(s.id)+'">Edit</button>'
-          + '<button class="btn-ghost btn-sm" data-action="delete" data-id="'+esc(s.id)+'">Delete</button>'
+          + (showArchived ? '' : '<button class="btn-sm" data-action="edit" data-id="'+esc(s.id)+'">Edit</button>'
+            + '<button class="btn-ghost btn-sm" data-action="duplicate" data-id="'+esc(s.id)+'">Duplicate</button>')
           + '</div></div></div>';
       });
       out += '</div>';
@@ -514,7 +636,11 @@
     if(S.importBanner) out += '<div class="banner">'+esc(S.importBanner)+'</div>';
     out += '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;">'
       + '<h2 style="margin:0;font-size:17px;">'+(S.formId?"Edit spec sheet":"New spec sheet")+'</h2>'
-      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Cancel</button>'
+      + '<div class="nav">'
+      + (S.formId ? '<button class="btn-ghost btn-sm" data-action="duplicate" data-id="'+esc(S.formId)+'">Duplicate</button>'
+          + '<button class="btn-ghost btn-sm" data-action="'+(f.archived?"unarchive":"archive")+'" data-id="'+esc(S.formId)+'">'+(f.archived?"Restore":"Archive")+'</button>'
+          + '<button class="btn-ghost btn-sm" data-action="delete" data-id="'+esc(S.formId)+'">Delete</button>' : '')
+      + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Cancel</button>'
       + '<button class="btn-dark btn-sm" onclick="saveSpec()">Save</button></div></div>';
 
     out += '<div id="specForm">';
@@ -527,7 +653,18 @@
       + '</div><div class="row">'
       + fieldText("outputSageDesc","Output Sage description",f.outputSageDesc)
       + fieldText("inputSageDesc","Input Sage description",f.inputSageDesc)
-      + '</div><div class="row">'
+      + '</div>'
+      + '<div class="field"><label class="field-label">Further output(s)</label>'
+      + f.furtherOutputs.map(function(v,idx){
+          return '<div class="row" style="margin-bottom:8px;align-items:center">'
+            + '<input type="text" style="flex:1" placeholder="e.g. Out-of-range steaks \u2014 Sage code" value="'+esc(v)+'" oninput="setFurtherOutput('+idx+', this.value)">'
+            + (f.furtherOutputs.length>1 ? '<button class="btn-ghost btn-sm" onclick="removeFurtherOutput('+idx+')">Remove</button>' : '')
+            + '</div>';
+        }).join("")
+      + '<button class="btn-sm" onclick="addFurtherOutput()">+ Add output</button></div>'
+      + '<div class="field"><label class="field-label">Groups</label>'
+      + checkGroupMultiHTML(GROUP_OPTS, f.groups) + '</div>'
+      + '<div class="row">'
       + fieldText("issuedDate","Issued date",f.issuedDate,false,"date")
       + '<div class="field"><label class="field-label">Amended by *</label>'
       + '<input type="text" id="editorNameInput" value="'+esc(S.editorName)+'" oninput="S.editorName=this.value">'
@@ -541,6 +678,10 @@
       + fieldText("maxWeight","Maximum weight (g)",f.maxWeight,false,"number")
       + '</div>'
       + fieldText("toleranceNote","Absolute legal minimum (formula or note) (For retail)",f.toleranceNote)
+      + '<div class="row">'
+      + fieldText("avgWeightMin","Average weight minimum (g)",f.avgWeightMin,false,"number")
+      + fieldText("avgWeightNote","Average weight minimum (formula or note)",f.avgWeightNote)
+      + '</div>'
       + '</div>';
     out += '<div class="field"><label class="field-label">Input product condition</label>'
       + checkGroupHTML(CONDITION_OPTS, f.inputCondition, true, "inputCondition") + '</div>';
@@ -559,6 +700,7 @@
     out += '<div class="field"><label class="field-label">Packaging</label>'
       + checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType")
       + '<div style="margin-top:8px">'+fieldText("packagingNote","Bag size / other note (if applicable)",f.packagingNote)+'</div></div>';
+    out += fieldText("secondaryPackaging","Secondary packaging (warehouse)",f.secondaryPackaging);
     out += fieldText("positionInTray","Position in tray",f.positionInTray);
     out += '<div class="field"><label class="field-label">Label type \u2014 Cutting plant</label>'
       + checkGroupHTML(LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant") + '</div>';
@@ -625,8 +767,8 @@
   }
 
   var SCHEMA_FIELDS = ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
-    "toleranceNote","inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes",
-    "packingPrep","packagingType","packagingNote","positionInTray","labelCuttingPlant","labelWarehouse","finishedState",
+    "toleranceNote","avgWeightMin","avgWeightNote","inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes",
+    "packingPrep","packagingType","packagingNote","secondaryPackaging","positionInTray","labelCuttingPlant","labelWarehouse","finishedState",
     "frozenBestBefore","thawedProduct","customNotes","issuedDate","issuedByInitials"];
 
   function fileToBase64(file){
@@ -728,6 +870,29 @@
       + '<div class="card" style="background:var(--panel)">'
       + renderPrintable(S.printSpec)
       + '</div>';
+    var hist = (S.printSpec.editHistory||[]).filter(function(h){return h.snapshot;});
+    if(hist.length){
+      out += '<div class="card"><label class="field-label">Version history</label>'
+        + hist.slice().reverse().map(function(h,idx){
+            return '<div class="row" style="align-items:center;margin-bottom:6px">'
+              + '<span style="flex:1;font-size:13px">Version before '+esc(h.by||"someone")+'\u2019s edit on '+fmtDate(h.at)+'</span>'
+              + '<button class="btn-ghost btn-sm" data-action="viewVersion" data-idx="'+(hist.length-1-idx)+'">View</button>'
+              + '</div>';
+          }).join("")
+        + '<p class="note" style="margin-top:6px">Older versions are read-only \u2014 they can\u2019t be edited or printed directly.</p></div>';
+    }
+    return out;
+  }
+
+  function renderVersionView(){
+    var s = S.versionSnapshot;
+    var out = '<div class="topbar" style="margin-top:-8px;">'
+      + '<h2 style="margin:0;font-size:17px;">'+esc(s.productName||"")+' <span class="note">(historical version)</span></h2>'
+      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="S.versionSnapshot=null; S.view=\'print\'; render();">Back to current version</button></div></div>'
+      + '<div class="banner">This is a read-only snapshot from a past edit \u2014 it can\'t be edited or printed directly. Use \u201cBack to current version\u201d to return.</div>'
+      + '<div class="card" style="background:var(--panel)">'
+      + renderPrintable(s)
+      + '</div>';
     return out;
   }
 
@@ -736,9 +901,13 @@
     out += '<div class="title">PRODUCT CUTTING SPECIFICATION</div>';
     out += '<div class="subtitle">'+esc(s.productName||"")+'</div>';
 
+    var furtherOut = (s.furtherOutputs||[]).filter(function(v){return v && v.trim();});
     out += '<table class="ss-table"><tr><td class="lbl">Output SKU</td><td>'+esc(s.outputSku||"\u2014")+(s.outputSageDesc?' <span style="color:#606060">&mdash; '+esc(s.outputSageDesc)+'</span>':'')+'</td></tr>'
       + '<tr><td class="lbl">Input SKU</td><td>'+esc(s.inputSku||"\u2014")+(s.inputSageDesc?' <span style="color:#606060">&mdash; '+esc(s.inputSageDesc)+'</span>':'')+'</td></tr>'
-      + '<tr><td class="lbl">Issued / By</td><td>'+fmtDate(s.issuedDate)+' \u00b7 Done by <b>'+esc(s.issuedByInitials||"\u2014")+'</b></td></tr></table>';
+      + (furtherOut.length ? '<tr><td class="lbl">Further Output(s)</td><td>'+furtherOut.map(function(v,i){return (i+1)+") "+esc(v);}).join("<br>")+'</td></tr>' : '')
+      + '<tr><td class="lbl">Issued / By</td><td>'+fmtDate(s.issuedDate)+' \u00b7 Done by <b>'+esc(s.issuedByInitials||"\u2014")+'</b>'
+        + (isStale(s) ? ' <span style="color:#946200;font-weight:700">\u2014 \u26a0 over 1 year old, review recommended</span>' : '')
+        + '</td></tr></table>';
 
     out += '<div class="ss-bar">1 CUTTING DETAILS</div>';
     out += '<table class="ss-table ss-weightband"><tr>'
@@ -748,6 +917,7 @@
       + '</tr></table>';
     out += '<table class="ss-table">'
       + (s.toleranceNote ? '<tr><td class="lbl">Absolute legal minimum</td><td>'+esc(s.toleranceNote)+' (For retail)</td></tr>' : '')
+      + ((s.avgWeightMin||s.avgWeightNote) ? '<tr><td class="lbl">Average weight minimum</td><td>'+(s.avgWeightMin?esc(s.avgWeightMin)+'g':'')+(s.avgWeightNote?' \u2014 '+esc(s.avgWeightNote):'')+'</td></tr>' : '')
       + '<tr><td class="lbl">Input product condition</td><td>'+ssSelectedOnly(CONDITION_OPTS,s.inputCondition)+'</td></tr>'
       + '<tr><td class="lbl">Fat cover on finished product</td><td><b>'+esc(s.fatCover||"\u2014")+'</b></td></tr>'
       + '<tr><td class="lbl">Cutting machine</td><td>'+ssSelectedOnly(MACHINE_OPTS,s.cuttingMachine)+'</td></tr>'
@@ -761,6 +931,7 @@
       + '<tr><td class="lbl">Packing preparation</td><td><b>'+esc(s.packingPrep||"\u2014")+'</b></td></tr>'
       + '<tr><td class="lbl">Packaging</td><td>'+ssSelectedOnly(PACKAGING_OPTS,s.packagingType)
         + (s.packagingNote ? ' &mdash; <i>'+esc(s.packagingNote)+'</i>' : '')+'</td></tr>'
+      + (s.secondaryPackaging ? '<tr><td class="lbl">Secondary packaging (warehouse)</td><td>'+esc(s.secondaryPackaging)+'</td></tr>' : '')
       + '<tr><td class="lbl">Position in tray</td><td>'+esc(s.positionInTray||"\u2014")+'</td></tr>'
       + '<tr><td class="lbl">Label type \u2014 Cutting plant</td><td>'+ssSelectedOnly(LABEL_CP_OPTS,s.labelCuttingPlant)+'</td></tr>'
       + '<tr><td class="lbl">Label type \u2014 Warehouse</td><td>'+ssSelectedOnly(LABEL_WH_OPTS,s.labelWarehouse)+'</td></tr>'
