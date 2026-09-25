@@ -297,6 +297,38 @@
   }
 
   // ---------- navigation ----------
+  window.openGroupTagger = function(id){
+    var spec = S.specs.filter(function(s){return s.id===id;})[0];
+    if(!spec) return;
+    S.groupTagTarget = {id:id, selected:(spec.groups||[]).slice()};
+    render();
+  };
+  window.toggleGroupTagDraft = function(key){
+    var arr = S.groupTagTarget.selected;
+    var idx = arr.indexOf(key);
+    if(idx>=0) arr.splice(idx,1); else arr.push(key);
+    render();
+  };
+  window.cancelGroupTagger = function(){ S.groupTagTarget=null; render(); };
+  window.saveGroupTagger = async function(){
+    var id = S.groupTagTarget.id;
+    var spec = S.specs.filter(function(s){return s.id===id;})[0];
+    if(!spec){ showToast("Couldn't find that spec \u2014 try again."); return; }
+    if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
+    var pwd = getPassword();
+    if(!pwd) return;
+    var payload = Object.assign(blankSpec(), JSON.parse(JSON.stringify(spec)));
+    delete payload.id;
+    payload.groups = S.groupTagTarget.selected;
+    try{
+      var res = await sb.rpc("update_spec", {pwd:pwd, spec_id:id, payload:payload});
+      if(res.error) throw res.error;
+      showToast("Groups updated.");
+      S.groupTagTarget = null;
+      loadSpecs();
+    }catch(e){ handleWriteError(e); }
+  };
+
   function goManageGroups(){
     S.groupsDraft = S.groupOptions.map(function(g){ return {key:g.key, label:g.label}; });
     S.newGroupLabel = "";
@@ -394,7 +426,7 @@
   function goEdit(id){
     var spec = S.specs.filter(function(s){return s.id===id;})[0];
     if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
-    S.form = JSON.parse(JSON.stringify(spec));
+    S.form = Object.assign(blankSpec(), JSON.parse(JSON.stringify(spec)));
     S.formId = id;
     S.view="form";
     render(); window.scrollTo(0,0);
@@ -403,7 +435,7 @@
   function duplicateSpec(id){
     var spec = S.specs.filter(function(s){return s.id===id;})[0];
     if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
-    var clone = JSON.parse(JSON.stringify(spec));
+    var clone = Object.assign(blankSpec(), JSON.parse(JSON.stringify(spec)));
     delete clone.id; delete clone.updatedAt;
     clone.productName = (clone.productName||"") + " (Copy)";
     clone.editHistory = [];
@@ -452,6 +484,7 @@
       if(action==="print") goPrint(id);
       else if(action==="edit") goEdit(id);
       else if(action==="duplicate") duplicateSpec(id);
+      else if(action==="tagGroups") openGroupTagger(id);
       else if(action==="archive") archiveSpec(id, true);
       else if(action==="unarchive") archiveSpec(id, false);
       else if(action==="viewVersion"){
@@ -651,6 +684,18 @@
         + '<button class="btn-primary btn-sm" onclick="performDelete(\''+esc(S.confirmDelete)+'\')">Delete</button></div>'
         + '</div></div>';
     }
+    if(S.groupTagTarget){
+      html += '<div class="confirm-overlay" onclick="cancelGroupTagger()">'
+        + '<div class="confirm-box" onclick="event.stopPropagation()">'
+        + '<p style="margin-bottom:10px"><b>Groups for this spec</b></p>'
+        + '<div class="chk-group" style="margin-bottom:14px">' + S.groupOptions.map(function(o){
+            var on = S.groupTagTarget.selected.indexOf(o.key)>=0;
+            return '<div class="chk-opt'+(on?' sel':'')+'" onclick="toggleGroupTagDraft(\''+o.key+'\')"><span class="box">'+(on?"\u2611":"\u2610")+'</span><span>'+esc(o.label)+'</span></div>';
+          }).join("") + '</div>'
+        + '<div class="row"><button class="btn-ghost btn-sm" onclick="cancelGroupTagger()">Cancel</button>'
+        + '<button class="btn-primary btn-sm" onclick="saveGroupTagger()">Save</button></div>'
+        + '</div></div>';
+    }
     return html;
   }
 
@@ -718,7 +763,8 @@
           + '<div class="catalog-actions">'
           + '<button class="btn-sm" data-action="print" data-id="'+esc(s.id)+'">View / Print</button>'
           + (showArchived ? '' : '<button class="btn-sm" data-action="edit" data-id="'+esc(s.id)+'">Edit</button>'
-            + '<button class="btn-ghost btn-sm" data-action="duplicate" data-id="'+esc(s.id)+'">Duplicate</button>')
+            + '<button class="btn-ghost btn-sm" data-action="duplicate" data-id="'+esc(s.id)+'">Duplicate</button>'
+            + '<button class="btn-ghost btn-sm" data-action="tagGroups" data-id="'+esc(s.id)+'">\ud83c\udff7 Groups</button>')
           + '</div></div></div>';
       });
       out += '</div>';
@@ -751,10 +797,10 @@
       + fieldText("inputSageDesc","Input Sage description",f.inputSageDesc)
       + '</div>'
       + '<div class="field"><label class="field-label">Further output(s)</label>'
-      + f.furtherOutputs.map(function(v,idx){
+      + (f.furtherOutputs||[""]).map(function(v,idx){
           return '<div class="row" style="margin-bottom:8px;align-items:center">'
             + '<input type="text" style="flex:1" placeholder="e.g. Out-of-range steaks \u2014 Sage code" value="'+esc(v)+'" oninput="setFurtherOutput('+idx+', this.value)">'
-            + (f.furtherOutputs.length>1 ? '<button class="btn-ghost btn-sm" onclick="removeFurtherOutput('+idx+')">Remove</button>' : '')
+            + ((f.furtherOutputs||[]).length>1 ? '<button class="btn-ghost btn-sm" onclick="removeFurtherOutput('+idx+')">Remove</button>' : '')
             + '</div>';
         }).join("")
       + '<button class="btn-sm" onclick="addFurtherOutput()">+ Add output</button></div>'
@@ -1079,6 +1125,7 @@
       if(e.key === "Escape"){
         if(S.lightbox){ closeLightbox(); }
         else if(S.confirmDelete){ cancelDelete(); }
+        else if(S.groupTagTarget){ cancelGroupTagger(); }
       }
     });
     render();
