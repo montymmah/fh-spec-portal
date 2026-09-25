@@ -63,6 +63,7 @@
   .catalog-sage{font-size:12.5px;color:var(--grey1);margin-bottom:6px;min-height:16px;}
   .catalog-meta{font-size:11.5px;color:var(--grey2);margin-bottom:10px;}
   .stale-flag{font-size:10px;font-weight:700;color:#946200;background:#fbe9c6;padding:2px 6px;border-radius:4px;vertical-align:middle;}
+  .groups-dropdown{position:absolute;top:100%;right:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);z-index:60;min-width:190px;display:flex;flex-direction:column;gap:2px;margin-top:4px;}
   .catalog-actions{display:flex;gap:6px;margin-top:auto;flex-wrap:wrap;}
   .empty{color:var(--grey2);text-align:center;padding:40px 10px;font-size:14px;}
   .section-bar{background:var(--ink);color:#fff;font-weight:800;font-size:13px;letter-spacing:.03em;padding:8px 14px;border-radius:6px 6px 0 0;margin-top:26px;}
@@ -297,6 +298,8 @@
   }
 
   // ---------- navigation ----------
+  window.toggleGroupsDropdown = function(){ S.groupsDropdownOpen = !S.groupsDropdownOpen; render(); };
+
   function goManageGroups(){
     S.groupsDraft = S.groupOptions.map(function(g){ return {key:g.key, label:g.label}; });
     S.newGroupLabel = "";
@@ -365,7 +368,7 @@
 
   function goLibrary(){ if(S.formId) releaseEditLock(S.formId); S.view="library"; S.form=null; S.formId=null; render(); loadSpecs(); }
   function goNew(){
-    S.view="form"; S.form=blankSpec(); S.formId=null; render();
+    S.view="form"; S.form=blankSpec(); S.formId=null; S.groupsDropdownOpen=false; render();
     var pn = document.querySelector('[data-f="productName"]');
     if(pn) pn.focus();
   }
@@ -386,9 +389,10 @@
       await sb.rpc("claim_edit_lock", {p_spec_id:id, p_editor_name:(S.editorName||"Someone")});
     }catch(e){ console.error("Edit lock check failed:", e); }
   }
-  function releaseEditLock(id){
+  async function releaseEditLock(id){
     if(!SETUP_OK || !id) return;
-    sb.rpc("release_edit_lock", {p_spec_id:id}).catch(function(e){ console.error("Release lock failed:", e); });
+    try{ await sb.rpc("release_edit_lock", {p_spec_id:id}); }
+    catch(e){ console.error("Release lock failed:", e); }
   }
 
   function goEdit(id){
@@ -397,6 +401,7 @@
     S.form = Object.assign(blankSpec(), JSON.parse(JSON.stringify(spec)));
     S.formId = id;
     S.view="form";
+    S.groupsDropdownOpen=false;
     render(); window.scrollTo(0,0);
     checkEditLock(id);
   }
@@ -733,6 +738,13 @@
     out += '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;">'
       + '<h2 style="margin:0;font-size:17px;">'+(S.formId?"Edit spec sheet":"New spec sheet")+'</h2>'
       + '<div class="nav">'
+      + '<span style="position:relative;display:inline-block">'
+      + '<button class="btn-ghost btn-sm" onclick="toggleGroupsDropdown()">\ud83c\udff7 Groups ('+(f.groups||[]).length+') \u25be</button>'
+      + (S.groupsDropdownOpen ? '<div class="groups-dropdown">' + S.groupOptions.map(function(o){
+          var on = (f.groups||[]).indexOf(o.key)>=0;
+          return '<div class="chk-opt'+(on?" sel":"")+'" onclick="toggleGroupTag(\''+o.key+'\')"><span class="box">'+(on?"\u2611":"\u2610")+'</span><span>'+esc(o.label)+'</span></div>';
+        }).join("") + '<p class="note" style="margin-top:6px;max-width:200px">MMAH, British, Japanese & Chilean also auto-match by SKU/name.</p></div>' : '')
+      + '</span>'
       + (S.formId ? '<button class="btn-ghost btn-sm" data-action="duplicate" data-id="'+esc(S.formId)+'">Duplicate</button>'
           + '<button class="btn-ghost btn-sm" data-action="'+(f.archived?"unarchive":"archive")+'" data-id="'+esc(S.formId)+'">'+(f.archived?"Restore":"Archive")+'</button>'
           + '<button class="btn-ghost btn-sm" data-action="delete" data-id="'+esc(S.formId)+'">Delete</button>' : '')
@@ -758,9 +770,6 @@
             + '</div>';
         }).join("")
       + '<button class="btn-sm" onclick="addFurtherOutput()">+ Add output</button></div>'
-      + '<div class="field"><label class="field-label">Groups</label>'
-      + checkGroupMultiHTML(S.groupOptions.map(function(g){return [g.key,g.label];}), f.groups)
-      + '<p class="note">MMAH (by SKU), British, Japanese and Chilean (by product name) also filter automatically \u2014 no need to tick those unless you want to override.</p></div>'
       + '<div class="row">'
       + fieldText("issuedDate","Issued date",f.issuedDate,false,"date")
       + '<div class="field"><label class="field-label">Amended by *</label>'
