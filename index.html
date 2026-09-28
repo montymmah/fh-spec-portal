@@ -153,6 +153,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
   try{ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }catch(e){}
 </script>
@@ -191,7 +192,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "1.1.4";
+  var APP_VERSION = "1.1.5";
 
   function todayISO(){
     var d = new Date();
@@ -996,11 +997,11 @@
 
   function renderImport(){
     var out = '<div class="card">'
-      + '<p style="margin-top:0">Upload an old spec sheet \u2014 a PDF export or a photo/scan \u2014 and it\'ll be read automatically and dropped into the current format for you to check over before saving.</p>'
+      + '<p style="margin-top:0">Upload an old spec sheet. A Word file (.docx) works best \u2014 its photos come across too. PDFs and photos of a sheet are read as well, but their photos need adding by hand. Nothing is saved until you check it and click Save.</p>'
       + '<div class="import-drop" onclick="document.getElementById(\'importFileInput\').click()">'
-      + (S.importBusy ? '<span class="spinner"></span> Reading the document\u2026' : 'Click to choose a PDF or image file')
+      + (S.importBusy ? '<span class="spinner"></span> Reading the document\u2026' : 'Click to choose a Word, PDF or image file')
       + '</div>'
-      + '<input type="file" id="importFileInput" accept="application/pdf,image/*" style="display:none">'
+      + '<input type="file" id="importFileInput" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/*" style="display:none">'
       + '</div>';
     return out;
   }
@@ -1026,6 +1027,159 @@
     ]);
   }
 
+  // ---------- Word (.docx) import: text + photos ----------
+  var NS_W  = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  var NS_WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+  var NS_A  = "http://schemas.openxmlformats.org/drawingml/2006/main";
+  var NS_R  = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  var NS_MC = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+
+  function isDocx(file){
+    return /\.docx$/i.test(file.name || "") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+  function xmlKids(el, name){
+    return Array.prototype.filter.call(el.childNodes, function(n){ return n.nodeType===1 && n.localName===name; });
+  }
+  function docxParaText(p){
+    var out = "";
+    Array.prototype.forEach.call(p.getElementsByTagNameNS(NS_W, "*"), function(n){
+      if(n.localName === "t") out += n.textContent;
+      else if(n.localName === "tab") out += "\t";
+      else if(n.localName === "br" || n.localName === "cr") out += "\n";
+    });
+    return out.replace(/[ \t]+\n/g, "\n").trim();
+  }
+  // paragraphs become lines; table rows become "cell | cell | cell" so labels stay next to their values
+  function docxBlocks(container, out){
+    Array.prototype.forEach.call(container.childNodes, function(n){
+      if(n.nodeType !== 1) return;
+      if(n.localName === "p"){ var t = docxParaText(n); if(t) out.push(t); }
+      else if(n.localName === "tbl"){
+        xmlKids(n, "tr").forEach(function(tr){
+          var cells = xmlKids(tr, "tc").map(function(tc){ var l = []; docxBlocks(tc, l); return l.join(" / "); });
+          var row = cells.join(" | ").trim();
+          if(row.replace(/[|\s\/]/g, "")) out.push(row);
+        });
+      }
+      else if(n.localName === "sdt"){ xmlKids(n, "sdtContent").forEach(function(c){ docxBlocks(c, out); }); }
+    });
+  }
+  // width/height/type from the file header, so we can skip logos/icons without decoding anything
+  function imageInfo(u8){
+    if(!u8 || u8.length < 12) return null;
+    if(u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
+      return {ext:"png", type:"image/png",
+        w:((u8[16]<<24)|(u8[17]<<16)|(u8[18]<<8)|u8[19])>>>0, h:((u8[20]<<24)|(u8[21]<<16)|(u8[22]<<8)|u8[23])>>>0};
+    }
+    if(u8[0]===0xFF && u8[1]===0xD8){
+      var i = 2;
+      while(i + 9 < u8.length){
+        if(u8[i] !== 0xFF){ i++; continue; }
+        var m = u8[i+1];
+        if(m===0xD8 || m===0x01 || (m>=0xD0 && m<=0xD7)){ i += 2; continue; }
+        var len = (u8[i+2]<<8) | u8[i+3];
+        if(m>=0xC0 && m<=0xCF && m!==0xC4 && m!==0xC8 && m!==0xCC){
+          return {ext:"jpg", type:"image/jpeg", h:(u8[i+5]<<8)|u8[i+6], w:(u8[i+7]<<8)|u8[i+8]};
+        }
+        i += 2 + len;
+      }
+      return {ext:"jpg", type:"image/jpeg", w:0, h:0};
+    }
+    if(u8[0]===0x47 && u8[1]===0x49 && u8[2]===0x46) return {ext:"gif", type:"image/gif", w:u8[6]|(u8[7]<<8), h:u8[8]|(u8[9]<<8)};
+    if(u8[0]===0x52 && u8[1]===0x49 && u8[2]===0x46 && u8[3]===0x46 && u8[8]===0x57 && u8[9]===0x45) return {ext:"webp", type:"image/webp", w:0, h:0};
+    return null;     // EMF/WMF/TIFF etc. \u2014 browsers can't show these
+  }
+  function docxTargetPath(target){
+    if(target.charAt(0) === "/") return target.slice(1);      // some files use package-root paths like "/media/image2.jpg"
+    var out = [];
+    ("word/" + target).split("/").forEach(function(p){ if(p === ".."){ out.pop(); } else if(p !== "." && p !== ""){ out.push(p); } });
+    return out.join("/");
+  }
+  // Word's alt text is only useful as a caption when a person actually wrote it
+  function docxCaption(d){
+    d = (d || "").replace(/\s+/g, " ").trim();
+    if(!d || /automatically generated/i.test(d)) return "";
+    if(/\.(jpe?g|png|gif|webp|bmp)$/i.test(d)) return "";
+    if(/^(picture|image|graphic|drawing|photo)\s*\d*$/i.test(d)) return "";
+    return d.slice(0, 140);
+  }
+  async function readDocx(file){
+    if(typeof JSZip === "undefined") throw new Error("Word import didn't load \u2014 check your connection and refresh the page.");
+    var zip = await JSZip.loadAsync(await file.arrayBuffer());
+    var docFile = zip.file("word/document.xml");
+    if(!docFile) throw new Error("That doesn't look like a Word (.docx) file.");
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(await docFile.async("string"), "application/xml");
+    Array.prototype.slice.call(doc.getElementsByTagNameNS(NS_MC, "Fallback")).forEach(function(n){ n.parentNode.removeChild(n); });   // avoids text-box text appearing twice
+
+    var lines = [];
+    var body = doc.getElementsByTagNameNS(NS_W, "body")[0];
+    if(body) docxBlocks(body, lines);
+
+    var relMap = {};
+    var relsFile = zip.file("word/_rels/document.xml.rels");
+    if(relsFile){
+      var rdoc = parser.parseFromString(await relsFile.async("string"), "application/xml");
+      Array.prototype.forEach.call(rdoc.getElementsByTagName("Relationship"), function(r){ relMap[r.getAttribute("Id")] = r.getAttribute("Target"); });
+    }
+    // Only pictures placed in the body of the document (in order). Letterhead/logo artwork lives in the page
+    // header/background, so it is left out automatically; the same picture used twice is taken once.
+    var images = [], seen = {};
+    var drawings = doc.getElementsByTagNameNS(NS_W, "drawing");
+    for(var i = 0; i < drawings.length && images.length < 8; i++){
+      var dr = drawings[i];
+      var anchor = dr.getElementsByTagNameNS(NS_WP, "anchor")[0];
+      if(anchor && anchor.getAttribute("behindDoc") === "1") continue;
+      var blip = dr.getElementsByTagNameNS(NS_A, "blip")[0];
+      var rid = blip && blip.getAttributeNS(NS_R, "embed");
+      var target = rid && relMap[rid];
+      if(!target || seen[target]) continue;
+      seen[target] = true;
+      var path = docxTargetPath(target);
+      var entry = zip.file(path);
+      if(!entry){
+        var base = path.split("/").pop().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        entry = zip.file(new RegExp("(^|/)" + base + "$", "i"))[0];
+      }
+      if(!entry) continue;
+      var bytes = await entry.async("uint8array");
+      var info = imageInfo(bytes);
+      if(!info) continue;
+      if(info.w && info.h && (info.w < 100 || info.h < 100)) continue;       // tiny icons
+      var docPr = dr.getElementsByTagNameNS(NS_WP, "docPr")[0];
+      images.push({bytes:bytes, info:info, caption:docxCaption(docPr && docPr.getAttribute("descr"))});
+    }
+    return {text: lines.join("\n"), images: images};
+  }
+  // phone/DSLR photos can be 10MB+: scale big JPEGs down (still far bigger than the sheet needs) before storing
+  async function shrinkIfHuge(blob){
+    if(blob.type !== "image/jpeg" || blob.size < 1500000 || typeof createImageBitmap !== "function") return blob;
+    try{
+      var bmp = await createImageBitmap(blob);
+      var scale = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+      var c = document.createElement("canvas");
+      c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+      c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+      var out = await new Promise(function(res){ c.toBlob(res, "image/jpeg", 0.9); });
+      return (out && out.size < blob.size) ? out : blob;
+    }catch(e){ return blob; }
+  }
+  async function uploadDocxImages(list){
+    var done = [];
+    for(var i = 0; i < list.length; i++){
+      try{
+        var blob = await shrinkIfHuge(new Blob([list[i].bytes], {type:list[i].info.type}));
+        var ext = blob.type === "image/jpeg" ? "jpg" : list[i].info.ext;
+        var path = Date.now() + "_" + Math.random().toString(36).slice(2) + "." + ext;
+        var up = await withTimeout(sb.storage.from("spec-images").upload(path, blob, {upsert:false, contentType:blob.type || list[i].info.type}), 60000);
+        if(up && up.error) throw up.error;
+        var pub = sb.storage.from("spec-images").getPublicUrl(path);
+        done.push({id:path, url:pub.data.publicUrl, caption:list[i].caption || "", rotation:0});
+      }catch(e){ console.error("Photo upload failed:", e); }
+    }
+    return done;
+  }
+
   async function handleImportFile(file){
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     var pwd = getPassword();
@@ -1033,7 +1187,7 @@
     S.importBusy = true; render();
     console.log("Import: starting, file type", file.type);
     try{
-      var mode, content, mediaType;
+      var mode, content, mediaType, uploadP = null;
       if(file.type === "application/pdf"){
         var buf = await file.arrayBuffer();
         var pdf = await withTimeout(pdfjsLib.getDocument({data:buf}).promise, 20000);
@@ -1045,10 +1199,21 @@
         }
         console.log("Import: text extracted (" + extracted.length + " chars)");
         mode="text"; content=extracted; mediaType=null;
+      } else if(isDocx(file)){
+        var dx = await withTimeout(readDocx(file), 40000);
+        console.log("Import: Word text extracted (" + dx.text.length + " chars), photos found:", dx.images.length);
+        mode="text"; content=dx.text; mediaType=null;
+        if(dx.images.length){
+          showToast("Uploading " + dx.images.length + " photo" + (dx.images.length===1?"":"s") + " from the Word file\u2026");
+          uploadP = uploadDocxImages(dx.images);      // runs alongside the AI reading; never rejects
+        }
+      } else if(/\.doc$/i.test(file.name || "")){
+        showToast("Old .doc files can't be read \u2014 open it in Word, choose Save As \u2192 Word Document (.docx), and upload that.");
+        S.importBusy=false; render(); return;
       } else if(file.type.indexOf("image/")===0){
         mode="image"; content=await fileToBase64(file); mediaType=file.type;
       } else {
-        showToast("Please upload a PDF or an image file.");
+        showToast("Please upload a Word (.docx), PDF or image file.");
         S.importBusy=false; render(); return;
       }
 
@@ -1060,25 +1225,30 @@
       }), 45000);
       console.log("Import: AI responded, status", res.status);
       var data = await res.json();
+      var photos = uploadP ? await uploadP : [];
       if(!res.ok || data.error){
         console.error("Import: AI call failed \u2014 full response:", data);
         if(String(data.error||"").toLowerCase().indexOf("password")>=0) sessionStorage.removeItem("mmah_pwd");
         showToast("Import failed: " + (data.error || res.status) + ". You can still fill the form manually.");
         S.form = blankSpec(); S.formId=null; S.view="form"; markPristine();
         S.importBanner = "Automatic import didn't work \u2014 fill in the details manually below.";
+        if(photos.length){ S.form.referenceImages = photos; markUnsaved(); S.importBanner += " The photos from the file were kept."; }
       } else {
-        applyImportedData(data);
+        applyImportedData(data, photos);
       }
     }catch(e){
       showToast("Import failed: " + (e.message||e) + ". You can still fill the form manually.");
+      var keptPhotos = [];
+      if(uploadP){ try{ keptPhotos = await uploadP; }catch(e2){} }
       S.form = blankSpec(); S.formId=null; S.view="form"; markPristine();
       S.importBanner = "Automatic import didn't work \u2014 fill in the details manually below.";
+      if(keptPhotos.length){ S.form.referenceImages = keptPhotos; markUnsaved(); S.importBanner += " The photos from the file were kept."; }
     }
     S.importBusy = false;
     render();
   }
 
-  function applyImportedData(data){
+  function applyImportedData(data, photos){
     var f = blankSpec();
     var tickOpts = {
       inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, trimUse:TRIM_OPTS, packagingType:PACKAGING_OPTS,
@@ -1093,10 +1263,12 @@
     f.outputSku = stripSpaces(f.outputSku);        // PDF text comes through with stray spaces
     f.inputSku = stripSpaces(f.inputSku);
     f.issuedDate = todayISO();                     // new sheet, issued today
-    f.referenceImages = [];
+    f.referenceImages = photos || [];
     S.form = f; S.formId = null; S.view = "form";
     resetFormMeta(); markUnsaved();
-    S.importBanner = "Imported \u2014 please check every field, then complete the required tick-boxes and add reference photos.";
+    S.importBanner = (photos && photos.length)
+      ? "Imported \u2014 " + photos.length + " photo" + (photos.length===1 ? "" : "s") + " came across from the Word file (check they're right for this product; some older sheets reuse a placeholder photo). Please check every field and complete the required tick-boxes."
+      : "Imported \u2014 please check every field, then complete the required tick-boxes and add reference photos.";
     render(); window.scrollTo(0,0);
   }
 
