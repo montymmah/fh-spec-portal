@@ -62,6 +62,17 @@
   .catalog-body h3{margin:0 0 2px;font-size:14.5px;}
   .catalog-sage{font-size:12.5px;color:var(--grey1);margin-bottom:6px;min-height:16px;}
   .catalog-meta{font-size:11.5px;color:var(--grey2);margin-bottom:10px;}
+  .field.has-error{outline:2px solid var(--red);outline-offset:6px;border-radius:6px;}
+  .field .field-err{display:none;color:var(--red);font-size:12px;font-weight:700;margin-top:6px;}
+  .field.has-error .field-err{display:block;}
+  .tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line);}
+  .tab{border:none;border-bottom:3px solid transparent;border-radius:0;background:none;padding:8px 16px;color:var(--grey1);font-weight:700;}
+  .tab:hover{border-color:transparent;border-bottom-color:var(--line);}
+  .tab.active{color:var(--red);border-bottom-color:var(--red);}
+  .hist-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+  .app-footer{margin-top:40px;text-align:center;font-size:11px;color:var(--grey3);}
+  .spec-sheet .ss-link{color:#821E20;text-decoration:underline;cursor:pointer;}
+  .spec-sheet .ss-link::after{content:" \2197";font-size:11px;}
   .stale-flag{font-size:10px;font-weight:700;color:#946200;background:#fbe9c6;padding:2px 6px;border-radius:4px;vertical-align:middle;}
   .groups-dropdown{position:absolute;top:100%;right:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);z-index:60;min-width:190px;display:flex;flex-direction:column;gap:2px;margin-top:4px;}
   .catalog-actions{display:flex;gap:6px;margin-top:auto;flex-wrap:wrap;}
@@ -128,12 +139,15 @@
     #printArea, #printArea *{visibility:visible;}
     #printArea{display:block;position:absolute;top:0;left:0;width:100%;}
     @page{margin:14mm;}
+    .spec-sheet .ss-link{color:inherit;text-decoration:none;}
+    .spec-sheet .ss-link::after{content:"";}
   }
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="printArea"></div>
+<div id="toastHost"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -175,32 +189,66 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
+  var APP_VERSION = "1.1";
+
+  function todayISO(){
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+
+  // Further outputs used to be plain text; now each one can also link to another spec.
+  function normFurther(arr){
+    var out = (Array.isArray(arr) ? arr : []).map(function(v){
+      if(typeof v === "string") return {label:v, specId:""};
+      return {label:(v && v.label) || "", specId:(v && v.specId) || ""};
+    });
+    if(!out.length) out.push({label:"", specId:""});
+    return out;
+  }
+
   function blankSpec(){
     return {
       productName:"", outputSku:"", inputSku:"", outputSageDesc:"", inputSageDesc:"",
-      furtherOutputs:[""],
+      furtherOutputs:[{label:"", specId:""}],
       targetWeight:"", minWeight:"", maxWeight:"", toleranceNote:"",
-      avgWeightMin:"", avgWeightNote:"",
-      inputCondition:"chilled", fatCover:"", cuttingMachine:"na",
-      trimUse:"discard", trimRepurposeNote:"", cuttingNotes:"",
-      packingPrep:"", packagingType:"transparentDeep", packagingNote:"", secondaryPackaging:"",
+      inputCondition:"", fatCover:"", cuttingMachine:"",
+      trimUse:"", trimRepurposeNote:"", cuttingNotes:"",
+      packingPrep:"", packagingType:"", packagingNote:"", secondaryPackaging:"",
       positionInTray:"Centred (see reference image)",
-      labelCuttingPlant:"smallWhite", labelWarehouse:"bottom",
-      finishedState:"frozen", frozenBestBefore:"Production date + X months", thawedProduct:"", customNotes:"",
-      referenceImages:[], imageDisplaySize:"large", issuedDate:"", issuedByInitials:"",
+      labelCuttingPlant:"", labelWarehouse:"",
+      finishedState:"", frozenBestBefore:"Production date + X months", thawedProduct:"", customNotes:"",
+      referenceImages:[], imageDisplaySize:"large", issuedDate:todayISO(), issuedByInitials:"",
       groups:[], archived:false
     };
   }
 
+  // Required tick-boxes (nothing is pre-selected; save is blocked until each is chosen)
+  var REQUIRED_TICKS = [
+    ["inputCondition","Input product condition"],
+    ["cuttingMachine","Cutting machine"],
+    ["trimUse","Use of trim"],
+    ["packagingType","Packaging"],
+    ["labelCuttingPlant","Label type \u2014 Cutting plant"],
+    ["labelWarehouse","Label type \u2014 Warehouse"],
+    ["finishedState","Finished product state"]
+  ];
+
   // ---------- state ----------
   var S = {
     view:"library", specs:[], loadingSpecs:true, search:"",
-    form:null, formId:null, toast:"",
+    form:null, formId:null, toast:"", formErrors:{}, formBaseline:"", printTab:"sheet",
+    confirmLeave:false, pendingLeave:null,
     editorName: localStorage.getItem("mmah_editor_name") || "",
     groupOptions: DEFAULT_GROUP_OPTS.map(function(o){return {key:o[0], label:o[1]};})
   };
 
-  function showToast(msg){ S.toast = msg; render(); setTimeout(function(){ S.toast=""; render(); }, 3200); }
+  function showToast(msg){
+    S.toast = msg;
+    var host = document.getElementById("toastHost");
+    if(host) host.innerHTML = '<div class="toast">'+esc(msg)+'</div>';
+    clearTimeout(S._toastTimer);
+    S._toastTimer = setTimeout(function(){ S.toast=""; var h=document.getElementById("toastHost"); if(h) h.innerHTML=""; }, 3200);
+  }
 
   // ---------- password / editor name ----------
   function getPassword(){
@@ -279,11 +327,28 @@
     if(idx>=0) arr.splice(idx,1); else arr.push(val);
     render();
   };
-  window.setFurtherOutput = function(idx, val){ S.form.furtherOutputs[idx] = val; };
-  window.addFurtherOutput = function(){ S.form.furtherOutputs.push(""); render(); };
+  window.setFurtherOutput = function(idx, val){
+    S.form.furtherOutputs = normFurther(S.form.furtherOutputs);
+    S.form.furtherOutputs[idx].label = val;
+  };
+  window.setFurtherOutputLink = function(idx, specId){
+    S.form.furtherOutputs = normFurther(S.form.furtherOutputs);
+    var item = S.form.furtherOutputs[idx];
+    item.specId = specId;
+    if(specId && !(item.label||"").trim()){
+      var linked = S.specs.filter(function(x){return x.id===specId;})[0];
+      if(linked) item.label = (linked.outputSku ? linked.outputSku+" \u2014 " : "") + (linked.productName||"");
+    }
+    render();
+  };
+  window.addFurtherOutput = function(){
+    S.form.furtherOutputs = normFurther(S.form.furtherOutputs);
+    S.form.furtherOutputs.push({label:"", specId:""}); render();
+  };
   window.removeFurtherOutput = function(idx){
+    S.form.furtherOutputs = normFurther(S.form.furtherOutputs);
     S.form.furtherOutputs.splice(idx,1);
-    if(!S.form.furtherOutputs.length) S.form.furtherOutputs.push("");
+    if(!S.form.furtherOutputs.length) S.form.furtherOutputs.push({label:"", specId:""});
     render();
   };
   function ssCheckGroup(opts, val){
@@ -294,6 +359,7 @@
   }
   function labelOf(opts, val){ var f=opts.filter(function(o){return o[0]===val;}); return f.length? f[0][1] : val; }
   function ssSelectedOnly(opts, val){
+    if(!val) return '\u2014';
     return '<b>'+esc(labelOf(opts, val))+'</b>';
   }
 
@@ -366,9 +432,29 @@
     return out;
   }
 
-  function goLibrary(){ if(S.formId) releaseEditLock(S.formId); S.view="library"; S.form=null; S.formId=null; render(); loadSpecs(); }
+  // --- unsaved-changes tracking ---
+  function resetFormMeta(){ S.formErrors = {}; S.groupsDropdownOpen = false; S.importBanner = ""; }
+  function markPristine(){ S.formBaseline = JSON.stringify(S.form); }          // nothing to lose yet
+  function markUnsaved(){ S.formBaseline = JSON.stringify(blankSpec()); }      // e.g. imported/duplicated but never saved
+  function isFormDirty(){
+    if(S.view !== "form" || !S.form) return false;
+    readFormFromInputs();
+    return JSON.stringify(S.form) !== S.formBaseline;
+  }
+  function tryLeave(action){
+    if(isFormDirty()){ S.pendingLeave = action; S.confirmLeave = true; render(); }
+    else action();
+  }
+  window.confirmLeaveStay = function(){ S.confirmLeave = false; S.pendingLeave = null; render(); };
+  window.confirmLeaveDiscard = function(){
+    var a = S.pendingLeave; S.confirmLeave = false; S.pendingLeave = null;
+    if(a) a();
+  };
+
+  function goLibrary(){ if(S.formId) releaseEditLock(S.formId); S.view="library"; S.form=null; S.formId=null; S.formErrors={}; S.importBanner=""; render(); loadSpecs(); }
   function goNew(){
-    S.view="form"; S.form=blankSpec(); S.formId=null; S.groupsDropdownOpen=false; render();
+    S.view="form"; S.form=blankSpec(); S.formId=null; resetFormMeta(); markPristine();
+    render(); window.scrollTo(0,0);
     var pn = document.querySelector('[data-f="productName"]');
     if(pn) pn.focus();
   }
@@ -395,25 +481,33 @@
     catch(e){ console.error("Release lock failed:", e); }
   }
 
+  function loadSpecIntoForm(spec){
+    var f = Object.assign(blankSpec(), JSON.parse(JSON.stringify(spec)));
+    f.furtherOutputs = normFurther(f.furtherOutputs);
+    delete f.avgWeightMin; delete f.avgWeightNote;      // fields removed from the template
+    f.issuedDate = todayISO();                          // re-issued today
+    return f;
+  }
   function goEdit(id){
     var spec = S.specs.filter(function(s){return s.id===id;})[0];
     if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
-    S.form = Object.assign(blankSpec(), JSON.parse(JSON.stringify(spec)));
+    S.form = loadSpecIntoForm(spec);
     S.formId = id;
     S.view="form";
-    S.groupsDropdownOpen=false;
+    resetFormMeta(); markPristine();
     render(); window.scrollTo(0,0);
     checkEditLock(id);
   }
   function duplicateSpec(id){
     var spec = S.specs.filter(function(s){return s.id===id;})[0];
     if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
-    var clone = Object.assign(blankSpec(), JSON.parse(JSON.stringify(spec)));
+    var clone = loadSpecIntoForm(spec);
     delete clone.id; delete clone.updatedAt;
     clone.productName = (clone.productName||"") + " (Copy)";
     clone.editHistory = [];
     clone.archived = false;
     S.form = clone; S.formId = null; S.view = "form";
+    resetFormMeta(); markUnsaved();
     S.importBanner = "Duplicated from an existing spec \u2014 review before saving.";
     render(); window.scrollTo(0,0);
   }
@@ -439,7 +533,7 @@
     }catch(e){ handleWriteError(e); }
   }
   function openPrintSpec(spec){
-    S.view="print"; S.printSpec=spec;
+    S.view="print"; S.printSpec=spec; S.printTab="sheet";
     render(); window.scrollTo(0,0);
   }
   function goPrint(id){
@@ -456,9 +550,10 @@
     try{
       if(action==="print") goPrint(id);
       else if(action==="edit") goEdit(id);
-      else if(action==="duplicate") duplicateSpec(id);
-      else if(action==="archive") archiveSpec(id, true);
-      else if(action==="unarchive") archiveSpec(id, false);
+      else if(action==="duplicate") tryLeave(function(){ duplicateSpec(id); });
+      else if(action==="archive") tryLeave(function(){ archiveSpec(id, true); });
+      else if(action==="unarchive") tryLeave(function(){ archiveSpec(id, false); });
+      else if(action==="printTab"){ S.printTab = el.getAttribute("data-tab") || "sheet"; render(); window.scrollTo(0,0); }
       else if(action==="viewVersion"){
         var vidx = parseInt(el.getAttribute("data-idx"),10);
         var entry = (S.printSpec.editHistory||[])[vidx];
@@ -466,6 +561,7 @@
           var snap = JSON.parse(JSON.stringify(entry.snapshot));
           snap.productName = snap.productName || S.printSpec.productName;
           S.versionSnapshot = snap;
+          S.versionMeta = {by:entry.by, at:entry.at, action:entry.action};
           S.view = "version";
           render(); window.scrollTo(0,0);
         }
@@ -483,7 +579,11 @@
     }
   }
 
-  window.setField = function(name, val){ S.form[name]=val; render(); };
+  window.setField = function(name, val){
+    S.form[name]=val;
+    if(S.formErrors) delete S.formErrors[name];
+    render();
+  };
   window.setImgCaption = function(idx, val){
     S.form.referenceImages[idx].caption = val;
     var previewCaps = document.querySelectorAll('.ss-imgs .cap');
@@ -517,18 +617,51 @@
     var el = document.getElementById("specForm");
     if(!el) return;
     ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight","toleranceNote",
-     "fatCover","cuttingNotes","avgWeightMin","avgWeightNote","packingPrep","packagingNote","secondaryPackaging","positionInTray",
+     "fatCover","cuttingNotes","packingPrep","packagingNote","secondaryPackaging","positionInTray",
      "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","issuedDate"].forEach(function(name){
       var input = el.querySelector('[data-f="'+name+'"]');
       if(input) S.form[name] = input.value;
     });
   }
 
-  async function saveSpec(){
+  // ---------- required-field validation ----------
+  function validateForm(){
     readFormFromInputs();
-    if(!S.form.productName.trim()){ showToast("Product name is required."); return; }
+    var errs = {}, order = [];
+    if(!(S.form.productName||"").trim()){ errs.productName = true; order.push("productName"); }
+    if(!(S.editorName||"").trim()){ errs.editorName = true; order.push("editorName"); }
+    REQUIRED_TICKS.forEach(function(t){ if(!S.form[t[0]]){ errs[t[0]] = true; order.push(t[0]); } });
+    S.formErrors = errs;
+    return order;                                   // in on-screen order, so [0] is the first one to jump to
+  }
+  function scrollToField(key){
+    var el = document.getElementById("fld-"+key);
+    if(!el) return;
+    el.scrollIntoView({behavior:"smooth", block:"center"});
+    var inp = el.querySelector("input,textarea");
+    if(inp){ try{ inp.focus({preventScroll:true}); }catch(e){ inp.focus(); } }
+  }
+  function clearFieldError(key){
+    if(S.formErrors && S.formErrors[key]){
+      delete S.formErrors[key];
+      var w = document.getElementById("fld-"+key);
+      if(w) w.classList.remove("has-error");
+    }
+  }
+  function stripSpaces(v){ return (v||"").replace(/\s+/g,""); }
+
+  async function saveSpec(){
+    var missing = validateForm();
+    if(missing.length){
+      render();
+      scrollToField(missing[0]);
+      showToast("Please complete the highlighted required field" + (missing.length>1 ? "s" : "") + ".");
+      return;
+    }
     var name = (S.editorName||"").trim();
-    if(!name){ showToast("Your name is required before saving."); return; }
+    S.form.outputSku = stripSpaces(S.form.outputSku);
+    S.form.inputSku = stripSpaces(S.form.inputSku);
+    S.form.furtherOutputs = normFurther(S.form.furtherOutputs).filter(function(o){ return (o.label||"").trim() || o.specId; });
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     var pwd = getPassword();
     if(!pwd) return;
@@ -612,11 +745,18 @@
     if(el){
       el.querySelectorAll("textarea, input[type=text], input[type=date]").forEach(function(inp){
         var f = inp.getAttribute("data-f");
-        if(f) inp.oninput = function(){ S.form[f] = inp.value; };
+        if(f) inp.oninput = function(){
+          if(f === "outputSku" || f === "inputSku"){
+            var cleaned = stripSpaces(inp.value);
+            if(cleaned !== inp.value) inp.value = cleaned;
+          }
+          S.form[f] = inp.value;
+          clearFieldError(f);
+        };
       });
     }
     var editorInput = document.getElementById("editorNameInput");
-    if(editorInput){ editorInput.oninput = function(){ S.editorName = editorInput.value; }; }
+    if(editorInput){ editorInput.oninput = function(){ S.editorName = editorInput.value; clearFieldError("editorName"); }; }
   }
 
   function topbar(){
@@ -635,7 +775,6 @@
     if(!SETUP_OK){
       html += '<div class="setup-warning"><b>Setup needed:</b> open the HTML file and paste your Supabase Project URL and anon public key at the top, then re-upload it. See the setup instructions for where to find them.</div>';
     }
-    if(S.toast) html += '<div class="toast">'+esc(S.toast)+'</div>';
     if(S.view==="library") html += renderLibrary();
     else if(S.view==="form") html += renderForm();
     else if(S.view==="import") html += renderImport();
@@ -656,6 +795,15 @@
         + '<button class="btn-primary btn-sm" onclick="performDelete(\''+esc(S.confirmDelete)+'\')">Delete</button></div>'
         + '</div></div>';
     }
+    if(S.confirmLeave){
+      html += '<div class="confirm-overlay" onclick="confirmLeaveStay()">'
+        + '<div class="confirm-box" onclick="event.stopPropagation()">'
+        + '<p><b>You have unsaved changes.</b><br>If you leave now they will be lost.</p>'
+        + '<div class="row"><button class="btn-dark btn-sm" onclick="confirmLeaveStay()">Keep editing</button>'
+        + '<button class="btn-primary btn-sm" onclick="confirmLeaveDiscard()">Discard changes</button></div>'
+        + '</div></div>';
+    }
+    html += '<div class="app-footer">FH Cutting Spec Portal \u00b7 v'+APP_VERSION+'</div>';
     return html;
   }
 
@@ -722,8 +870,7 @@
           + '<div class="catalog-meta">'+esc(s.outputSku||"\u2014")+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
           + '<div class="catalog-actions">'
           + '<button class="btn-sm" data-action="print" data-id="'+esc(s.id)+'">View / Print</button>'
-          + (showArchived ? '' : '<button class="btn-sm" data-action="edit" data-id="'+esc(s.id)+'">Edit</button>'
-            + '<button class="btn-ghost btn-sm" data-action="duplicate" data-id="'+esc(s.id)+'">Duplicate</button>')
+          + (showArchived ? '' : '<button class="btn-sm" data-action="edit" data-id="'+esc(s.id)+'">Edit</button>')
           + '</div></div></div>';
       });
       out += '</div>';
@@ -763,18 +910,14 @@
       + fieldText("inputSageDesc","Input Sage description",f.inputSageDesc)
       + '</div>'
       + '<div class="field"><label class="field-label">Further output(s)</label>'
-      + (f.furtherOutputs||[""]).map(function(v,idx){
-          return '<div class="row" style="margin-bottom:8px;align-items:center">'
-            + '<input type="text" style="flex:1" placeholder="e.g. Out-of-range steaks \u2014 Sage code" value="'+esc(v)+'" oninput="setFurtherOutput('+idx+', this.value)">'
-            + ((f.furtherOutputs||[]).length>1 ? '<button class="btn-ghost btn-sm" onclick="removeFurtherOutput('+idx+')">Remove</button>' : '')
-            + '</div>';
-        }).join("")
-      + '<button class="btn-sm" onclick="addFurtherOutput()">+ Add output</button></div>'
+      + normFurther(f.furtherOutputs).map(function(item,idx,arr){ return furtherOutputRow(item, idx, arr.length); }).join("")
+      + '<button class="btn-sm" onclick="addFurtherOutput()">+ Add output</button>'
+      + '<p class="note" style="margin-top:6px">Pick a spec from the list to link it (e.g. the offcut spec) \u2014 it becomes a clickable link on the sheet.</p></div>'
       + '<div class="row">'
       + fieldText("issuedDate","Issued date",f.issuedDate,false,"date")
-      + '<div class="field"><label class="field-label">Amended by *</label>'
-      + '<input type="text" id="editorNameInput" value="'+esc(S.editorName)+'" oninput="S.editorName=this.value">'
-      + '</div>'
+      + '<div class="field'+(S.formErrors.editorName?' has-error':'')+'" id="fld-editorName"><label class="field-label">Amended by *</label>'
+      + '<input type="text" id="editorNameInput" value="'+esc(S.editorName)+'">'
+      + '<div class="field-err">Required</div></div>'
       + '</div></div>';
 
     out += '<div class="section-bar">1 CUTTING DETAILS</div><div class="section-body">';
@@ -784,39 +927,27 @@
       + fieldText("maxWeight","Maximum weight (g)",f.maxWeight,false,"number")
       + '</div>'
       + fieldText("toleranceNote","Absolute legal minimum (formula or note) (For retail)",f.toleranceNote)
-      + '<div class="row">'
-      + fieldText("avgWeightMin","Average weight minimum (g)",f.avgWeightMin,false,"number")
-      + fieldText("avgWeightNote","Average weight minimum (formula or note)",f.avgWeightNote)
-      + '</div>'
       + '</div>';
-    out += '<div class="field"><label class="field-label">Input product condition</label>'
-      + checkGroupHTML(CONDITION_OPTS, f.inputCondition, true, "inputCondition") + '</div>';
+    out += tickField("inputCondition","Input product condition", checkGroupHTML(CONDITION_OPTS, f.inputCondition, true, "inputCondition"));
     out += fieldText("fatCover","Fat cover on finished product",f.fatCover);
-    out += '<div class="field"><label class="field-label">Cutting machine</label>'
-      + checkGroupHTML(MACHINE_OPTS, f.cuttingMachine, true, "cuttingMachine") + '</div>';
-    out += '<div class="field"><label class="field-label">Use of trim</label>'
-      + checkGroupHTML(TRIM_OPTS, f.trimUse, true, "trimUse")
-      + (f.trimUse==="repurpose" ? '<div style="margin-top:8px">'+fieldText("trimRepurposeNote","Repurposed into (Sage code(s))",f.trimRepurposeNote)+'</div>' : '')
-      + '</div>';
+    out += tickField("cuttingMachine","Cutting machine", checkGroupHTML(MACHINE_OPTS, f.cuttingMachine, true, "cuttingMachine"));
+    out += tickField("trimUse","Use of trim", checkGroupHTML(TRIM_OPTS, f.trimUse, true, "trimUse")
+      + (f.trimUse==="repurpose" ? '<div style="margin-top:8px">'+fieldText("trimRepurposeNote","Repurposed into (Sage code(s))",f.trimRepurposeNote)+'</div>' : ''));
     out += fieldTextarea("cuttingNotes","Cutting notes",f.cuttingNotes);
     out += '</div>';
 
     out += '<div class="section-bar">2 PACKING INSTRUCTIONS</div><div class="section-body">';
     out += fieldText("packingPrep","Packing preparation",f.packingPrep);
-    out += '<div class="field"><label class="field-label">Packaging</label>'
-      + checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType")
-      + '<div style="margin-top:8px">'+fieldText("packagingNote","Bag size / other note (if applicable)",f.packagingNote)+'</div></div>';
+    out += tickField("packagingType","Packaging", checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType")
+      + '<div style="margin-top:8px">'+fieldText("packagingNote","Bag size / other note (if applicable)",f.packagingNote)+'</div>');
     out += fieldText("secondaryPackaging","Secondary packaging (warehouse)",f.secondaryPackaging);
     out += fieldText("positionInTray","Position in tray",f.positionInTray);
-    out += '<div class="field"><label class="field-label">Label type \u2014 Cutting plant</label>'
-      + checkGroupHTML(LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant") + '</div>';
-    out += '<div class="field"><label class="field-label">Label type \u2014 Warehouse</label>'
-      + checkGroupHTML(LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse") + '</div>';
+    out += tickField("labelCuttingPlant","Label type \u2014 Cutting plant", checkGroupHTML(LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant"));
+    out += tickField("labelWarehouse","Label type \u2014 Warehouse", checkGroupHTML(LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse"));
     out += '</div>';
 
     out += '<div class="section-bar">3 FINISHED PRODUCT DETAILS</div><div class="section-body">';
-    out += '<div class="field"><label class="field-label">Finished product state</label>'
-      + checkGroupHTML(FINISHED_OPTS, f.finishedState, true, "finishedState") + '</div>';
+    out += tickField("finishedState","Finished product state", checkGroupHTML(FINISHED_OPTS, f.finishedState, true, "finishedState"));
     out += '<div class="row">'
       + fieldText("frozenBestBefore","Frozen best before",f.frozenBestBefore)
       + fieldText("thawedProduct","Thawed product",f.thawedProduct)
@@ -873,9 +1004,9 @@
   }
 
   var SCHEMA_FIELDS = ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
-    "toleranceNote","avgWeightMin","avgWeightNote","inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes",
+    "toleranceNote","inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes",
     "packingPrep","packagingType","packagingNote","secondaryPackaging","positionInTray","labelCuttingPlant","labelWarehouse","finishedState",
-    "frozenBestBefore","thawedProduct","customNotes","issuedDate","issuedByInitials"];
+    "frozenBestBefore","thawedProduct","customNotes"];
 
   function fileToBase64(file){
     return new Promise(function(resolve, reject){
@@ -931,14 +1062,14 @@
         console.error("Import: AI call failed \u2014 full response:", data);
         if(String(data.error||"").toLowerCase().indexOf("password")>=0) sessionStorage.removeItem("mmah_pwd");
         showToast("Import failed: " + (data.error || res.status) + ". You can still fill the form manually.");
-        S.form = blankSpec(); S.formId=null; S.view="form";
+        S.form = blankSpec(); S.formId=null; S.view="form"; markPristine();
         S.importBanner = "Automatic import didn't work \u2014 fill in the details manually below.";
       } else {
         applyImportedData(data);
       }
     }catch(e){
       showToast("Import failed: " + (e.message||e) + ". You can still fill the form manually.");
-      S.form = blankSpec(); S.formId=null; S.view="form";
+      S.form = blankSpec(); S.formId=null; S.view="form"; markPristine();
       S.importBanner = "Automatic import didn't work \u2014 fill in the details manually below.";
     }
     S.importBusy = false;
@@ -947,18 +1078,54 @@
 
   function applyImportedData(data){
     var f = blankSpec();
+    var tickOpts = {
+      inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, trimUse:TRIM_OPTS, packagingType:PACKAGING_OPTS,
+      labelCuttingPlant:LABEL_CP_OPTS, labelWarehouse:LABEL_WH_OPTS, finishedState:FINISHED_OPTS
+    };
     SCHEMA_FIELDS.forEach(function(k){
-      if(data && data[k] !== undefined && data[k] !== null && data[k] !== "" && typeof data[k] !== "object"){ f[k]=data[k]; }
+      if(data && data[k] !== undefined && data[k] !== null && data[k] !== "" && typeof data[k] !== "object"){
+        if(tickOpts[k] && !tickOpts[k].some(function(o){ return o[0] === data[k]; })) return;   // ignore values that aren't a real option
+        f[k] = data[k];
+      }
     });
+    f.outputSku = stripSpaces(f.outputSku);        // PDF text comes through with stray spaces
+    f.inputSku = stripSpaces(f.inputSku);
+    f.issuedDate = todayISO();                     // new sheet, issued today
     f.referenceImages = [];
     S.form = f; S.formId = null; S.view = "form";
-    S.importBanner = "Imported \u2014 please check every field before saving, then add reference photos.";
-    render();
+    resetFormMeta(); markUnsaved();
+    S.importBanner = "Imported \u2014 please check every field, then complete the required tick-boxes and add reference photos.";
+    render(); window.scrollTo(0,0);
   }
 
   function fieldText(name,label,val,required,type){
-    return '<div class="field"><label class="field-label">'+esc(label)+(required?' *':'')+'</label>'
-      + '<input type="'+(type||"text")+'" data-f="'+name+'" value="'+esc(val||"")+'"></div>';
+    var err = S.formErrors && S.formErrors[name];
+    return '<div class="field'+(err?' has-error':'')+'" id="fld-'+name+'"><label class="field-label">'+esc(label)+(required?' *':'')+'</label>'
+      + '<input type="'+(type||"text")+'" data-f="'+name+'" value="'+esc(val||"")+'">'
+      + (required ? '<div class="field-err">Required</div>' : '')
+      + '</div>';
+  }
+  function tickField(name,label,innerHtml){
+    var err = S.formErrors && S.formErrors[name];
+    return '<div class="field'+(err?' has-error':'')+'" id="fld-'+name+'"><label class="field-label">'+esc(label)+' *</label>'
+      + innerHtml
+      + '<div class="field-err">Please choose one</div></div>';
+  }
+  function furtherOutputRow(item, idx, total){
+    var others = S.specs.filter(function(x){ return x.id !== S.formId; })
+      .sort(function(a,b){ return (a.productName||"").localeCompare(b.productName||""); });
+    var known = others.some(function(x){ return x.id === item.specId; });
+    var opts = '<option value="">\u2014 link to a spec (optional) \u2014</option>'
+      + (item.specId && !known ? '<option value="'+esc(item.specId)+'" selected>(linked spec no longer exists)</option>' : '')
+      + others.map(function(x){
+          return '<option value="'+esc(x.id)+'"'+(x.id===item.specId?' selected':'')+'>'
+            + esc((x.productName||"(untitled)") + (x.outputSku ? " \u00b7 "+x.outputSku : "") + (x.archived ? " (archived)" : "")) + '</option>';
+        }).join("");
+    return '<div class="row" style="margin-bottom:8px;align-items:center">'
+      + '<input type="text" style="flex:2;min-width:180px" placeholder="Description / Sage code" value="'+esc(item.label)+'" oninput="setFurtherOutput('+idx+', this.value)">'
+      + '<select style="flex:2;min-width:180px" onchange="setFurtherOutputLink('+idx+', this.value)">'+opts+'</select>'
+      + (total>1 ? '<button class="btn-ghost btn-sm" onclick="removeFurtherOutput('+idx+')">Remove</button>' : '')
+      + '</div>';
   }
   function fieldTextarea(name,label,val){
     return '<div class="field"><label class="field-label">'+esc(label)+'</label>'
@@ -966,36 +1133,54 @@
   }
 
   function renderPrintChrome(){
+    var sp = S.printSpec, hist = sp.editHistory || [];
+    var onHistory = S.printTab === "history";
     var out = '<div class="topbar" style="margin-top:-8px;">'
-      + '<h2 style="margin:0;font-size:17px;">'+esc(S.printSpec.productName||"")+'</h2>'
+      + '<h2 style="margin:0;font-size:17px;">'+esc(sp.productName||"")+'</h2>'
       + '<div class="nav">'
       + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button>'
-      + '<button class="btn-sm" data-action="edit" data-id="'+esc(S.printSpec.id)+'">Edit</button>'
+      + '<button class="btn-sm" data-action="edit" data-id="'+esc(sp.id)+'">Edit</button>'
       + '<button class="btn-primary btn-sm" onclick="doPrint()">Print / Save as PDF</button>'
       + '</div></div>'
-      + '<div class="card" style="background:var(--panel)">'
-      + renderPrintable(S.printSpec)
+      + '<div class="tabs">'
+      + '<button class="tab'+(onHistory?'':' active')+'" data-action="printTab" data-tab="sheet">Sheet</button>'
+      + '<button class="tab'+(onHistory?' active':'')+'" data-action="printTab" data-tab="history">History'+(hist.length?' ('+hist.length+')':'')+'</button>'
       + '</div>';
-    var hist = (S.printSpec.editHistory||[]).filter(function(h){return h.snapshot;});
-    if(hist.length){
-      out += '<div class="card"><label class="field-label">Version history</label>'
-        + hist.slice().reverse().map(function(h,idx){
-            return '<div class="row" style="align-items:center;margin-bottom:6px">'
-              + '<span style="flex:1;font-size:13px">Version before '+esc(h.by||"someone")+'\u2019s edit on '+fmtDate(h.at)+'</span>'
-              + '<button class="btn-ghost btn-sm" data-action="viewVersion" data-idx="'+(hist.length-1-idx)+'">View</button>'
-              + '</div>';
-          }).join("")
-        + '<p class="note" style="margin-top:6px">Older versions are read-only \u2014 they can\u2019t be edited or printed directly.</p></div>';
+    if(onHistory){
+      out += renderHistoryTab(sp);
+    } else {
+      out += '<div class="card" style="background:var(--panel)">' + renderPrintable(sp) + '</div>';
     }
     return out;
   }
 
+  function renderHistoryTab(sp){
+    var hist = sp.editHistory || [];
+    var last = hist.length ? hist[hist.length-1] : null;
+    var out = '<div class="card">';
+    out += '<div class="hist-row"><div><b>Current version</b>'
+      + '<div class="note">'+(last ? 'Last amended by '+esc(last.by||"someone")+' on '+fmtDate(last.at) : 'No amendments recorded yet')+'</div></div>'
+      + '<button class="btn-sm" data-action="printTab" data-tab="sheet">View sheet</button></div>';
+    for(var i=hist.length-1;i>=0;i--){
+      var h = hist[i];
+      var verb = h.action==="archived" ? "archived this sheet" : (h.action==="unarchived" ? "restored this sheet" : "amended this sheet");
+      out += '<div class="hist-row"><div><b>'+fmtDate(h.at)+'</b> \u00b7 '+esc(h.by||"someone")+' '+verb
+        + (h.snapshot ? '' : '<div class="note">No copy of the earlier version was kept for this change.</div>')
+        + '</div>'
+        + (h.snapshot ? '<button class="btn-sm" data-action="viewVersion" data-idx="'+i+'">View previous version</button>' : '')
+        + '</div>';
+    }
+    if(!hist.length) out += '<p class="note" style="margin-top:10px">Nothing to show yet \u2014 every save from now on is recorded here, with a copy of the sheet as it was before.</p>';
+    out += '<p class="note" style="margin-top:12px">Previous versions are read-only \u2014 they can\u2019t be edited or printed.</p></div>';
+    return out;
+  }
+
   function renderVersionView(){
-    var s = S.versionSnapshot;
+    var s = S.versionSnapshot, m = S.versionMeta || {};
     var out = '<div class="topbar" style="margin-top:-8px;">'
-      + '<h2 style="margin:0;font-size:17px;">'+esc(s.productName||"")+' <span class="note">(historical version)</span></h2>'
-      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="S.versionSnapshot=null; S.view=\'print\'; render();">Back to current version</button></div></div>'
-      + '<div class="banner">This is a read-only snapshot from a past edit \u2014 it can\'t be edited or printed directly. Use \u201cBack to current version\u201d to return.</div>'
+      + '<h2 style="margin:0;font-size:17px;">'+esc(s.productName||"")+' <span class="note">(previous version)</span></h2>'
+      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="S.versionSnapshot=null; S.view=\'print\'; S.printTab=\'history\'; render(); window.scrollTo(0,0);">Back to history</button></div></div>'
+      + '<div class="banner">Read-only copy of the sheet as it was before '+esc(m.by||"someone")+'\u2019s change on '+fmtDate(m.at)+'. It can\u2019t be edited or printed.</div>'
       + '<div class="card" style="background:var(--panel)">'
       + renderPrintable(s)
       + '</div>';
@@ -1007,10 +1192,16 @@
     out += '<div class="title">PRODUCT CUTTING SPECIFICATION</div>';
     out += '<div class="subtitle">'+esc(s.productName||"")+'</div>';
 
-    var furtherOut = (s.furtherOutputs||[]).filter(function(v){return v && v.trim();});
+    var furtherOut = normFurther(s.furtherOutputs).filter(function(o){ return (o.label||"").trim() || o.specId; });
+    function furtherOutHtml(o, i){
+      var linked = o.specId ? S.specs.filter(function(x){return x.id===o.specId;})[0] : null;
+      var text = esc((o.label||"").trim() || (linked ? linked.productName : "") || "(linked spec)");
+      if(linked) text = '<span class="ss-link" data-action="print" data-id="'+esc(o.specId)+'" title="Open this spec">'+text+'</span>';
+      return (i+1)+") "+text;
+    }
     out += '<table class="ss-table"><tr><td class="lbl">Output SKU</td><td>'+esc(s.outputSku||"\u2014")+(s.outputSageDesc?' <span style="color:#606060">&mdash; '+esc(s.outputSageDesc)+'</span>':'')+'</td></tr>'
       + '<tr><td class="lbl">Input SKU</td><td>'+esc(s.inputSku||"\u2014")+(s.inputSageDesc?' <span style="color:#606060">&mdash; '+esc(s.inputSageDesc)+'</span>':'')+'</td></tr>'
-      + (furtherOut.length ? '<tr><td class="lbl">Further Output(s)</td><td>'+furtherOut.map(function(v,i){return (i+1)+") "+esc(v);}).join("<br>")+'</td></tr>' : '')
+      + (furtherOut.length ? '<tr><td class="lbl">Further Output(s)</td><td>'+furtherOut.map(furtherOutHtml).join("<br>")+'</td></tr>' : '')
       + '<tr><td class="lbl">Issued / By</td><td>'+fmtDate(s.issuedDate)+' \u00b7 Done by <b>'+esc(s.issuedByInitials||"\u2014")+'</b>'
         + (isStale(s) ? ' <span style="color:#946200;font-weight:700">\u2014 \u26a0 over 1 year old, review recommended</span>' : '')
         + '</td></tr></table>';
@@ -1023,7 +1214,6 @@
       + '</tr></table>';
     out += '<table class="ss-table">'
       + (s.toleranceNote ? '<tr><td class="lbl">Absolute legal minimum</td><td>'+esc(s.toleranceNote)+' (For retail)</td></tr>' : '')
-      + ((s.avgWeightMin||s.avgWeightNote) ? '<tr><td class="lbl">Average weight minimum</td><td>'+(s.avgWeightMin?esc(s.avgWeightMin)+'g':'')+(s.avgWeightNote?' \u2014 '+esc(s.avgWeightNote):'')+'</td></tr>' : '')
       + '<tr><td class="lbl">Input product condition</td><td>'+ssSelectedOnly(CONDITION_OPTS,s.inputCondition)+'</td></tr>'
       + '<tr><td class="lbl">Fat cover on finished product</td><td><b>'+esc(s.fatCover||"\u2014")+'</b></td></tr>'
       + '<tr><td class="lbl">Cutting machine</td><td>'+ssSelectedOnly(MACHINE_OPTS,s.cuttingMachine)+'</td></tr>'
@@ -1076,8 +1266,12 @@
 
   function cancelDelete(){ S.confirmDelete = null; render(); }
 
-  window.goLibrary=goLibrary; window.goNew=goNew; window.goImport=goImport; window.goEdit=goEdit; window.goPrint=goPrint;
-  window.goManageGroups=goManageGroups;
+  // navigation that could lose typed-in work goes through tryLeave() (asks first if there are unsaved changes)
+  window.goLibrary=function(){ tryLeave(goLibrary); };
+  window.goNew=function(){ tryLeave(goNew); };
+  window.goImport=function(){ tryLeave(goImport); };
+  window.goManageGroups=function(){ tryLeave(goManageGroups); };
+  window.goEdit=goEdit; window.goPrint=goPrint;
   window.saveSpec=saveSpec; window.doPrint=doPrint; window.loadSpecs=loadSpecs; window.S=S; window.render=render;
   window.performDelete=performDelete; window.cancelDelete=cancelDelete;
 
@@ -1088,7 +1282,11 @@
       if(e.key === "Escape"){
         if(S.lightbox){ closeLightbox(); }
         else if(S.confirmDelete){ cancelDelete(); }
+        else if(S.confirmLeave){ confirmLeaveStay(); }
       }
+    });
+    window.addEventListener("beforeunload", function(e){
+      if(isFormDirty()){ e.preventDefault(); e.returnValue = ""; }
     });
     render();
     loadSpecs();
