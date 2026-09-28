@@ -262,7 +262,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "2.2";
+  var APP_VERSION = "2.3";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -300,8 +300,8 @@
       productName:"", inputSku:"", inputSageDesc:"",
       outputSku:"", outputSageDesc:"", outputSku2:"", outputSageDesc2:"",
       furtherOutputs:[{label:RT_DEFAULTS.furtherOutput, specId:""}],
-      trimText:RT_DEFAULTS.trimText,
-      issuedDate:todayISO(), writtenBy:"", issuedByInitials:"",
+      trimDiscard:false, trimSku:"", trimText:RT_DEFAULTS.trimText,
+      issuedDate:todayISO(), issuedByInitials:"",
       cuttingNotes:"",
       outOfRangeMin:"", minWeight:"", toleranceNote:RT_DEFAULTS.toleranceNote,
       avgWeightMin:"", avgWeightNote:RT_DEFAULTS.avgWeightNote, targetWeight:"", maxWeight:"",
@@ -365,7 +365,7 @@
         + 'finishedState (one of frozen/chilled/ambient), frozenBestBefore, thawedProduct, customNotes.'
     },
     retail: {
-      textFields: ["productName","inputSku","inputSageDesc","outputSku","outputSageDesc","outputSku2","outputSageDesc2","trimText","issuedDate","writtenBy",
+      textFields: ["productName","inputSku","inputSageDesc","outputSku","outputSageDesc","outputSku2","outputSageDesc2","trimSku","trimText","issuedDate",
         "cuttingNotes","outOfRangeMin","minWeight","toleranceNote","avgWeightMin","avgWeightNote","targetWeight","maxWeight",
         "fatCover","weightRecordingNote","positionInTray","packingPrep","secondaryPackNote"],
       requiredTicks: [
@@ -379,7 +379,7 @@
       ],
       tickOpts: {inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, packagingType:PACKAGING_OPTS,
                  labelCuttingPlant:RT_LABEL_CP_OPTS, secondaryPack:RT_SECONDARY_OPTS, labelWarehouse:RT_LABEL_WH_OPTS, finishedState:RT_FINISHED_OPTS},
-      importFields: ["productName","inputSku","inputSageDesc","outputSku","outputSageDesc","outputSku2","outputSageDesc2","trimText","writtenBy",
+      importFields: ["productName","inputSku","inputSageDesc","outputSku","outputSageDesc","outputSku2","outputSageDesc2","trimSku","trimText",
         "cuttingNotes","outOfRangeMin","minWeight","toleranceNote","avgWeightMin","avgWeightNote","targetWeight","maxWeight",
         "inputCondition","fatCover","cuttingMachine","weightRecordingNote","packagingType","positionInTray","packingPrep",
         "labelCuttingPlant","secondaryPack","secondaryPackNote","labelWarehouse","finishedState"],
@@ -390,7 +390,7 @@
         + 'inputSku (code only, e.g. H-WAGUKRIBF1), inputSageDesc (the description after the input SKU), '
         + 'outputSku (FIRST primary output SKU, code only), outputSageDesc (its description), '
         + 'outputSku2 and outputSageDesc2 (the SECOND primary output, only when the sheet says "and/or"), '
-        + 'trimText (the Trim line), writtenBy (initials/name after "Written by"), cuttingNotes, '
+        + 'trimText (the Trim line as written), trimSku (a SKU code named in the Trim line, otherwise ""), trimDiscard ("yes" only if the sheet says the trim is discarded / not kept, otherwise ""), cuttingNotes, '
         + 'outOfRangeMin, minWeight (the ABSOLUTE LEGAL MINIMUM), toleranceNote (its formula text, e.g. "W \u2013( 2 \u00d7 TNE)"), '
         + 'avgWeightMin (AVERAGE WEIGHT MINIMUM), avgWeightNote (its formula), targetWeight, maxWeight, '
         + 'inputCondition (one of chilled/tempered/frozen), fatCover, cuttingMachine (one of na/hand/automatic/bonesaw/tableTop), weightRecordingNote, '
@@ -709,6 +709,7 @@
     f.furtherOutputs = normFurther(f.furtherOutputs);
     delete f.channels;
     if(ch === "mmah"){ delete f.avgWeightMin; delete f.avgWeightNote; }      // not part of the MMAH template
+    if(ch === "retail"){ delete f.writtenBy; }                                 // Retail now uses Amended by only
     f.issuedDate = todayISO();                                               // re-issued today
     return f;
   }
@@ -854,6 +855,7 @@
     readFormFromInputs();
     var errs = {}, order = [];
     if(!(S.form.productName||"").trim()){ errs.productName = true; order.push("productName"); }
+    if(specChannel(S.form) === "retail" && !S.form.trimDiscard && !(S.form.trimSku||"").trim()){ errs.trimSku = true; order.push("trimSku"); }
     if(!(S.editorName||"").trim()){ errs.editorName = true; order.push("editorName"); }
     TEMPLATE[specChannel(S.form)].requiredTicks.forEach(function(t){ if(!S.form[t[0]]){ errs[t[0]] = true; order.push(t[0]); } });
     S.formErrors = errs;
@@ -888,6 +890,10 @@
     S.form.inputSku = stripSpaces(S.form.inputSku);
     if(S.form.outputSku2) S.form.outputSku2 = stripSpaces(S.form.outputSku2);
     S.form.channel = specChannel(S.form);
+    if(S.form.channel === "retail"){
+      if(S.form.trimDiscard){ S.form.trimSku = ""; S.form.trimText = ""; }        // discarded: nothing to keep on the sheet
+      else S.form.trimSku = stripSpaces(S.form.trimSku);
+    }
     S.form.furtherOutputs = normFurther(S.form.furtherOutputs).filter(function(o){ return (o.label||"").trim() || o.specId; });
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     var pwd = getPassword();
@@ -973,7 +979,7 @@
       el.querySelectorAll("textarea, input[type=text], input[type=date]").forEach(function(inp){
         var f = inp.getAttribute("data-f");
         if(f) inp.oninput = function(){
-          if(f === "outputSku" || f === "inputSku"){
+          if(f === "outputSku" || f === "inputSku" || f === "outputSku2" || f === "trimSku"){
             var cleaned = stripSpaces(inp.value);
             if(cleaned !== inp.value) inp.value = cleaned;
           }
@@ -1322,6 +1328,23 @@
     return out;
   }
 
+  // Retail "Trim": tick Discard, or give the SKU the usable trim is packed as (plus the instructions)
+  window.toggleTrimDiscard = function(){
+    readFormFromInputs();
+    S.form.trimDiscard = !S.form.trimDiscard;
+    if(S.form.trimDiscard && S.formErrors) delete S.formErrors.trimSku;
+    render();
+  };
+  function trimBlockRetail(f){
+    var on = !!f.trimDiscard;
+    return '<div class="field"><label class="field-label">Trim</label>'
+      + '<div class="chk-group"><div class="chk-opt'+(on?' sel':'')+'" onclick="toggleTrimDiscard()"><span class="box">'+(on?"\u2612":"\u2610")+'</span><span>Discard trim (nothing is kept)</span></div></div></div>'
+      + (on ? '' :
+          fieldText("trimSku","Trim SKU",f.trimSku,true)
+          + '<p class="note" style="margin:-8px 0 12px">The SKU the usable trim is packed as \u2014 or tick \u201cDiscard trim\u201d if none is kept.</p>'
+          + fieldTextarea("trimText","Trim instructions",f.trimText));
+  }
+
   // ---- Retail template body ----
   function formBodyRetail(f){
     var out = "";
@@ -1338,10 +1361,9 @@
       + fieldText("outputSageDesc2","Second Output description",f.outputSageDesc2)
       + '</div>'
       + furtherOutputsField(f, 'Pick a spec from the list to link it (e.g. an offcut spec) \u2014 it becomes a clickable link on the sheet.')
-      + fieldTextarea("trimText","Trim",f.trimText)
+      + trimBlockRetail(f)
       + '<div class="row">'
       + fieldText("issuedDate","Issued date",f.issuedDate,false,"date")
-      + fieldText("writtenBy","Written by",f.writtenBy)
       + amendedByField()
       + '</div></div>';
 
@@ -1676,6 +1698,10 @@
     ["minWeight","maxWeight","targetWeight","avgWeightMin","outOfRangeMin"].forEach(function(k){
       if(f[k]) f[k] = String(f[k]).replace(/\s*g$/i, "").trim();                                 // "232 g" -> "232"
     });
+    if(ch === "retail"){
+      f.trimDiscard = /^(yes|true)$/i.test(String(data && data.trimDiscard != null ? data.trimDiscard : ""));
+      if(f.trimSku) f.trimSku = stripSpaces(f.trimSku);
+    }
     f.outputSku = stripSpaces(f.outputSku);        // PDF text comes through with stray spaces
     f.inputSku = stripSpaces(f.inputSku);
     if(f.outputSku2) f.outputSku2 = stripSpaces(f.outputSku2);
@@ -1912,6 +1938,17 @@
       if(linked) text = '<span class="ss-link" data-action="print" data-id="'+esc(o.specId)+'" title="Open this spec">'+text+'</span>';
       return (fo.length > 1 ? (i+1)+") " : "") + text;
     }
+    // Trim: "To be discarded", or the trim SKU (a link if it is another Retail spec) + the instructions
+    function trimRowHtml(){
+      if(s.trimDiscard) return '<tr><td class="lbl">Trim</td><td><b>To be discarded</b></td></tr>';
+      var sku = (s.trimSku||"").trim(), txt = (s.trimText||"").trim();
+      if(!sku && !txt) return "";
+      var linked = sku ? S.specs.filter(function(x){
+          return x.id !== s.id && specChannel(x) === "retail" && [x.outputSku, x.outputSku2].some(function(k){ return k && k.toLowerCase() === sku.toLowerCase(); });
+        })[0] : null;
+      var skuHtml = sku ? '<b>' + (linked ? '<span class="ss-link" data-action="print" data-id="'+esc(linked.id)+'" title="Open this spec">'+esc(sku)+'</span>' : esc(sku)) + '</b>' : '';
+      return '<tr><td class="lbl">Trim</td><td>'+skuHtml+(sku && txt ? ' \u2014 ' : '')+nl2br(txt)+'</td></tr>';
+    }
     function skuLine(sku, desc){ return '<b>'+esc(sku||"\u2014")+'</b>' + (desc ? ' \u2014 '+esc(desc) : ''); }
     var outs = skuLine(s.outputSku, s.outputSageDesc);
     if(s.outputSku2 || s.outputSageDesc2) outs += '<br><span class="ss-andor">and/or</span><br>' + skuLine(s.outputSku2, s.outputSageDesc2);
@@ -1921,8 +1958,8 @@
       + '<tr><td class="lbl">Primary Output SKU</td><td>'+outs+'</td></tr>'
       + (fo.length ? '<tr><td class="lbl">Further Output(s)</td><td>'+fo.map(foHtml).join("<br>")+'</td></tr>' : '')
       + mainProductsRowHtml(s)
-      + (s.trimText ? '<tr><td class="lbl">Trim</td><td>'+nl2br(s.trimText)+'</td></tr>' : '')
-      + '<tr><td class="lbl">Issued / By</td><td>'+fmtDate(s.issuedDate) + (s.writtenBy ? ' \u00b7 Written by <b>'+esc(s.writtenBy)+'</b>' : '')
+      + trimRowHtml()
+      + '<tr><td class="lbl">Issued / By</td><td>'+fmtDate(s.issuedDate) + ' \u00b7 Amended by <b>'+esc(s.issuedByInitials || s.writtenBy || "\u2014")+'</b>'
         + (isStale(s) ? ' <span style="color:#946200;font-weight:700">\u2014 \u26a0 over 1 year old, review recommended</span>' : '')
         + '</td></tr></table>';
 
