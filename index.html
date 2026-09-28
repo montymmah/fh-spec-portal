@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FF Cutting Spec Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&display=swap" rel="stylesheet">
 <meta property="og:title" content="FF Cutting Spec Portal">
 <meta property="og:description" content="Product cutting specifications &mdash; Meat Me At Home / Freedown Food">
 <meta property="og:image" content="https://montymmah.github.io/fh-spec-portal/og-image.png">
@@ -12,6 +15,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23821E20'/%3E%3Ctext x='50' y='68' font-family='Arial, sans-serif' font-size='46' font-weight='bold' fill='white' text-anchor='middle'%3EFF%3C/text%3E%3C/svg%3E">
 <style>
   :root{
+    --serif:"Fraunces",Georgia,"Times New Roman",serif;
     --ink:#39130F; --red:#821E20; --grey1:#6b5f56; --grey2:#8a7d72; --grey3:#a39587;
     --line:#ddd0bd; --panel:#F2F2F2; --highlight:#ECDDDE; --bg:#FFFFFF; --page-bg:#F2EBDD;
   }
@@ -27,11 +31,11 @@
   }
   #app{max-width:980px;margin:0 auto;padding:16px 16px 60px;}
   .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;padding-top:8px;padding-bottom:14px;border-bottom:1px solid var(--line);}
-  .brand{font-weight:800;font-size:18px;letter-spacing:.2px;display:flex;align-items:center;gap:10px;}
+  .brand{font-family:var(--serif);font-weight:800;font-size:18px;letter-spacing:.2px;display:flex;align-items:center;gap:12px;cursor:pointer;}
+  .brand-sep{display:inline-block;width:1px;height:28px;background:var(--line);}
+  .brand-title{font-size:22px;color:var(--red);}
   .brand-logo{height:26px;width:auto;display:block;}
   .brand span{color:var(--red);}
-  a.brand{color:inherit;text-decoration:none;cursor:pointer;}
-  a.brand:hover{opacity:.85;}
   .subnote{font-size:12px;color:var(--grey2);margin-bottom:18px;}
   .nav{display:flex;gap:8px;flex-wrap:wrap;}
   button, .btn{
@@ -64,6 +68,57 @@
   .catalog-body h3{margin:0 0 2px;font-size:14.5px;}
   .catalog-sage{font-size:12.5px;color:var(--grey1);margin-bottom:6px;min-height:16px;}
   .catalog-meta{font-size:11.5px;color:var(--grey2);margin-bottom:10px;}
+  /* ---- landing page ---- */
+  .home-title{font-family:var(--serif);font-size:38px;line-height:1.15;text-align:center;margin:30px 0 8px;}
+  .home-sub{text-align:center;color:var(--grey1);margin:0 0 28px;font-size:15px;}
+  .channel-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:34px;}
+  @media (max-width:720px){ .channel-cards{grid-template-columns:1fr;} .home-title{font-size:30px;} }
+  .ch-card{position:relative;display:flex;flex-direction:column;min-height:200px;padding:26px 28px;border:1px solid var(--line);border-radius:18px;background:#fff;cursor:pointer;transition:.15s;}
+  .ch-card:hover{box-shadow:0 8px 24px rgba(57,19,15,.13);transform:translateY(-1px);}
+  .ch-card.last{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .ch-eyebrow{font-size:11px;letter-spacing:.12em;font-weight:800;text-transform:uppercase;color:var(--red);}
+  .ch-card.last .ch-eyebrow{color:#e6d3cf;}
+  .ch-name{font-family:var(--serif);font-size:38px;line-height:1.1;font-weight:800;margin:12px 0 10px;}
+  .ch-desc{font-size:14.5px;line-height:1.5;color:var(--grey1);margin:0 0 18px;}
+  .ch-card.last .ch-desc{color:#e9dcd8;}
+  .ch-logo{display:flex;align-items:center;justify-content:center;align-self:flex-start;box-sizing:border-box;width:260px;max-width:100%;height:132px;background:#fff;border-radius:12px;padding:10px 16px;margin:4px 0 18px;}
+  .ch-logo img{display:block;width:auto;max-width:100%;object-fit:contain;}
+  .ch-logo.ff img{height:76px;}      /* the Freedown Food file is small (206px wide) — any bigger and it goes blurry */
+  .ch-logo.mm img{height:104px;}     /* the emblem is narrower than the Freedown Food logo, so it is a little taller to match its visual size */
+  .ch-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .ch-chips{display:flex;gap:8px;flex-wrap:wrap;}
+  .ch-chip{background:var(--page-bg);border-radius:8px;padding:6px 11px;font-size:12.5px;color:var(--ink);}
+  .ch-card.last .ch-chip{background:rgba(255,255,255,.13);color:#fff;}
+  .ch-open{font-weight:800;color:var(--red);}
+  .ch-card.last .ch-open{color:#fff;}
+  .last-badge{position:absolute;top:22px;right:24px;background:rgba(255,255,255,.15);border-radius:14px;padding:5px 12px;font-size:12px;font-weight:700;}
+  .home-label{display:block;font-size:12.5px;font-weight:700;color:var(--grey1);margin-bottom:8px;}
+  .home-search{position:relative;margin-bottom:28px;}
+  .home-search input{padding:15px 16px 15px 46px;border-radius:12px;font-size:15px;}
+  .home-search svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:18px;height:18px;stroke:var(--grey2);}
+  .recent-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
+  .recent-head b{font-size:12px;letter-spacing:.1em;color:var(--grey1);text-transform:uppercase;}
+  .recent-head span{font-size:13px;font-weight:700;color:var(--red);text-decoration:underline;cursor:pointer;}
+  .recent-list{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;}
+  .recent-row{display:grid;grid-template-columns:130px 1fr 150px 110px;gap:12px;align-items:center;padding:15px 18px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14.5px;}
+  .recent-row:last-child{border-bottom:none;}
+  .recent-row:hover{background:var(--page-bg);}
+  .recent-name{font-weight:700;}
+  .recent-sku,.recent-date{color:var(--grey1);font-size:13.5px;}
+  .recent-date{text-align:right;}
+  @media (max-width:720px){ .recent-row{grid-template-columns:1fr;gap:4px;} .recent-date{text-align:left;} }
+  .chan-badge.retail{background:var(--red);}
+  .chan-badge{display:inline-block;background:var(--ink);color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.04em;margin-right:4px;text-transform:uppercase;}
+  .wb-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;}
+  @media (max-width:900px){ .wb-grid{grid-template-columns:repeat(3,minmax(0,1fr));} }
+  @media (max-width:560px){ .wb-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .wb-cell{border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--bg);}
+  .wb-label{font-size:11px;font-weight:800;color:var(--grey1);text-transform:uppercase;letter-spacing:.02em;margin-bottom:6px;min-height:28px;}
+  .wb-cell input{margin-bottom:6px;}
+  .spec-sheet .ss-wbtitle{font-weight:700;font-size:13px;margin:4px 0 8px;}
+  .spec-sheet .ss-andor{color:#606060;font-style:italic;font-size:12px;}
+  .spec-sheet .wb5 td{width:20%;padding:10px 4px;}
+  .spec-sheet .wb5 .v{font-size:19px;}
   .field.has-error{outline:2px solid var(--red);outline-offset:6px;border-radius:6px;}
   .field .field-err{display:none;color:var(--red);font-size:12px;font-weight:700;margin-top:6px;}
   .field.has-error .field-err{display:block;}
@@ -189,10 +244,33 @@
   var LABEL_WH_OPTS = [["bottom","Bottom label"],["cwrap","C Wrap label"]];
   var FINISHED_OPTS = [["frozen","Frozen"],["chilled","Chilled"],["ambient","Ambient"]];
 
+  // ---- Retail template: options + default wording (all editable per spec) ----
+  var RT_LABEL_CP_OPTS  = [["packCase","Small white label per pack and case"],["caseOnly","Small white label per case only"],["na","N/A"]];
+  var RT_SECONDARY_OPTS = [["sleeve13","13mm Steak Sleeve"],["retailBoxD13","MMAH Retail Box for D13 tray"],["other","Other"]];
+  var RT_LABEL_WH_OPTS  = [["steakSleeve","Steak Sleeve"],["cwrapBox","C Wrap onto Box"],["na","N/A"]];
+  var RT_FINISHED_OPTS  = [["chilledFrozen","Chilled and/or Frozen (refer to Production/Processing SOP)"],["chilled","Chilled"],["frozen","Frozen"]];
+  var RT_DEFAULTS = {
+    furtherOutput: "Out-of-Range Steaks. Refer to attached CUTTING PLANT JOB print out (Sage SOP)",
+    trimText: "Pack & freeze any usable trim (min 80:20vl) above 500g, otherwise discard",
+    toleranceNote: "W \u2013( 2 \u00d7 TNE)",
+    avgWeightNote: "W \u2013( 1 \u00d7 TNE)",
+    weightRecordingNote: "List the weight of each steak overleaf on the Cutting Plant Production Sheet.",
+    positionInTray: "Centre the steak onto skin pack tray (cf. reference image)",
+    packingPrep: "Cut steaks to be skin packed and into CHILLER asap"
+  };
+
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "1.1.5";
+  var APP_VERSION = "2.2";
+
+  // The two channels shown on the landing page. Edit the wording here.
+  var CHANNELS = [
+    {key:"mmah",   eyebrow:"Direct to consumer", name:"Meat Me At Home", short:"MMAH",   desc:"Packs sold on meatmeathome.com: steaks, slices, offcuts."},
+    {key:"retail", eyebrow:"Retail & trade",     name:"Retail",          short:"Retail", desc:"Customer packs and trade cuts for retail partners."}
+  ];
+  // Emblem shown on the Meat Me At Home card, below its heading.
+  var MMAH_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAWgAAAGoCAMAAABc049TAAAAP1BMVEUAAAC7XAeyWgPDYAi5Wwe5WwfwcwD+AAB+fgC9PgD//wB+FwCqqgD/qgAA/wAAfwAAAAAAAAAAAAAAAAAAAAA8CljEAAAAEHRSTlMA7hP+YKAEAQIEAQIDAwECIudeagAASJJJREFUeNrtXYmWnDoOBRVINiRv/v9vp2zJxotkqKWXJM2ZMzPprqawkOWrq22afq6f6+f6uf6FiwB+hPDxl3Phv39E/dGXvwt5XWAi/JHFB14QxDzfbvNyV+0fUX+Y1aAJlvkWBD2vS9Tun+tjjHMU87zyf8OPqf4w4zyzgJEFHky1+5HMRxjnOVrn8I8l/QN/RP1G5JytxhJgdPiPyP3HfrzVQcnG+YB1UdTys+1H1O+4kI3zzKcf5R+7ibKW7z9ieoM6H/a4xnNO7McP/njXIRjFjL2FoAOJYKHrP9dTHkrWWdT1/X9LAUZ+rmet82GFaYz74qH4g/SeEjMdHgrtY+uSlfrHfjx87aLO5yedg8kvycD8KPWDhyClQ3C/oKYuHYrLz6H4lDpfBm5U6v+PUj9knR+EEjsmpYYfpX5CnR8g9/FHqR/Hzk8h4+BEZkv9I8iTyx/q7NyTfxyUet9+ZDlSZ3eo8zMhQcqWmn6UesxsJHV+ls8vlNr9nIkDdXyZt4iW+of9GHsdWRfdWJRw1cz/SFozG2Jd3Vg8MRw7Tp8ptsZPnk0vvsgMTWcgOMRblmU6Ufqk1E+eqX//KRiYjVMxS04HbifwRezQT5i8lJ+YjfH55VKU9sai9pdM0Y9SZzG7fAoiDeFEIqhzphKeu+Q/Z2IlEC342lkXzm9clyJc67YLQO8HUpcIYUy6BZub88Awpy3BOKjC73D+gdTTtB37e7/g7wUxT1BakTFhHRgqsUr/tqRjEEqMwJnVqMzykb0UNHw/PxPHn/oXnBTRNxqa2qWPvqZMxzOlLszHv4o+9oQ2cCSCUnVhsxR94L+EF/VPmw840IYtpTuqsNO+qEz8gNONM/+bkr6CNgpLrMOLyF/LexjQGi6/038vx4b389ibwJx4ZzvSx2dGNjiAyPh1+z+WeOrchRNK8mJuYxeQrn2sOHf/KXV2CXPRuTqfZXrlQ3HxA98yHQnwD4XIr2gXHODttCDoMOUw/Yfnu+hfqVAU8zxCCq5QZ3/NFOX0mf3ki/8V88GKFURoE8pF1iK4q28vK7UNP/4lQ43ZVJpr3egxdS7YKTlg/bmhhr/fbJzp1NM5BwUBvTvbnEuMC7a/XM5RFHZ6S5kt8GitNxWRGj9wlP76aOKhTqaDBkfOgaJyROTuFyLe//v+j9Gfm8Dx2FR/raS3aCBvgxXuE+oq6cBDfy6SRw+VRK+kz9x/Hr7khAL/g+HGltZnSWDHjL8ydqaowEmWCMWVCWYMKk6tiffm97gtH4l/YYjrDtlOjkHfBZ4Qku4DLMu6RlQRRMTX/QfLsqS8pQ1YbJvLdNU2MB/8TfQXyjmufiHLbhTBw+C5BU1mCcPCAr6pF0s8iZs1G855puw0gfvr5CxnPZm+YMJmPtjeaEpExqVMgxrHS3RbfnVjabM5d0Xyvze3Dx+Jf1kdOSaj4MkEXTmFJqpyUOQkYpZv0NpwZWMSrqV8FUHY8fcI/mC7TX6VTRn+TSTTng4fPIdcQVBRyHMW3gK+chypQXYibnkna1TsuwlZxozKzl7iQOv/OFQHaUUwoD+EqRMpHzIG+Qij5yziCKmRf5ZteX45/GcnFNLm/y5//K45Y7gh9MdtmUopr6yZoe3a2YG1ZYNS/PmSGiPcbBQHbNH+DkkzgTnboe7DbHhgMcXtT1GP8WoyF90/yj0eoZT1SfJuPqP/fOvBoM3uEiOJ0fM64bIWyhgk9jjIFeAN+VYAY/SRmQ+iP16fh3g1x6ehkvJ1Te7vGCm/pNf3+wn6+EUDRbibrT/bSfR8IJkeGJuNII1ZDrHwQ//qmiN08XLTNeHGfbTl1om2P9puBH22TiPJIZpnkUgQs3tPgj7F22A8ZNnRMfN0HBNZ6/Tn+uOeGQXrUCeBuhEyx1Sk9+7fYK2iteavMGEPJVhE8Kfq8xCmOuGQophZmd+tUi6KWlgoOyHdCdDf/kwn8de08DHkTdgnusZZz+6DdtX9fa7RftxscOFOXKpvfBG7XSZ8hiRnFvPHlU4RbjFF5DYy1CS7D/+8qMuJ2y3HpCSXe/rgZ+H+vKMHgj/THT/RZxI2T1pTfbhlpFT1cvLq/zxJiz47faOCHIPMin4OfPXMfAxEeZf06Ez5zvoMerDbTft6y+r8WQ+1pazTkCNFQ52mP0yfDUrdJ9X67C79kp8ajsT/dhP3/zk6fejzNiDMzqq0I90MeP9PIKFPvvHiZ6XpUvC3dR34s3R6bJ9J4MZInZ3vfuW9s4TXfRa8szmuI8HG0oLoy/o/Rp93VZ8lV+k2SFImFJIUFrmE1ofespKT2PeFzxZKfSbpUdDtu+kzTZsN6wYgKkK9EAOcq0si3FAtn4O4/WeZaSWT63dCnO5DSX9zlJfss1r3x0GteEwa9AcU0ag2f4ODU1To5sln0fJJk2+y/7k6neyGqs/idQ+2rRSjsKxiGtIiCUq3TFdD/nCki9KHu8+G0UOGsDCwMDEa8afqdLbPTj/SWc6k0pGxEIV7FsT0jEJGKcItDjtFhlXKluNni/sBHp+12pQSpDQT1ZRnSe9/pH1O8HnVGTRxko+Q4V1kPl4o/+Rcj9DcaufupclExOOw+iym4IoVlvUp9w6HeBq/tZx1+5zhs9OoDaI8OIgPMiiZYwrJuTnkunIeQZQjxqykUi/vQCRqMduVmCqy2TjOSFFjnV5/f088LU+n+4M+yVldWVlYP2FrWIq8jlR6larDk3fdqh5gOeUJdCsn+2s3dXqF75gC6eTZxnJWQ4JwVCJPrcy4myDnlK4ZyN1yuuMd92HEK837wyxqo3km22kry1F25zdU6aFdk40a1J00s5FLjFtiWmB1kbZ74OUiAVIHznlKy6KqbdJp/ZHjb++S/m7Qg3K8W4dTs+mnUMrs2DpiOsHqRsL1dbtlc92W2FLO/p+U8/nuwyZUb+v08s0k7UZyhhSE1XTnSM//zw1gNWfthkQkySC4SwAwZambwDll/6t0PxGug1gAP/b3kjTt8ZHBOnZY9bQMt91q9kNh5tg630oQF5cfJMNfdsDsJWUluQ4ZS0+lVWPkMFk0la4Tjf9WeXn8SGN9vtu73j04MvN6dc6wmqIVwDDuzQN/UQhrBzDi7kq9CRxJwLl5Y9tkJ2fDyKaFZ+Jv+zZwGuTVm4cKG47eUdmTnKG2kluakcWw2iUyjn3n0I6thAROjsych+MUP1DvH8FPbh3iDrytQF/lqBjGTBapHysuydkPYLXH8r3EG+0xvFfx8064D7XBgc0T3XfEfLN1miYxie572A37eBby477TV/TGMhQ5H7C6gt3RZKwbsK2637LcIw4K4LwrxliNnGTDpus0inPwHWYIi0Oo8hsoTvmsacXdFdHkvNMxhaX+DVK+EcX/277coxVNCz92EVjvuUQ7vJqQSdywb2A80jv3m6nPtIayiU5ffoll31vOOld1bu0OCGrMN7prYlBujQGcNU//tyWw8Pbub2a+GeSB6MqXSzoC6JBKRbY+h5VAF7lKDoHXOOtZTQyHA4tvG6i2gJiX67Hxbhk4jK8PTB8xnUBfy5mS20wElIItU1RoUHfC0m9xzshb+k6iMdyYVYutdI9x7zhQt7kQfer+SYnfn03UMNT5YscFbADtE5nHekitVxZ/u9XQOmXkqeuKJh0So7HFLd+nOVG+BXQWPD5rBzLFIgnFu2lhgi8HeV5eNppnZGjZoCl0eninOfLrbda3QLBRx6WCsijoVZK7qrtTgHJ3ibYHIhDfeDGjEojBQfrCbA+Q7e9tQnfiVbQDkJlmavbxtuEsfp8iaM+WIy/W0aK9QRZ0gnOuRxD6Sw/dAOTUI5MB/qp6ogH0KQKci/IRcvyXvtY48Q5QFXTEGcXmYdzRn4ZR0Ek0tX765Fh2/mlQBjlTtDgifCnI213ciloUAlPCzxal1uF94BW3Bprr0FDX6JiqUJgKEInqGo2qaBhh9OS0y0phbFA+Sb/mQCTVzDakKUZs1z22eB7QC/++TBgK2tVfAoagwWlwjkqE2GyW1cNA0vvXQQ/RSuUgvAOCtYyEdI/nCs+j+KP4UTdZgoba6tJY0KEspX8+duInUizDcamYGb6KybOZJEKhxFJgBLoNHPWqDj2J3wDTo4ImQ9CJu63a/ezsB7Y3B1xvRWhMXZWDCD22Tz4Qkw1Ei5w+FHpuWxuFZbXmM+0P94CgaR0KmjSQgdFKoNOppXRpmDkd/Z8bBqCND0JHuuM9S7cYUDAHiEKXf+oKksgUdGujcWg6pKatOYmJfGhY0eRKCfjmi03EZjC+n2ymvXkQpsc5DrDWn3GKC8OGgzEsXEMd7MD4gaCTRcYW4imosHhpEZiiktWW0CF8puGwvjLDKnQhA7915sKpxzagUmgs0UC8uYWjD1UUiW0K5E2C3gk773EXE4TNQ4W3GKoGnLhazpkH4udV59seoSB7YqscEVjLZYqAagv9X6F6I0GXniFvDD+insQio3If6B9qSfuAdaWHHo79rE8rGd/uiqL7STSJE72VXrNr2aTWhUkwxB1GvpegE67DVffRPfVkrSg8aaO+RNV9qn1QnTLmfv00ypR3EPbJXYTxJMlVnDD1dAQoqIwVL/2V49eDOnEsOWMgNCmohnQ5nqCz0kSknRHhqSi/U/ZOfhmg9pPMNJgGuuUTqTm/0iI6naiU0xVWtnPrwjHLze/4IXbtdYQKmdoi/3d2HG5TCWG86Z2kJX6CmUaDAzucaGiAQvO43Y5nJc8rj6fl6tVAak4ijbHBxUogOOCQQpw4Da7EPzviRCT8VvcehUfHj1dp2qKBJm8wo5Vx9XMb5WLMgdAt8gCB1Lom9QdvMYuUZ2z1vOUmQI1qqwQtvux989LiJO8E+zEEYOrZB8VUyAJ2rjYJvQfY/oxaV0TfCPzR5agNWi3qtkzxcsqRALR0bZ6AT2DoYOoDlvPdCFrNHRDoM5fNADdV0KUJ1WXRMs+NfyhFbmCktEPztn331rTncgxWfIVedOjBCWnwsc0CRga603Q51byiva23UiEDDRUeXzOlVrBouVLVS5LYMLbOY3Og9c9q+oF3T8yied7IQQdotHowfUXsJegVMNyAu3on84cs05WCs1YjqgbogPbWsNNyat/2AGAwWfOhZhoPju0C4dLavUP2GiCD8nWMKt9Dib1dWh9fZPHr3paIUwnNQYGtoB0Hc5UTV8z0x41mdvIqsT/rNdJUEfR9dRYIcJ0hf4KQ7M9athO1oLE/BBRBjw5Er3tLb1No0O9PwPH4QMpUlyLo/pwTQffGHZ4RdEsXssfdOtyGoOvnd6YvjpbGvdUlJGsr9X+hmI6l09XeUNhI+sKW68/aTtBy2m69RmsrMEzlx6XzmmeANI1b+mudO69svSBopjWWx1myiJDXuoGFImix252gZ2UJnL9koIIPUekNcFbv7SS0qY+UqAW9qYLuEJ+Y2sdRkRIzoEmx0aqgrSXcP9rRS3v4/Mc4iIw4sCfEo6Bu1vCOy4Lea415pr+ARsHqh+F1QSuLKAHY/nbj4SzDIVSSeq0tjtYEjQrHJ+z8Tg8at/6wRgXe4QOmY1mMoB0wMni7oC3EkSy3ei2toLXDUPsZKxjQQzbQUe/xqQ6Lchg6BeAfzEvw0ehzkIfT09YiWxYBKLTQTkKGa4c6WngnBNs+KSqNjxk3RRe0b/R9aCG6pysqiwACK4M92tL3Gg+0vk38VLULALu1m+sRLGiEm6KdDx02OGmGHRUqUBE+tKTSOZQj9G83HoSTjmZOOMMO1YKyQ3XUHF/JjP4yR7aJccNTZD0pRQjeynE44i24qVbzrYQpKqkofMyPQY5rI/torXteGntMDufbI/jJqwRErAXqjpZ97aM8axexbaIqJvJ4H+cR8pI0eYqim8MP/uswBinsndjHPsWTDxt/3XAoqAhVZN0dmkbG5Nm5t2t1OC9cu6QzXybzaovsx8R/+IIIf+GFUIaRKp6SEqg/FHpWcf7vhLXsEhxBK1x4ke1Xbuemkxe6M3RQDnwFGfRbE+FykQ5KFZ7TXrXGKvZn4fBc29AyHkcq2zugnQGhOSvUNlFKrriabOuqBJrix8FMX5G0VCd2e2tTEmju0vHd4Yt62tOZYZrc9kYwbZF2YEDr1lDUn9DoiOTSOe1FRUlvJ5jIaMvC93XYWZkugEMn7dcENKtb5k3nIRf29C+N6PwkkPysvSbYbl362k6GwuS5njDY1eb0eh1/CbjrCZFhkrnzs1pAur2NXIoGdPZWaa8fs2kd0eCUyOgBlNTc0Dg6rmwnUd4uF9r3rYg3sW2oonvo/XR84qBKyPdl40GGsoHFiWtIGoZBEEbN+jmwFy0lKDRIoXKrxUm+ZkNoVB0NFzlrqrQX3XrauFHcFjAKb93rCq1qhdsvJexg73JzB+lWeRNqdv0dpEmKOOkECKE3ppTOpf6Pk5ruGB/xl8LqLkpO2hlgN5wzMFT9SWjnNPnP4MENL3DKEtyshF4TJu8o9m1P0gxNrKrWsEtqWgXTvl1E1iwXVECgO1mLN/awVbz4YFxlUpttpNd44eo2JbMYHZAIwSEdNe9Kt+M1D0/mhlWWB9NlI4Z+Zn1ThYFb2BKmW1tZu0cM+SLES/t8b5FI6B6xIly41latEjHnNCdO70FYNouW8FJuyQ08e6zfiVwov/es4F2hK8guPPaVyzAeUXNeQXhbrELWOg0sZmdF7apV2vODtdgTB00Ko/6nkfdtj3m9Q4+e4axVKkFdr3e6mK6OyJDS674KI5Hb1avXAq9qxrAd5MYTTjHNWJBR7IR6T3Bpi2VgJaqTS/HBxfRvb4n5UU+nPZJYH1Bx03r16gygRaVj8gSNjvEtreXAmpQIeiM+0jY/PbQalYF2fn1Jpdn4OM0zvngSpiOkfoj7CT0IQFqtkfnVHyjAzL9Do82b7hfRY6tRHxyUkr6H4lf6cbpJOyN0Vy45TyuUYcYm/Jmkr+zDOP9Dk7OaAiTU4bXVoEEiuekVlUadOxQ7d5lHoW1W4oRc2KU3/DO6sl4kz7nPpV4FuXZh4OB5KWT42ak1aWDmyT6E0h6q59Q4xoQPGKC5fTZ0VsFeGoT4NB+2TevNStVXG0uoBbg2p6BDPMT19mysxaChmUXB67ktESD3Km0V7Hm7t9GVL0v9tLzKjvcnIT0YYEUdiL1gpXHSSPMIrR9MdxcrjU5hfDari8CT2cd2T57E5TnNmjygiaDrLj5tpVHfU7/jjx8zRqQ0zQz59Eb7C/98A6P0krwRhGiT5fBx25p016nRpMetdLLQv1Sr/5gxAulC7Hoot9gyeULSbtToS2uKhE9wnKZJfc5KgxEwZarqQVPkYzYxefVsAlP7HgV5oJQ6Vga6XY+cFO6h7yma/mo8Gz1uoXt+PsdH4FFNC8ts+wlKsxcleW1z8ESrqOTuKK7wFkvW2uLADZ7Ky7Ao+qcqb6RDWX+4PhdOQOGR2uiJhS+4HlFv4ms7KuLAk7VF2tsZoPhUbXTz6egZK00Mlr3mKz4RIAvlAv35Zpc9pV+h2x74CnMX6AbaPZt4yyrdj0vcHgcegshI3zTPwoHuFQ261qOt7vYZZZp89WvAxWSEx6vsnG6lOQTz2GtD0pIr3bPVUuY7QrttHwrIw2uSHmBC0FvHsZrjM603DPTtHk41Nk7Qx9F9yXFq+5R+T6P9ft01Sh9WWyLEKifv2ok6z/eDIKeaY87W3B7QQyGjdAyNv90T15ZOHmiYCTnBnKGk1yBOQm+K+m8pnOA0rQGAJxZDoO7PVBBy+d2RdBdxqq/4/LUqG5hFNHttLFzCCqdbiBubqg2eadfT8lI/jKe5eh1LP8ZQed1ZiTdfX7k01DpAv0xHrefTG9HsdESpPVLDE/6PiyPfvBYcpllf5Ue5Xuj2yjVr4DD1ygO7Qba/cBBaR6oe1Np5xN6Li+nYOnzIaeENoPZ0n1++lJ2SZjSiDcz8lYNwBOxIQxwvr0UpMNBHPFgmWgPefKTCKxcaLi/aMxkGytoibm9BxHX6rSjN/UFeW8syK/NniNbLCI+PQmyZYslZevFScQTZIJhO+SUH0gF/M6M1fT1VpKZfzJYDJVnT6pj6AA3INCziM2iojNRGHNHuZIoOktH2m/vA4Mh5UFvU5elSaKXQ+9eWonV+cgTzxUkiBraD6fmgWAPFFXNMbmdxedsXH4RUjKaLRkQd39ITKQ2R8iotfeE45JR81SN4QycQq6mLIzzrSA22D7uYHcyV2sGd4C1dvtitIJ2muMDYb9ZReNM9rycCCho/nvPBUDG1tpm2ai1TFxHlr/h2uG0vC1pn+vEaY09G7Ivm21vm3EpufzcwPY2OUCQTJ+Hob1nStLdd/RrVf8e3dWIMdQI3JTaitlzXCdIOK/2KtOlbhkU5K1aYzq6egt4ms+Tfqig1aUF4XwtoEcqmQelTu0QbrhrN4d5xFJ4QbWBS0KhXqLoJB20t1d8QwvvaMJLXrARMV6A0qNNN3nUUVtB421V5qhZ310bkpXFuqLctG3X2fE+bfr3iF2m5kJbipsU8Crc39Uu429xZNdMD9t4pnbNEaI50R8VIOHtjq1xd/0gd19CDDm03xH7hWiv2F87rm9Ha/WZ0buqsBEho3Ur+nZz5xW8qkicXLSqhxuaPWWm25LvK/vn3teKEwbgCA8p1hZPOqCgRImPdUGlnjka30ScvvS/wfqGZnN6I5ZkGR1cIZOw398YjqXDbNetamr4UIekKLDldRCt0EAT9xgb94nDv6k8Hr5MIlY9sulP+yrVHea6EdNnjdnUJL1qtMuwxbfj+kRN6auN5E1toGrdXJGvfQev5C8CPZ+boXbli5RodME3FiMvZjd+6jsgda1B6hRG1S4vCiLi3EKT9wvWaZDsnr0yT4uwF564fdxHrzOvbl6EgjCu4Q/vAFnD5urz94qK9/sgSbqNLdY+Zvgx+vFUEww6+1uVJglpvvzRPjk6SpWV2B2kQ4fb+azb8wN1iiiTdCR27KnbH0MlK250/YhW9G+5PcIfOc8CgyevLT3kzR1LpTjqzS+pw4NEfSpHbx6yhDzucRcNhUniOQXvU17fdPCJG+4KhlJpsGY4NVj16GEM4t/WDFmHiDrA9yj7eiKMZEq9ePNFkUtC0fqQxB4lmPSjXa9oH7EdcsampU20DDEMGpCKRt6I7ubyzqDTQ5v9mon8BtZuWc8NoSzAp7v1rQC0JhoZxFn0Uo9ZH+72uuHZ2idJu+l9YIw6UnmD8G3ihou6M79AQxhnAUwil7bEsp4f5rxj37wk4IIOYZQc7zIpqX/1mlgz+sqZAvElZAjx3V1zG8i20XcjH1qZz4SnP1ri0rM2h4V+AYYdzLBA1ClS1Q6n/lru0AvfYClJEhVSAtz0I7s4ekrboVLfkavgRjieWaw00CjymyDN2fVBicnqft8IM+TMB9ytwcQUnEneal+cGAS29T9oEs9nvNzarLjs8x6yvfBXv15vm0ewLsOuJJNxDRDk0JGNwN1+ZpSt3aW6FNQd1BRT6dJnEkpokuxpEnNo1NPEjGuV3d89ESRAhtpNamyTA2GgKhFzxeqoCWoroOfTZXlwioBgV4vWaPQ301tCOU6DCqHh7BSgidx4V5Xb9PLNp1GIdtQ7wuZtFx/mSKMCSGh3ZibqBJ+GjC/t2jGRobu5IvCuHpGpUGFBthgL1SNFJd0pMSxisIC4hDWj3ToULdEH8NruvzPO4mwtWAvbsqueZV1aDIrU1/XblJ6VWs3erXSXouCl6eH3mhHloswI1uXv3M5tH10YZ10vQV8Ct4ETa9UwDcv18EyuzbrIylKhuQ7t52WmFjA8bAVWXOZD9mD7Iws6mMMk7diKbFUE7VXRMjVv96w26/7YkQVM43+QvoqIcS+CGWNStoFjCTXSbSUYsVVTpDbhaGUvm4SmvhVWZhVw/X7dba+RbvBbWbEq/8HfHajIErQ1ZYL2VfNff9YfXm+H68Dx3fz+3s4wPTa7NQlavqV9CvQaMP6ZiMym57kYJpdLZd89aJfZiSZRpsZHksO4zjO7qk4/u+vVE7clvXjcd1A/SJMngnDrz7SacTUEX9QtbZfGiyLyswBsr8Gk3tK9HrEj67otIeoiikXV5ORpXLskIuAg0x06qvHnsDY4c9OqEbzZm1eaTo1lxe9kSb6YfVn5ZYchYhHAWFw99fl1SqaVo1hluEJrCraYx0CLnPbEnG3KrpCwNFAP0eCCcTKzBrjp+isnTpD9SLU6SjAnfjXOR0Z9ORerL3AKJvBv9I/zH3XbKHwVuNO0IZiF72W06d6F0iT8o0urGrJ34eAZvfjNp+6YzfpnIZBPLQ4ayyegoM23GaqkuVaPNJR8Sjwf20/YsFG/REY+euqG7KxIVL28Zd9oL7MxdK1wSezzTQR/wrQkajxOjXVoUtJWChNE6HH02n5RxC8E9smCCqihene6ygOmuzPlmYvxf58DuEKtJorsm6GPXpab82yVBTxWK3p7ZjQrz6nhv5tOxxczO0HOtmaCTsse7lNH2op+nch2MdkcraD5ethycKVGq0ZmoPpLxzQOmHcPdOGJgNpMOSFtUZ1DmrMt6X9uPvNrDsFSGFqVq478/4SLG08uq109GPg578tHgD5w1MuKDr3ZO+lZEgFo4h4PBjx/9mF4Ch/1rVn1DxTOXpwfAL1lB57D4g7FtAz+2w/Ipes0z5ugMnibdbUlAcXgfHrGbrhcfv3HBeXR3esYGjiY38tXvfO7ZU82bStM5hdRTEv0faO4UCRss4Mz9H/D8dCPXmN36GVuUeikSNPb9fMmJQfTJLzd02k1wfNkBv5Ku60pY6uUqUt6dfwK2Mu12iBIrXArMFUFDLTweRd4qfhnTw5fn3fmzX3bCRw742XZMBLpQimsXYWHRPCxrbHS0Fm2rGim0/Kh19ZMeYeExJOI1uDMwoE2CDindXUISarqrhw7qL/CZLtKDFHm8BDKH6x6Qc8MV1GlWYkh8e5xfV2nHmgrms9+yxy7G5GT3redxQ4ptJnpsjZH8NQUd/dmCn74pzUYOHocJycsIpnOh/FjQpy5La+0eeXZ2JWAQYgZ1ilHLdpAaHB8wYmHTbR3LzJtNhmsDj/JY17WNsOAVYVBXLQmVeVMEDfPVLBnMbkbmpSWOLJlvMoakIfsZydmCPmc7GDDvugtsdBUoOb1Zi7MUip+59pmdecRrR+FampqxjbZTblRlxnIo1GJvszJOILKGARTdNLYDOyBCFwUd09vgoK5ExiHbxG1ZpSjM8oA0PAWP18KPO9a8ve+KCB3quHV1h+cNHIhV5IhgcJVcSPYJmTLlwwMcx3xebLB/iFY0SEl1rF69nk1l9OkNbaCRpXaEW8HjdkrW5ecNc8QmOIMc3cjJUoexgXdTHlsyfIUgsbPy2XEAiALXX/HP9y9FRU02PRIOTUs/nLQiIdJ89ZAfERVizlvpUqAleATJ3Myi1rZItEEtdaYE9VHvlLa7D8UsDyAm11/ySRgFQtIu5dmhC7sdXFGhLjoMjNxdU3QJaSSmWAD3AGBLAd6VX1P4e2dDO2XUEhwuOKESEYLxnPKQoL4wp7lKSOoR6shNhYrBpIzNUZzoRlVJ55mmFm/fzYOIOSoEPBPOwuJVGUN7HZd7du8QD1LJIntjTZbRq4a1+Sav+IkARuDpvOyI+z3K5Cdd0IpcV6tarnxon8eSLo8g4nY7hcjxkhVLaQw2SfErqY/tj+Mb+zMpNkFQW4Yl27zARYRpUv3K+FW9KlzpZKWWJQYNKrkGftQoZvfiPMq8M+7f2k8l0NtclhlBO6lb1aXOYG0EA9MXjs+Gi7KOoq7URA88+O7sIztND/If7Ut6ky+XU1PchOpcXlPO4pTTsQcV6PkrzdpqLOh0iNm/WnMf3tMSZzuvPj2lDpD7ZDGvZClVQXQs5ka7twSMeIPMUTEOW+/yLEKlhi1mE0bp7tQEZ2u3JmqNK6xz/qb3VNxvEIzfjb8HC60klRRFG1gXLgEWKvG+R5XTSV5eTjiQU8BowsLeInpplK07rTKzfZnSqyJGWbx33tVBIs99lw0pdnZSBU1jSsQfgoZDIu8sG7rLa0/vD5Lk53lQBMaoj5xZzXVIOuqEC/90i6jzW6uyQMyRPLshaNAE7XtBs6k8Ht29OcyclDqYj/vX78Wj6x+PnWtSzyTjYfakbBAJRtYRmN7QtK+lTJJSo1SyjE8VK76SBC36E9T5A4K0d1wsSpxxwWTHdI6BxyFR0yYtOd2ORS3vzn/EsydDR3e8aBWmtIJWG/zw0bOwSnxMYgekpw2y4R0+sKQOmZoaNqQPidzx+LvFu5YG+70XYd6QMCnl3dQEL6AnaI5QEldQrm/tkFM/zc6lg9xvXahA86VS9KLnyUrYY0Y/1STwPe/q/FFpCMjmY+XU3V7QWAlajRgmQXP6HUwfmNvBFFL0yudM+1qyIY7sGGwoHYnc+ZbLh+kIm49omyZN0NPG9N0lQfus0R+kFcj908rwETNWBpMS2GDDMWVqsQjpsE4vLzqyYx0ZaDSfKZ2gFUedqbBlPjmjXrbRTPJDGYsZQHaL2xe+KtckhBQruLGN/pCmAZvLoH0g6OOIjIIGS9AEclp9hFITZOicaQMQ67rAQ/2qw60W3hkrHMRBho/ug3Qk7hgCo2NgFXjRE2UOjYb8tJP7gEdN8ItiqhMJkXF7cBeJAzgnsjkmGlGS9Lt9rQiASvfqkqDxRNBThuY4vTNFGvfDj3WloV1yGstlsANMUklVbbH13MEeELx1K06FV/smQZea9zZEGgBCmNvJ9ql0lJjqTKwNXpNz4rxi96AqlwILpX5fV9Jmp+hWwT8q6MOWrjYceIJSkjtCi/Uip582Jl6Sc+Y35i7aGCkVsSnvMNWh0yckxUM1u/VhQR9YJIdXlukNWg0pUNGCC9bnIN6dj5orbeL9wdhh+ntoKdkU63vZeYkh3pZL11HHM4IWpb6xqX5JM8LfJmLD1dsZkpwc7/n5yoBwynMYthTYbSOgUEZY8AVU7ZBSiDdY/X16v6ALNWStfiFmeASyOnmUUhLLeyLp/Ec+kXeqpNOzR/D0bMwwJSxwQK9K35mfNR2KG0M5shA1gx5WDa44Yq9CcUkgDamB6ow7yWhtBZsFj5MtalbNxzZi+IuUcNCC/NcE3YfuIOdT8ePSI1nPObcwZSs1LwpTGAoaNDEcSkYyKQd6O9+Mp3Y5Ei6pPw/oyRZNO5QpNI1gtILkSw6L1wsrikwlzqG5uxnn6T535Q+3xyMDxU3NUJ0NejkLpRtIURpS1LX65uE5DZzbDq0W79FdKO4kxwWKVaZSn36nldg3ktVd8DJm2BFkKWPxyL2zIeoGcFCXt7wZvMLWK3roxwPC9W7TGYZ0nTeoTM8E6aVjE+Cpzv6Q8rqQgseZEKUrgl6my/01KRurOp3UuZgWnQbRhURpJz0w8P6VZfJrp6HJzUclnWO1oYfVqf4I0aJynmHZRABEbcPDF88eH17qGeDIOoZJ9SMkZkjTCalkjFCwy2/CK6WDkDwKELTPLkejD8nZBQUJr3q48JdMLdU62kmHqzAkxF++Iacpqc1HlGcvm6EIUW56TKsuaDrho/UkhMMgYGLa6nqP8mqS5mduJNIrhHM5+Lb1piHFCNXWZisT/KAlLUlUFvqm6whtz6J5XbqHL2pbkk23kpN1QV8LZbUpYcoyU6etqtamqAEpykNSOxUtg9NnSnpXfZG7XlqTE2Kirj7nbc8kpjr2t+gSlh+zfPbq4fnZ0Q/yjLXcO03QqsZo42vbA3mbyk4nRt87rnLW2wu4QvfU2Xth/y9xtEqvmdwhfVYlnTzLVee1Q5PM+ObBePZb1fBuDK0kCcaNj0jUBU3TpfErqXgidhtcqiHly2L35SvgYkk3KohjBtLHL0tj07htb/qci/gKb2awZjv6hmkPn1bmThG3nrbbphvoCTRm1rSmHA4Lz4XnORc+NzorByOqs1DSaPrWKTWpRt5bGoEDuoMSV8q8XYgOGdaVNodFFi/WTUlD16orRQFgzDWti5T1lLBUw3KZFgjNSvFo/L4FwOSHyeqZklZjv6WDh0pjTTYoHN6Amy5pVyTe4VBVQtu1Yz5qLHN6qBGM1oajPyLDv92v7iGX2+2ZWP3F/gCUOecF1dGDSZ+no3F3/Ym5SA40dLpKJcW3PXsPo3VBL72ge0aE7c6H9UTxQuIZImgIi77F+O+4GQD/k0/ftOnRRXQoJq1+UIZH6li79W5rvQ9J/xhXzuJHtMbPQYrIg2kBmGUu375kRBdZz1RVIoIWWiliWdl+fITeUKr0OG+baVmY+zlCH5C4FumSaZ7N9A3qiI9Qrl53UQrv6djl3rTTR9LqhQLHJ6NyqHrRXVmhji+4nf4tonV83wzAu09JEQzcZHiNgkW2VCGx16xtRdtEwf9usFTQ8U2TBRWxhnfuUZfjGKvCdDZy3dQaWe7XEfVg0/iJJ+NYQv4JptudpoB+7StREOaCtpXuOpubeklrh14R1ola/aYEFZCo3M0oJW0EbVR9SzZypmBfjyBvWNDZk5GQcxB5zvZytelCUv+yomodsK5FxZc3KTlhMcV310bDNC6f3s9KCmrrgMor3TK5+FQYysVIETlCsp2C4MEeac2leSvcGpNT21KJogmJ+EpAnMOOOVyksxVKC1Wd5GMTX0YWgl7TM2/fdaXgqqV0OYu+M7XllEBpE7BNZvRgt5B7Vch+ze9TdJlXk3TQYXUw1/wntT54Z9m23GUM6oCK9w8ZEWEUjgBLDKJblT6r4XqkKdSH9VsVjpoyZectXxSa1gwPtlt17Wokz2PtttHWDVRwUmY9qTbGZcNatF3HAYFRAvkwqGdqWl4w8FCuHW26XmImCVnjzMcl6p+7rVYq6pabjRztQKdrg4RiFIamsvkIQzIgbYyTxoqqPZWKRpog+QxzOxQBreZwkTw42s4fcSy0/bOjytCW803qxNgAaDoNdQWggeKTqG5FgMWbnTtiE33Kq6kCWyE5Sh9xAn1ARU84KMf+OE4vqnrcH82Y++nCB/u4znUoCN2AyGP/bXOGnJOGRDy0co4eWGberlIg55poVtHuRxZTTORL0m9WAwmJpb51OA7NFsEstcx9TVWsAEk7m5kaerAN2uZPzP1b+3KvCiQnjdidJXnCCeZYDOtBRyjB5JEEAikTQozQ4XIEkvKWFh6IjOlI6LtcDyPG0g5w4lZx7RSW1I3vGA5aDRs6ht04G4gjjTY8JDkDt2VI1IIlaU6141/aNagupZqcraYf3UNTGftkLEG9Peg7ORrUf5pxv3fBthTanrthR9Xo3iNWOOzyjTunmkUcsdlEXur9lB2sZTYoOywLwGkA7UFiQ92Ihy66ZXcbRD0DRm+1DCridqQ1v5LMncI8KNe6HlZ8nA9EUHR5UMk3kSce82/ZtUWThj4qWs4SujcUnc9TbfTVZLPiXOtJGKN8Qe0yr8cHkcdParxP0RuVA27HVQaDCE4w93Y0GkHNJadM5EW8cgy8CWrhJ9ADsxVld54U7YrgfLOYym6Dirk3VAeBqC3BSG+9hsPcjgCSnXObcbCH357xCVSlAiuruCvPchyRkupzPBWMKbsyKfoEJlMYsuAMRzGG5SyXWIZQ0XRGKQ1opelSo3Ee0JmvkMt2zdc6KEar4cpREFaOpSryUDClUKtTqY63eD3VP3YWLFdzMmTUmJuXmY7tJLo1IlDfxOSCnZFeyTlMPi2A1FqhfrCdyRyWzM2Uto9YRxuSqJiOnZTu3bM66+72VP/rcypvqjLSvZrikgzDsWmLMXt5QdNqgY9Y0i8u7UvtwQbXrhKJWmdSfiu6jRiMQn2Nl56q/HsVYKNUC9Wz61cW9FqkDhJIGEHFzPd7F2n6nAr71o0ZJyk4xZlVsQjqPfLTbGJ4Y8nsFh3xIvFfd98gj7gqtIXPEqgmdEpc1qbsoCSOI8Z4Z1UqqMN9jXb02Ujvxns5yz27bjIQpro8Q4+yU2Lh6pObQxT1wR0r69d1QNlRbEFZUOFvXY1lOeoWEg2QU5rNLcWURHz17dNUNt212jGXRF47qgmS8LFBTGPKrm6zG4neV3dpSkidjbmF1ggep74YruHLnL8D99x8lVBRX9I4rFlGzkiuKr4fDqsyL2tWBE2ZstuNe+41qx5F9aRih9VMPJ0xJvgqfeO90RZ2snojbjKYrGi47B+cTlYVgpRVLNuYl46QrX7cu4/EkfmCLsg+QKbsYBDma2c+PhouivMBy9XMseIANbnd9Mwp3WXhUXtleYFU2FyKSURfZsokWbFEc8jZXhJ5+qi9mitLXm3Bblg8ksOpmfkIfDyXrdyH8SIoxkjLatS6DzJMt9W/NlHBeEQkqob+obU8dPPf72AxDOrBbJoPZvqsxI/w4KXv+1oR9NJOus/0QZk6ug8tazOeIP8ujELqV7Nh7KpfrKYgphlE/J70wKxaV2RMXUEmgcsxD+0gZJ7Iw6Uf9/9TzNSshhEcox9sXjq3ZyAhNxoGElIlPvQBtyp1lAY8NE2jsc4hD6FYTdG2DnAph3DwdFG9JkSKB0ldoz5tKiUd+MrKHuVBFVmXSa5cKDTfqvkaw2QKSWIrCPtO0Jii3JqgSx6aQqjX9kvRXk2bBzlcDYAR1p7MqUy7Uckiqh5GULhi68xdcVAeCN3OiznK+dwIUtHRfXg7Zo81HMzRyaCleLGk7HgU+CiPwDHxAfVqmsWs7WJS3ZOXWxicc3b0VIctj4m0Q7TT5n1ndu2rHN80nRDTiGUD7KLWtCW7FEFXuBqLjisnHq2DY/7HldXEYEaawEzT0UEQVXBnD7I0CkEoDglOZOExDzxV4616fGU5Klnc2WgLyvR/6NIIRTKuJejJEnS4F3D13Xre/twBbmX44sJqwgAOqhWXRsqpsCNLnQjbbAPXKAO0hkwubH5+DlPRHcXwt6rMTRG0PxN0kATfScjR0we4A/0abF5dDZryhMGINAZ4TnMgQhaFFtaHCECN6AtcdLxy1/yggk2sQhF0CGM2HEIraF7mejm6kldjpeLF1fQRlsR56iZ6tVZv7gNQJ322j7Kl6zGv0VeEKZ4LOnos2Ju8VtDVmIoHOylRXoy7EFtxqmoO6qw4IqckbIUu1LeP6KVKMDUteC4Juj1mVI1GrFvOfEAbys2t6qzYuws5jACa/Qyif7b6NweCqJyLJOdWdKe2RtDNUlpBky7oCaqWM/EL3zyAneAYwdN708O9oIMVktFVb2T/yfnMSzOi27Gb5/uQoKv5jIEKptwHJQ8Te2/UUKoOdl0xR5OGqZ+EU9ic9W09pKnqrnRAg35sjFZjrQq6HitzdJIK34RVdje8y4bsJm807SdjWdm4u2kyvcP36TJIM+2VeekC9yiChpGg+3GArmxCl9rlzEcnpffEV0CvOhigigufcHoG8OPhwpox4RiEb46+QtC/eo3e1yZy0WcEudpqU5qpIPsn7nUPLw9r59mr+CjmOHCHkTcbOja8oAshNX2qYizr2nSl6i2y8oL9rAsaO0GXTQqCMTk4f5AmLdsrq+HxOwoPSudZRxDLHpUcYdoTWRoO70cjLHlAe9FeKZiMVqzYpWkrpaaxkmWfRualNyYSkoa+axUCPBphSQNHjWEwUV3m0/sYZnznIG1+Pu/hUoQl5FfFj/kuxoLUNifz/ZxL6mL2kcfwnUc7PkLTZIima5UcjOjhSq1ZiGfUY2g1Dk4gxUl9v7PyyDgLrx+ZHOKBnmsrwmzcWBwUMvGqIbQlO5ao3JDA2eYEb/1Ey/5g70ilvngPu/wqSWFm44Vlhchazn+OvAEqqylM5hHLUNM5bEZPgdqafeHY4ZU6hEIEWIv42LEAucfFVj5iI3rq8rZdL2hG342ON65x7v1CZQizKGEJi/GnQdm6WkSf2cy2+6xhBTkjzjJt0cQf89RvOUE7tzHDsg9bU2CRuqYd5/3WvVPSf9KURC5zM5Csx0qu6+qQXgaJlc1bo2L812o5TVu5ulwkykHN/oRu0PbIDUf9N5EshiqqU3dg6yISR68ttkmHu8BqV6qEyKf7ST3CfGmJf+qGzfTVO60N2u4YL5j/BZblmcVIp05Fof0gttJ80vJqNj5mD0N1cORqJ7OjJEEmUdTQQAxpBX9brgWroesZgDYF7tI8eGtEX5n2jhBJJyZz62WJyGAxx/EEs+FXSM3hBRLePA7ZSkNJfod/yCNU8YiVY8RwuAzetydErI+phNiLtc/IlLyORvgtKsRuanhPP0iM9GjeERazRrjdrIZHBx0hAAdoKnSihfCCoMEYyki7O7wHQjkKF1FzSlcyf3LocYqbMiqUuonCvVh9p5mwr21ehzK9rofovdPpipTwMACGo+gzc91ULmfhTNWIsOJriU6hrrZ4PaEczC5s0tCvTKJNreFJ89cLbCo33dtYcBWw3duu4qknVIudoshGfft6wpf6TPt2obG1Y0+eufi54Iz6agvNWhJQ0+np/DhU78JQfD36RenDDrBvDkNdixDFIO9d0U1fEokp7tqffWWjE/lJBb+7ujPsz31OtQaqmc9tkoY4GwgA486GOKle4TxP1y4yORFXGCBwwoktXRkidH+vVG7sHY7sdzf2feOSoJvjurVCW/cT7OwLSU+HStKub2wTStOXIxkw8dCaE3FX6PV6LIqXRzbVjexVG6N/duWg2DpuSPH5escZ9J+sPf/cWjtxBzqkWLnM/VPlEwoUhzm16QY7DJI6nGwXNRrnm74zdtk0ibVXWreSQrZQH30HKY6pPtQisH5vsflvSaQ+E7bHjopnrLE/UZV6Wm3P/dxCtxEzCuKm9ZHg6ojwYHVNTKfSkctT3FcVv+e7ZSuPpPIaHXdH9/cLdQ1Ldrm3IZWAHdejnVwbwjyr/aVkBwd/JYhAq1UFggtlmVND3OihGMlNSSGoLhwvhqP6LrezMayOGGp1vA8YagmuufytfmtoePOuQyI0jc6A5OODJulcLzAbMRDHYOE67eqsfIXiNFoXP1mNj5S2uA1FLmW9bhqdVq5Lu2T57djDwDZ3sz9rt17dKOJmIOgiY5oJhqP7u77drzsrZRzdinpzW/1Fz5RwhLEtTP0bMey+x7DYOzBu7BeyCqr+YnW7XcNunQGVODa159BNzSF3koViiQaUXnxnfIcd9XaIrLPKL7edlIlLcc1zlUi/9TtbaSPSE9ap6H69qQ6K77+ho1OrXhmqUXXGyBGJd8zW8C6gx5MyaGClO/+w4XLaP3MAXZtDBgWNQ9GaKzScOWnv4V1nkmsqsAeBQVVrQyEqXYdXQJxuizKaYSfbQj+WOTKw0nzDue+k6oB4NI1XovKNMVFgkF876qM9qnJ6t2ILW3wSAmWNWmK/qBBI7X3b6GIH4oouKxnvIT0qPrp228sUSmXtG9qrI4Ccsjmgz3l3Fh6rOaaFU8ao3b9agLbr4qBlp8hADG3EYLCPpPgIq14IjY9b6MMX0psBqPOpmGDq6mYIsP9+AOVYahWQ+gS15JhQd4Qwki53LWcgtlLtvtfpuDn6mvPa4Coft6zevyPRJA/nnBGYcFGQB5Q0DiQ5g+rh1PCVeiY2Yo5eJdcmWY4NhLBnne9bH3S925WYUadYg3qhxDq9Qgs3LfhGUrz2eIoRypAZ7e1tjOLKEu1Uuu0717VXGNdvMlAPvu4vBatAz5kzwCPXy17hfFDZ8r2EpJVTfgKcBron78s9njQX6xNu5tC1pQhz0J5nMLU7kKFlPftISzxTmk4KO723jlwc24Htt2GfcqwQD8xu1IRXYvH76Sh1O9ktGrzWR0gfdjDP83Mp5PKOCEdm2kljJCHyfhsf2+qH6hRa8amgx9U+Z8FM3Z7oExOkyAkbC9UH+dFwussZ2O6YUOmsI22e6bmk4KHnDsAVDmm+N4+kMhxyUE4NhXTYO1zdZNRBdP25v2L7YshgqZAUGpR6dK5wQbmdLMRhaouts+5h51uLHjrzlzHZEPKUE6fKuUVDioWecJs176JWs11olpwm0sRxlyZ7ITd+rOwE9VbabTz6bCeLsltAcv6MGnNxvvcncyb5z42US3nDR5UIqA3Bb+3QNlDMpPysw9U15mDIVWRbrDWL1OHmnUk9cmfaY835DOMzcnFXlIWxvc2A9vXz0J7KveccMX02kANUjNruUKH3XKdm2pSveN7kqwF4Gk8lx+Heaw965SxZ1P6zuTbDtA0ka3o+TR8HHmeIn7GGGfWpTiM+Ji3Fh3F1dWptmqNY0UQ8jKdl9mYVsLvu3O3HcC/GpPdA8MvAw8Us0IzO3QtlBORGbiUnXM+GmHmab9+aU4FBivMq5pUUEjIVtPZPtrd4kLRCBa8mvwxGCAcBLjcTQQtr91p1oCqXxjSt+vxLYQuaeDJj0eYsElXdG8+i/t7E2+/1ZsMhZyRooIoDEeCsRLoBTEmz17UazQkJ/nswrjLwD41dkfyWvrcYOZaz13A11rhaQvw4DflqPnz3mt9pMso03NhbaadywBRirlHSTgFYN7vLIj7tE9avS8INk30g9o1WkAfPdG/Aabg6QVvFUfRTHZsq9Yb6ClroIi9JqOR6qqZ53cGgSztZasNNA09FX9PTYHqxB0CwGmAL9DWWcZe3Bme4GnSKc25bDXZ8RxdVoU1hMhhNrS3dLHGLJoMiIu9B4ETYyddLMFPi5Gb9usUWxwymFr/vmgeWPH0aRlvYd5wLXO0UiodobjeCjZuVkfOUGvdifZ7Os4ndQGEnXzMeVrPutLGwJPLUTaA6sYm7wpNAGoJWaFWJPh2HNZ5geLLBOaMedXph0kYqTIUunU36c8joPWM8bDi+pe7vKHSdNYMJ1PvIhtn64BeC4nuNGVj221st13Gzag+onQBFI4YjauEbEEfNTJn1ye7os59LVFctASUaxg3O8aMURCpB1Pr6b+7aAEVyqk7o+q28Sk5SCpHMtsedzwvg4c2x773ZqDzZ1TcVyfNrM2fPlrMjcBWFgC5WwCZm2xW+WvEo2u7s2COygqpt40Kujn0osIAnXCs+gG/6SDbFvYoj8b5GJmcIJg+Lzgmm3TAVCmB5VgYQ9j6+FpgW1mmjMyrI9R6lQSSYPoA7WkmKnC3fmjY7AeRZGs9MdEhaMHOt9TzPWrd9Qt1R3FS+eumyj3cfdey3inj2krDbcVbgZvxcIy9fRYnKp3KJYV/nkZzT99M7237L2WF1/ExUsTWfCoUd23sUfj/1sI0s9RZ66cevc27j3LF+S5vrbwWrkg9gjxKP+kz7NEZ27xyALRDfbr0grebikG8yHmlR0rt7GtcrcR0ySso2ef9Tb6VBMx44XSSSAg8tw7bMUTL4JpdQM9MDB2hPpcNKcXQ6U0hhrNon3ZQuGHxvcB65Nvf4HwmJOgUIUC/SNiFjd6ZOo0sVQjTi2z5goAdYFq3UaVU/JETePdLGzmtTlaQF/0HDdnJxDKi6A/YhA0YendO9OTXpJ2Vdjeyz/OmbZgVoEB+mAfZg/WjOfLeqQEq0rJ9J3TnkBHPV2rct0O7zzZSkZxWI7YmVcc1TICcq2X1JcBoyIC9J2q83rfd3EwJpumTnDKb21XvN59pA8WgjRVKXDFf/6uGcEq0wnO5N5hJNXX2N9szt8bKkmZpvvTL9vQ/CBDI5HQ5KJhkU0rD3qo3savbjnsas9FXa6ee116ons4AOnEiMRPHMYD1zTyfg9BEXnh2IUzsEmZxFMG1q0EL1tI4QljSnkEsaPnjNpnM5T7Wt/ydOdxvTJ5dHied/306k6IYhl9evBPFh8ATpqYNSwvGvHi4q+pVClNjw8bNeDiyXkmaEri0JKPZQR2/kJuvMbtRytwDH7TZwK94BPW5jy0S5yDS00UrzOnpPcVoVrA9aXmXKl4r9jDD0w5UL4g/k5dQ+P6qR7l+W051yv3DyPpOPdjsaQlzf7qk8Cj0KC1dMn2g/49XSAJWOl8itw6G5nLsMUY1V86InXrnHmii7VX/mh4TwhmuD0y/JRKM5Uyk55FtzayVCvuFpcTX0ydoh22FVaDdnuYL7RLwRzQHwp27uR0CPE0nzVO7EfPRQ1OtbWARWB6F/iWqOnFYyI76K029IOpq82yzj+kbfl+tbpo+9MiU63Ft8vMzrpI8w0o5UNdDFGe8nMArVHAaV8dk2sIkkGQ41PuNA3Fw3ffQlIG8oaTpSi9t0B/L6k25qBZJo+ThL0zkNdkqGZhuIZ3FqAU1WjhVOeoouH8JwDMhnHKqZ51OlH7rLqGT1uPWEdajy3p6IYPwSvx0uoH52XzsuBCYYj+nLy4rHD26fIOi0e/yw/z0eE9wKonGTv6WemV4U6sCB0Qm7OzmUECmKLfKaUxV+vpUPC+aR0kPxDwTQilEM7fpGkt62fkJY8ne7QO9vNdh8mVnXcfNv/c8PJuN4+xJR2cd7x6fzCafp0yQdXdCzmQ4+TwjDAq4uRAbx4Z9l1lWnm1AvmXDVDGwqQp3/uUs44NPkfFiP8eGbduSNh9hnIk9ZeXxvTamfJLJfInw3tYiDf4ptlpXj1MDVTTCVJThwDW/B9ImX6PQJHxtHmqbKJtT5aiH9+pnwqBObY//QaW+wM7zbRgs7gH7acwkOfkM5J52ez9XgKLexiDwgzdvEx0JFyXigcppo7zY/flZnOjlvly+Rc7YeZzGGuwn0LGojU+wOzrQswhB84gadLsxVGkmBnMNQ5bmqaE7P1addQJEduVfQ/1fIOY9whDNnlPOXbmJBUKf7FEcxnpv545GrC2NKWeaxizZEPi9/gkW6twI1nO40tp2x88lB4JJWfYGcL1uPfK6rZUWGynlx4rsppeFPENuRbNKbWEvkR9DSQR1JPsFtPVXn4N0K+nfT9DWSBp7VfPaenUtln+0wx0QdICnA2GgILsLNIZeygXZ/pm6TsMdVe16utOLn8afLdF3a9JdIuvaybKS39qIW8EItI7HFeq9jLrDVQbseUbrEmzlQQE2h6vHLUplmKNo9XyTHb2mbvuzKyRznmwoqUXP2btLn5qwjL5l6Ew8UWZlz1eeT5oED05R6LO+qg8I6TWkIOyOh/+D6Emn6wovJxXPwIUssJ+qhSxlMrVJBypZNKXR55uraDChlAy4b5H5HK/UslbY5kDaBUt995aFPQ+KfhT1S8OecCW/H3qVMMdIoMmHy3OlojPgn3A5cigXBlHQah82N+/yF1aUQqJ+++nKUwMeFcUPusNWxXj/a501jiEqKQuahHHHZ45KJKcfJx3X+hvWQFgGX56PitC23r4LPOshkfblwKqMrq9jndfK+Jz5G5TmXwhK4/dfwrWGWmUypYW2+YAl8k6by5dcRrr/yQC61U5U03yD8olWgg/X2QjYs9CGQDWNjkzX1VIULUINfDi9r/zpYZyEguHZkhIXjIlPA1+j9+aND1Hp7Kdnqd92nwPFEyjR0iafPXltT9JluXw032h1LqTn7JQlF7idaEPbMuZf9RpyF3+fXPnBlp9tTnI4wFSPfojJfm1xXlPF9IzkLHXa7wOpW3lkehspNkjOwey3ruKrBlJ7iaZSyv7ZTHJllfN/gSEwJYBelRMibuhx6J9yNe8kHc7kjhPTHv+WBq+6qKaSUjofTt7vuEl6MIkObfaRqa0eHZI2mBZ7jb8JMmvC/MVY1z+VQX39VZtv2qM58tqHejmy7yw8YTSYIk8ZWBNIkvAoin0mYtjCMUBzJpZueiO66wjxqBb8MfTRJ/xdwVGFMMzdaWAJ7gCaz0kd3xYMxjarMpt89cLRyX7AHzvWvknRW6kdGWxNDAchjSo9JoFiAQqnFQh6bmSnTgw4ppzqmGZUP6HK9AOemb3zRVij1YxOAPUyNsG9ViZCOXVLVUDPVcUlG5FE9yU/vp29+gXD8FyIXvQ1hA4HtNMeCrpOOmVxioZDSedhq4EceO8pSePNIRPneF5MZQS1w2h4+TiidaFM14PXsSqS0yAf84/2y/fTUCfOV5uPIMZie8qvuwk5nX2aiZ+tak20h4UrwKXcn0YrzEzvxC5XaHfkST3vTYdB53QmJg4T5ag03ADx7ft3fksu64ac/6MpK/aKCBAW9Y7vNxtMU0jogEiWvb8EH0dI3sx/wJiXZNlcNkUba3uG4uRxiW2H6vj7KCVZKov62elJEMhcOS/yBl0+ZmjFa578hb1CE1pY/A9PZ62CCf70YpfvUa/N1tglNf+6F0q1DKDT4RlsTqBKzn/7wK2VSpADH9i2eilKQOAEjN/35130dVIj6GxhrTOlKt7/AaLQnu+QHrfrEyc98GuePINqRnvaXXFCsjdX6qzJgYxy4eOt/hdFotDpnznTZHJ/2EOmFp6wwh9Pfdx3HfFJr+EwbwhNB0iRkBkE0/ZUXRVGnFAPuigmfo9eEOb1hziPr3fT3XoUFiZuXQ3r4wd8purwWykww/eWXg3LRSa9h+yDFjhijzVYKJXfTP3BFWeORzSEBPg9vdmYkx2PPYcj7V+3/gjKXoqZCr2850OffZbKJeFglHt+RMjz+DWUuRMGCyHqdhX3/jX+FfnI5R4FjvKWUPU7/4EVQpiGKOBap0PRBuR8UN20I7AhRlaw08yskcNM/e1EUDGAhbE6cKfQz5inRSLqxAV6G63UijZwA/6YuNwwPJfmUeUZRucsizLs47zbliGTd/+XLcCzlCtpbk6w04b9ml227ygrHmt1VzAIMSrOOFsdFKg0nK8kL/BFyc4Zh0tw6TelWpCnlRKWjHezcfTbIGJOS/0jZQgzJnjQ62tUpq7lKx2EKPzI+deWgSMIt+p7Pg2SlpWqB4Py/jC8eZoGwsMsbD1BYli5VCcqWEuDB/ejxc9rtr8iOWx7/yPg91xZTv8rLbT+y/bl+rp/r777+D0nKJIzCmv9WAAAAAElFTkSuQmCC";
 
   function todayISO(){
     var d = new Date();
@@ -209,8 +287,36 @@
     return out;
   }
 
-  function blankSpec(){
+  // Every spec belongs to exactly one channel (its own template + library). Sheets saved before the
+  // templates were split are MMAH sheets, so a missing channel means MMAH.
+  function specChannel(spec){ return (spec && spec.channel === "retail") ? "retail" : "mmah"; }
+  function channelName(key){ var c = CHANNELS.filter(function(x){ return x.key===key; })[0]; return c ? c.name : key; }
+
+  function blankSpec(ch){ return ch === "retail" ? blankRetail() : blankMmah(); }
+
+  function blankRetail(){
     return {
+      channel:"retail",
+      productName:"", inputSku:"", inputSageDesc:"",
+      outputSku:"", outputSageDesc:"", outputSku2:"", outputSageDesc2:"",
+      furtherOutputs:[{label:RT_DEFAULTS.furtherOutput, specId:""}],
+      trimText:RT_DEFAULTS.trimText,
+      issuedDate:todayISO(), writtenBy:"", issuedByInitials:"",
+      cuttingNotes:"",
+      outOfRangeMin:"", minWeight:"", toleranceNote:RT_DEFAULTS.toleranceNote,
+      avgWeightMin:"", avgWeightNote:RT_DEFAULTS.avgWeightNote, targetWeight:"", maxWeight:"",
+      inputCondition:"", fatCover:"", cuttingMachine:"", weightRecordingNote:RT_DEFAULTS.weightRecordingNote,
+      packagingType:"", positionInTray:RT_DEFAULTS.positionInTray, packingPrep:RT_DEFAULTS.packingPrep,
+      labelCuttingPlant:"", secondaryPack:"", secondaryPackNote:"", labelWarehouse:"",
+      finishedState:"",
+      referenceImages:[], imageDisplaySize:"large",
+      groups:[], archived:false
+    };
+  }
+
+  function blankMmah(){
+    return {
+      channel:"mmah",
       productName:"", outputSku:"", inputSku:"", outputSageDesc:"", inputSageDesc:"",
       furtherOutputs:[{label:"", specId:""}],
       targetWeight:"", minWeight:"", maxWeight:"", toleranceNote:"",
@@ -236,13 +342,72 @@
     ["finishedState","Finished product state"]
   ];
 
+  // One entry per channel: which typed fields exist, which tick rows are required, what the importer should fill in.
+  var TEMPLATE = {
+    mmah: {
+      textFields: ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight","toleranceNote",
+        "fatCover","cuttingNotes","packingPrep","packagingNote","secondaryPackaging","positionInTray",
+        "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","issuedDate"],
+      requiredTicks: REQUIRED_TICKS,
+      tickOpts: {inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, trimUse:TRIM_OPTS, packagingType:PACKAGING_OPTS,
+                 labelCuttingPlant:LABEL_CP_OPTS, labelWarehouse:LABEL_WH_OPTS, finishedState:FINISHED_OPTS},
+      importFields: ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
+        "toleranceNote","inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes",
+        "packingPrep","packagingType","packagingNote","secondaryPackaging","positionInTray","labelCuttingPlant","labelWarehouse","finishedState",
+        "frozenBestBefore","thawedProduct","customNotes"],
+      hint: 'Return ONLY a JSON object (no markdown fences, no commentary) with these keys \u2014 use "" if a value isn\'t present, and keep units out of numeric fields. '
+        + 'For every tick-box row choose the option marked \u2612 (ticked); if none is ticked use "". Keys: '
+        + 'productName, outputSku (code only), inputSku (code only), outputSageDesc, inputSageDesc, targetWeight, minWeight, maxWeight, toleranceNote, '
+        + 'inputCondition (one of chilled/tempered/frozen), fatCover, cuttingMachine (one of na/hand/automatic/bonesaw/tableTop), '
+        + 'trimUse (one of discard/repurpose), trimRepurposeNote, cuttingNotes, packingPrep, '
+        + 'packagingType (one of blackDeep/blackShallow/transparentDeep/transparentShallow/vacuumTransparent/vacuumGold/boneGuard/other), '
+        + 'packagingNote, secondaryPackaging, positionInTray, labelCuttingPlant (one of smallWhite/na), labelWarehouse (one of bottom/cwrap), '
+        + 'finishedState (one of frozen/chilled/ambient), frozenBestBefore, thawedProduct, customNotes.'
+    },
+    retail: {
+      textFields: ["productName","inputSku","inputSageDesc","outputSku","outputSageDesc","outputSku2","outputSageDesc2","trimText","issuedDate","writtenBy",
+        "cuttingNotes","outOfRangeMin","minWeight","toleranceNote","avgWeightMin","avgWeightNote","targetWeight","maxWeight",
+        "fatCover","weightRecordingNote","positionInTray","packingPrep","secondaryPackNote"],
+      requiredTicks: [
+        ["inputCondition","Input product condition"],
+        ["cuttingMachine","Cutting machine"],
+        ["packagingType","Packaging"],
+        ["labelCuttingPlant","Label type \u2014 Cutting plant"],
+        ["secondaryPack","Secondary packaging \u2014 Warehouse"],
+        ["labelWarehouse","Label type \u2014 Warehouse"],
+        ["finishedState","Finished product state"]
+      ],
+      tickOpts: {inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, packagingType:PACKAGING_OPTS,
+                 labelCuttingPlant:RT_LABEL_CP_OPTS, secondaryPack:RT_SECONDARY_OPTS, labelWarehouse:RT_LABEL_WH_OPTS, finishedState:RT_FINISHED_OPTS},
+      importFields: ["productName","inputSku","inputSageDesc","outputSku","outputSageDesc","outputSku2","outputSageDesc2","trimText","writtenBy",
+        "cuttingNotes","outOfRangeMin","minWeight","toleranceNote","avgWeightMin","avgWeightNote","targetWeight","maxWeight",
+        "inputCondition","fatCover","cuttingMachine","weightRecordingNote","packagingType","positionInTray","packingPrep",
+        "labelCuttingPlant","secondaryPack","secondaryPackNote","labelWarehouse","finishedState"],
+      hint: 'Return ONLY a JSON object (no markdown fences, no commentary) with these keys \u2014 use "" if a value isn\'t present. '
+        + 'Weights are numbers without units ("232" not "232 g"); if a weight box says NA use "NA". '
+        + 'For every tick-box row choose the option marked \u2612 (ticked); if none is ticked use "". Keys: '
+        + 'productName (the sheet\'s product title), '
+        + 'inputSku (code only, e.g. H-WAGUKRIBF1), inputSageDesc (the description after the input SKU), '
+        + 'outputSku (FIRST primary output SKU, code only), outputSageDesc (its description), '
+        + 'outputSku2 and outputSageDesc2 (the SECOND primary output, only when the sheet says "and/or"), '
+        + 'trimText (the Trim line), writtenBy (initials/name after "Written by"), cuttingNotes, '
+        + 'outOfRangeMin, minWeight (the ABSOLUTE LEGAL MINIMUM), toleranceNote (its formula text, e.g. "W \u2013( 2 \u00d7 TNE)"), '
+        + 'avgWeightMin (AVERAGE WEIGHT MINIMUM), avgWeightNote (its formula), targetWeight, maxWeight, '
+        + 'inputCondition (one of chilled/tempered/frozen), fatCover, cuttingMachine (one of na/hand/automatic/bonesaw/tableTop), weightRecordingNote, '
+        + 'packagingType (one of transparentDeep/transparentShallow/blackDeep/blackShallow/vacuumTransparent/vacuumGold/boneGuard/other), '
+        + 'positionInTray, packingPrep, '
+        + 'labelCuttingPlant (one of packCase/caseOnly/na), secondaryPack (one of sleeve13/retailBoxD13/other), secondaryPackNote (only when secondaryPack is other), '
+        + 'labelWarehouse (one of steakSleeve/cwrapBox/na), finishedState (one of chilledFrozen/chilled/frozen).'
+    }
+  };
+
   // ---------- state ----------
   var S = {
-    view:"library", specs:[], loadingSpecs:true, search:"",
+    view:"home", channel:null, lastChannel:(localStorage.getItem("mmah_last_channel")||""), homeSearch:"", importChannel:"mmah", chooseChannel:false, specs:[], loadingSpecs:true, search:"",
     form:null, formId:null, toast:"", formErrors:{}, formBaseline:"", printTab:"sheet",
     confirmLeave:false, pendingLeave:null,
     editorName: localStorage.getItem("mmah_editor_name") || "",
-    groupOptions: DEFAULT_GROUP_OPTS.map(function(o){return {key:o[0], label:o[1]};})
+    groupLists: {mmah: DEFAULT_GROUP_OPTS.map(function(o){return {key:o[0], label:o[1]};}), retail: []}
   };
 
   function showToast(msg){
@@ -273,15 +438,30 @@
   }
 
   // ---------- data ----------
+  // Groups: each channel has its own list. Saved as a plain list until Retail gets groups of its own
+  // (a plain list = the Meat Me At Home groups, exactly as before), then as {mmah:[...], retail:[...]}.
+  function normGroupList(a){
+    return (Array.isArray(a) ? a : []).filter(function(g){ return g && g.key && g.label; }).map(function(g){ return {key:String(g.key), label:String(g.label)}; });
+  }
+  function parseGroupLists(raw){
+    if(Array.isArray(raw)) return {mmah: normGroupList(raw), retail: []};
+    if(raw && typeof raw === "object") return {mmah: normGroupList(raw.mmah), retail: normGroupList(raw.retail)};
+    return null;
+  }
+  function groupsFor(ch){ return (S.groupLists && S.groupLists[ch === "retail" ? "retail" : "mmah"]) || []; }
+  function groupsForView(){                          // the group buttons on the library page
+    if(S.channel === "retail" || S.channel === "mmah") return groupsFor(S.channel);
+    var seen = {}, out = [];
+    groupsFor("mmah").concat(groupsFor("retail")).forEach(function(g){ if(!seen[g.key]){ seen[g.key] = 1; out.push(g); } });
+    return out;
+  }
   async function loadGroupOptions(){
     if(!SETUP_OK) return;
     try{
       var res = await sb.from("app_settings").select("groups").eq("id",1).single();
       if(res.error) throw res.error;
-      if(res.data && Array.isArray(res.data.groups) && res.data.groups.length){
-        S.groupOptions = res.data.groups;
-        render();
-      }
+      var lists = parseGroupLists(res.data && res.data.groups);
+      if(lists){ S.groupLists = lists; render(); }
     }catch(e){ console.log("Using default groups (run groups_setup.sql to manage them on-site):", e.message||e); }
   }
 
@@ -368,42 +548,51 @@
 
   // ---------- navigation ----------
   window.toggleGroupsDropdown = function(){ S.groupsDropdownOpen = !S.groupsDropdownOpen; render(); };
-
   function goManageGroups(){
-    S.groupsDraft = S.groupOptions.map(function(g){ return {key:g.key, label:g.label}; });
+    var ch = (S.channel === "mmah" || S.channel === "retail") ? S.channel : (S.lastChannel === "retail" ? "retail" : "mmah");
+    S.groupsDraft = {
+      mmah:   groupsFor("mmah").map(function(g){ return {key:g.key, label:g.label}; }),
+      retail: groupsFor("retail").map(function(g){ return {key:g.key, label:g.label}; })
+    };
+    S.groupsDraftChannel = ch;
     S.newGroupLabel = "";
     S.view = "manageGroups";
     render();
   }
+  function draftList(){ return S.groupsDraft[S.groupsDraftChannel === "retail" ? "retail" : "mmah"]; }
   function slugifyGroup(label){
     return label.toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,24) || ("g"+Date.now());
   }
+  window.setGroupsDraftChannel = function(ch){ S.groupsDraftChannel = ch === "retail" ? "retail" : "mmah"; S.newGroupLabel = ""; render(); };
   window.addDraftGroup = function(){
     var label = (S.newGroupLabel||"").trim();
     if(!label) return;
-    var existingKeys = S.groupsDraft.map(function(g){return g.key;});
-    var key = slugifyGroup(label), i=1;
-    while(existingKeys.indexOf(key)>=0){ key = slugifyGroup(label)+i; i++; }
-    S.groupsDraft.push({key:key, label:label});
+    var list = draftList();
+    var existingKeys = S.groupsDraft.mmah.concat(S.groupsDraft.retail).map(function(g){return g.key;});
+    var prefix = S.groupsDraftChannel === "retail" ? "r_" : "";              // Retail keys can never clash with MMAH ones
+    var key = prefix + slugifyGroup(label), i=1;
+    while(existingKeys.indexOf(key)>=0){ key = prefix + slugifyGroup(label)+i; i++; }
+    list.push({key:key, label:label});
     S.newGroupLabel = "";
     render();
   };
-  window.removeDraftGroup = function(idx){ S.groupsDraft.splice(idx,1); render(); };
-  window.renameDraftGroup = function(idx, val){ S.groupsDraft[idx].label = val; };
+  window.removeDraftGroup = function(idx){ draftList().splice(idx,1); render(); };
+  window.renameDraftGroup = function(idx, val){ draftList()[idx].label = val; };
   window.moveDraftGroup = function(idx, dir){
-    var newIdx = idx+dir;
-    if(newIdx<0 || newIdx>=S.groupsDraft.length) return;
-    var tmp = S.groupsDraft[idx]; S.groupsDraft[idx]=S.groupsDraft[newIdx]; S.groupsDraft[newIdx]=tmp;
+    var list = draftList(), newIdx = idx+dir;
+    if(newIdx<0 || newIdx>=list.length) return;
+    var tmp = list[idx]; list[idx]=list[newIdx]; list[newIdx]=tmp;
     render();
   };
   window.saveGroups = async function(){
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     var pwd = getPassword();
     if(!pwd) return;
+    var toSave = S.groupsDraft.retail.length ? {mmah: S.groupsDraft.mmah, retail: S.groupsDraft.retail} : S.groupsDraft.mmah;
     try{
-      var res = await sb.rpc("update_groups", {pwd:pwd, new_groups: S.groupsDraft});
+      var res = await sb.rpc("update_groups", {pwd:pwd, new_groups: toSave});
       if(res.error) throw res.error;
-      S.groupOptions = S.groupsDraft;
+      S.groupLists = {mmah: S.groupsDraft.mmah, retail: S.groupsDraft.retail};
       showToast("Groups updated.");
       S.view = "library";
       render();
@@ -412,16 +601,20 @@
   window.cancelManageGroups = function(){ S.view="library"; render(); };
 
   function renderManageGroups(){
+    var ch = S.groupsDraftChannel === "retail" ? "retail" : "mmah", list = draftList();
     var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;">'
       + '<h2 style="margin:0;font-size:17px;">Manage groups</h2>'
       + '<div class="nav"><button class="btn-ghost btn-sm" onclick="cancelManageGroups()">Cancel</button>'
       + '<button class="btn-dark btn-sm" onclick="saveGroups()">Save</button></div></div>';
+    out += '<div class="tabs">' + CHANNELS.map(function(c){
+        return '<button class="tab'+(ch===c.key?' active':'')+'" onclick="setGroupsDraftChannel(\''+c.key+'\')">'+esc(c.name)+' groups ('+S.groupsDraft[c.key].length+')</button>';
+      }).join("") + '</div>';
     out += '<div class="card">';
-    if(!S.groupsDraft.length) out += '<p class="note">No groups yet \u2014 add one below.</p>';
-    S.groupsDraft.forEach(function(g, idx){
+    if(!list.length) out += '<p class="note">No '+esc(channelName(ch))+' groups yet \u2014 add one below.</p>';
+    list.forEach(function(g, idx){
       out += '<div class="row" style="align-items:center;margin-bottom:8px">'
         + '<button class="btn-ghost btn-sm" onclick="moveDraftGroup('+idx+',-1)"'+(idx===0?' disabled':'')+'>\u2191</button>'
-        + '<button class="btn-ghost btn-sm" onclick="moveDraftGroup('+idx+',1)"'+(idx===S.groupsDraft.length-1?' disabled':'')+'>\u2193</button>'
+        + '<button class="btn-ghost btn-sm" onclick="moveDraftGroup('+idx+',1)"'+(idx===list.length-1?' disabled':'')+'>\u2193</button>'
         + '<input type="text" style="flex:1" value="'+esc(g.label)+'" oninput="renameDraftGroup('+idx+', this.value)">'
         + '<button class="btn-ghost btn-sm" onclick="removeDraftGroup('+idx+')">Remove</button>'
         + '</div>';
@@ -430,7 +623,7 @@
       + '<input type="text" style="flex:1" placeholder="New group name" value="'+esc(S.newGroupLabel||"")+'" oninput="S.newGroupLabel=this.value">'
       + '<button class="btn-sm" onclick="addDraftGroup()">+ Add</button>'
       + '</div>'
-      + '<p class="note" style="margin-top:14px">Renaming a group here doesn\u2019t move already-tagged specs \u2014 they stay tagged, just showing the new name. Removing a group here doesn\u2019t untag specs that already had it, it just stops appearing as a filter option.</p>'
+      + '<p class="note" style="margin-top:14px">Each template has its own list of groups \u2014 the buttons above switch between them, and Save keeps both. Renaming a group doesn\u2019t untag specs that already have it, and removing a group just stops it appearing as a filter.</p>'
       + '</div>';
     return out;
   }
@@ -438,7 +631,7 @@
   // --- unsaved-changes tracking ---
   function resetFormMeta(){ S.formErrors = {}; S.groupsDropdownOpen = false; S.importBanner = ""; }
   function markPristine(){ S.formBaseline = JSON.stringify(S.form); }          // nothing to lose yet
-  function markUnsaved(){ S.formBaseline = JSON.stringify(blankSpec()); }      // e.g. imported/duplicated but never saved
+  function markUnsaved(){ S.formBaseline = JSON.stringify(blankSpec(specChannel(S.form))); }      // e.g. imported/duplicated but never saved
   function isFormDirty(){
     if(S.view !== "form" || !S.form) return false;
     readFormFromInputs();
@@ -454,14 +647,39 @@
     if(a) a();
   };
 
-  function goLibrary(){ if(S.formId) releaseEditLock(S.formId); S.view="library"; S.form=null; S.formId=null; S.formErrors={}; S.importBanner=""; render(); loadSpecs(); }
+  function goLibrary(){
+    if(S.formId) releaseEditLock(S.formId);
+    S.view = S.channel ? "library" : "home";      // back to the channel you were in, or the picker
+    S.form=null; S.formId=null; S.formErrors={}; S.importBanner="";
+    render(); loadSpecs();
+  }
+  function goHome(){
+    if(S.formId) releaseEditLock(S.formId);
+    S.view="home"; S.form=null; S.formId=null; S.formErrors={}; S.importBanner="";
+    render(); window.scrollTo(0,0); loadSpecs();
+  }
+  function goChannel(key){
+    S.channel = key;
+    if(key==="mmah" || key==="retail"){ S.lastChannel = key; try{ localStorage.setItem("mmah_last_channel", key); }catch(e){} }
+    S.view="library"; S.libraryFilter=null;
+    render(); window.scrollTo(0,0);
+  }
   function goNew(){
-    S.view="form"; S.form=blankSpec(); S.formId=null; resetFormMeta(); markPristine();
+    var ch = (S.channel === "mmah" || S.channel === "retail") ? S.channel : null;
+    if(!ch){ S.chooseChannel = true; render(); return; }        // on the picker / "All specs": ask which template
+    startNew(ch);
+  }
+  function startNew(ch){
+    S.chooseChannel = false;
+    S.view="form"; S.form=blankSpec(ch); S.formId=null; resetFormMeta(); markPristine();
     render(); window.scrollTo(0,0);
     var pn = document.querySelector('[data-f="productName"]');
     if(pn) pn.focus();
   }
-  function goImport(){ S.view="import"; S.importBanner=""; render(); }
+  function goImport(){
+    S.importChannel = (S.channel === "mmah" || S.channel === "retail") ? S.channel : (S.lastChannel === "retail" ? "retail" : "mmah");
+    S.view="import"; S.importBanner=""; render();
+  }
   async function checkEditLock(id){
     if(!SETUP_OK) return;
     try{
@@ -485,10 +703,13 @@
   }
 
   function loadSpecIntoForm(spec){
-    var f = Object.assign(blankSpec(), JSON.parse(JSON.stringify(spec)));
+    var ch = specChannel(spec);
+    var f = Object.assign(blankSpec(ch), JSON.parse(JSON.stringify(spec)));
+    f.channel = ch;
     f.furtherOutputs = normFurther(f.furtherOutputs);
-    delete f.avgWeightMin; delete f.avgWeightNote;      // fields removed from the template
-    f.issuedDate = todayISO();                          // re-issued today
+    delete f.channels;
+    if(ch === "mmah"){ delete f.avgWeightMin; delete f.avgWeightNote; }      // not part of the MMAH template
+    f.issuedDate = todayISO();                                               // re-issued today
     return f;
   }
   function goEdit(id){
@@ -556,6 +777,8 @@
       else if(action==="duplicate") tryLeave(function(){ duplicateSpec(id); });
       else if(action==="archive") tryLeave(function(){ archiveSpec(id, true); });
       else if(action==="unarchive") tryLeave(function(){ archiveSpec(id, false); });
+      else if(action==="openChannel") goChannel(el.getAttribute("data-channel"));
+      else if(action==="importChannel"){ S.importChannel = el.getAttribute("data-channel") === "retail" ? "retail" : "mmah"; render(); }
       else if(action==="printTab"){ S.printTab = el.getAttribute("data-tab") || "sheet"; render(); window.scrollTo(0,0); }
       else if(action==="viewVersion"){
         var vidx = parseInt(el.getAttribute("data-idx"),10);
@@ -563,6 +786,7 @@
         if(entry && entry.snapshot){
           var snap = JSON.parse(JSON.stringify(entry.snapshot));
           snap.productName = snap.productName || S.printSpec.productName;
+          snap.channel = specChannel(snap.channel ? snap : S.printSpec);
           S.versionSnapshot = snap;
           S.versionMeta = {by:entry.by, at:entry.at, action:entry.action};
           S.view = "version";
@@ -619,9 +843,7 @@
   function readFormFromInputs(){
     var el = document.getElementById("specForm");
     if(!el) return;
-    ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight","toleranceNote",
-     "fatCover","cuttingNotes","packingPrep","packagingNote","secondaryPackaging","positionInTray",
-     "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","issuedDate"].forEach(function(name){
+    TEMPLATE[specChannel(S.form)].textFields.forEach(function(name){
       var input = el.querySelector('[data-f="'+name+'"]');
       if(input) S.form[name] = input.value;
     });
@@ -633,7 +855,7 @@
     var errs = {}, order = [];
     if(!(S.form.productName||"").trim()){ errs.productName = true; order.push("productName"); }
     if(!(S.editorName||"").trim()){ errs.editorName = true; order.push("editorName"); }
-    REQUIRED_TICKS.forEach(function(t){ if(!S.form[t[0]]){ errs[t[0]] = true; order.push(t[0]); } });
+    TEMPLATE[specChannel(S.form)].requiredTicks.forEach(function(t){ if(!S.form[t[0]]){ errs[t[0]] = true; order.push(t[0]); } });
     S.formErrors = errs;
     return order;                                   // in on-screen order, so [0] is the first one to jump to
   }
@@ -664,6 +886,8 @@
     var name = (S.editorName||"").trim();
     S.form.outputSku = stripSpaces(S.form.outputSku);
     S.form.inputSku = stripSpaces(S.form.inputSku);
+    if(S.form.outputSku2) S.form.outputSku2 = stripSpaces(S.form.outputSku2);
+    S.form.channel = specChannel(S.form);
     S.form.furtherOutputs = normFurther(S.form.furtherOutputs).filter(function(o){ return (o.label||"").trim() || o.specId; });
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     var pwd = getPassword();
@@ -719,7 +943,7 @@
   // ---------- rendering ----------
   function render(){
     var active = document.activeElement;
-    var refocusId = (active && active.id === "librarySearchInput") ? active.id : null;
+    var refocusId = (active && (active.id === "librarySearchInput" || active.id === "homeSearchInput")) ? active.id : null;
     var selStart = refocusId ? active.selectionStart : null;
     var selEnd = refocusId ? active.selectionEnd : null;
     try{
@@ -764,7 +988,7 @@
 
   function topbar(){
     return '<div class="topbar">'
-      + '<a class="brand" href="#" onclick="goLibraryAll(); return false;" title="Back to Library (all specs)"><img src="'+FF_LOGO+'" alt="Freedown Food" class="brand-logo">FF <span>Cutting Spec Portal</span></a>'
+      + '<div class="brand" onclick="goHome()" title="Back to the channel picker"><img src="'+FF_LOGO+'" alt="Freedown Food" class="brand-logo"><span class="brand-sep"></span><span class="brand-title">Cutting Spec Portal</span></div>'
       + '<div class="nav">'
       + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Library</button>'
       + '<button class="btn-sm" onclick="goImport()">Import Old Version</button>'
@@ -778,7 +1002,8 @@
     if(!SETUP_OK){
       html += '<div class="setup-warning"><b>Setup needed:</b> open the HTML file and paste your Supabase Project URL and anon public key at the top, then re-upload it. See the setup instructions for where to find them.</div>';
     }
-    if(S.view==="library") html += renderLibrary();
+    if(S.view==="home") html += renderHome();
+    else if(S.view==="library") html += renderLibrary();
     else if(S.view==="form") html += renderForm();
     else if(S.view==="import") html += renderImport();
     else if(S.view==="print") html += renderPrintChrome();
@@ -796,6 +1021,14 @@
         + '<p>Delete this spec sheet permanently? This can\'t be undone.</p>'
         + '<div class="row"><button class="btn-ghost btn-sm" onclick="cancelDelete()">Cancel</button>'
         + '<button class="btn-primary btn-sm" onclick="performDelete(\''+esc(S.confirmDelete)+'\')">Delete</button></div>'
+        + '</div></div>';
+    }
+    if(S.chooseChannel){
+      html += '<div class="confirm-overlay" onclick="cancelChooseChannel()">'
+        + '<div class="confirm-box" onclick="event.stopPropagation()">'
+        + '<p><b>New spec \u2014 which template?</b></p>'
+        + CHANNELS.map(function(c){ return '<button class="btn-dark" style="width:100%;margin-bottom:8px" onclick="startNew(\''+c.key+'\')">'+esc(c.name)+'</button>'; }).join("")
+        + '<div class="row"><button class="btn-ghost btn-sm" onclick="cancelChooseChannel()">Cancel</button></div>'
         + '</div></div>';
     }
     if(S.confirmLeave){
@@ -820,9 +1053,21 @@
     if(title.indexOf("chilean")>=0) tags.push("chilean");
     return tags;
   }
+  function channelShort(key){ var c = CHANNELS.filter(function(x){return x.key===key;})[0]; return c ? c.short : key; }
+  function channelBadgesHtml(spec){
+    var ch = specChannel(spec);
+    return '<span class="chan-badge '+ch+'">'+esc(channelShort(ch))+'</span>';
+  }
+  // manual tags + automatic ones. MMAH: by SKU / name as before. Retail: any group whose name appears in the product name.
   function effectiveGroups(spec){
+    var ch = specChannel(spec), list = groupsFor(ch), keys = list.map(function(g){ return g.key; });
     var merged = (spec.groups||[]).slice();
-    autoDetectGroups(spec).forEach(function(g){ if(merged.indexOf(g)<0) merged.push(g); });
+    function add(k){ if(merged.indexOf(k)<0) merged.push(k); }
+    if(ch === "mmah") autoDetectGroups(spec).forEach(function(k){ if(keys.indexOf(k)>=0) add(k); });
+    if(ch === "retail"){
+      var title = (spec.productName||"").toLowerCase();
+      list.forEach(function(g){ var lab = g.label.toLowerCase().trim(); if(lab.length >= 4 && title.indexOf(lab) >= 0) add(g.key); });
+    }
     return merged;
   }
   function isStale(s){
@@ -833,30 +1078,96 @@
     return (Date.now() - t) > 365*24*60*60*1000;
   }
 
+  function channelStats(key){
+    var list = S.specs.filter(function(x){ return !x.archived && specChannel(x) === key; });
+    var labels = [];
+    groupsFor(key).forEach(function(g){
+      if(g.key==="mmah") return;                    // the channel itself already says this
+      if(list.some(function(x){ return effectiveGroups(x).indexOf(g.key)>=0; })) labels.push(g.label);
+    });
+    return {count:list.length, groups:labels};
+  }
+  function specRowHtml(x){
+    return '<div class="recent-row" data-action="print" data-id="'+esc(x.id)+'">'
+      + '<span>'+channelBadgesHtml(x)+'</span>'
+      + '<span class="recent-name">'+esc(x.productName||"(untitled)")+'</span>'
+      + '<span class="recent-sku">'+esc(x.outputSku||"")+'</span>'
+      + '<span class="recent-date">'+fmtDate(x.updatedAt)+'</span></div>';
+  }
+  function renderHome(){
+    var out = '<div class="home"><h1 class="home-title">Which specs do you need?</h1>'
+      + '<p class="home-sub">Pick a channel. The portal remembers your choice next time.</p>'
+      + '<div class="channel-cards">';
+    CHANNELS.forEach(function(c){
+      var st = channelStats(c.key), isLast = (S.lastChannel === c.key);
+      var logo = "";
+      if(c.key==="mmah" && MMAH_LOGO) logo = '<span class="ch-logo mm"><img src="'+MMAH_LOGO+'" alt="Meat Me At Home emblem"></span>';
+      if(c.key==="retail") logo = '<span class="ch-logo ff"><img src="'+FF_LOGO+'" alt="Freedown Food"></span>';
+      out += '<div class="ch-card'+(isLast?' last':'')+'" data-action="openChannel" data-channel="'+c.key+'">'
+        + (isLast ? '<span class="last-badge">Last used</span>' : '')
+        + '<div class="ch-eyebrow">'+esc(c.eyebrow)+'</div>'
+        + '<div class="ch-name">'+esc(c.name)+'</div>'
+        + '<p class="ch-desc">'+esc(c.desc)+'</p>'
+        + logo
+        + '<div class="ch-foot"><div class="ch-chips">'
+        +   '<span class="ch-chip">'+(S.loadingSpecs && !S.specs.length ? '\u2026' : st.count+' spec'+(st.count===1?'':'s'))+'</span>'
+        +   (st.groups.length ? '<span class="ch-chip">'+esc(st.groups.slice(0,4).join(" \u00b7 "))+'</span>' : '')
+        + '</div><span class="ch-open">Open \u2192</span></div></div>';
+    });
+    out += '</div>';
+
+    var q = (S.homeSearch||"").trim().toLowerCase();
+    out += '<label class="home-label" for="homeSearchInput">Know the product or SKU? Search every spec, both channels</label>'
+      + '<div class="home-search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>'
+      + '<input type="text" id="homeSearchInput" placeholder="e.g. ribeye, MMAHOFFIL, WAGUKFILF1" value="'+esc(S.homeSearch||"")+'" oninput="S.homeSearch=this.value; render();"></div>';
+
+    var live = S.specs.filter(function(x){ return !x.archived; });
+    if(q){
+      var hits = live.filter(function(x){
+        return (x.productName||"").toLowerCase().indexOf(q)>=0 || (x.outputSku||"").toLowerCase().indexOf(q)>=0
+          || (x.inputSku||"").toLowerCase().indexOf(q)>=0 || (x.outputSageDesc||"").toLowerCase().indexOf(q)>=0
+          || (x.inputSageDesc||"").toLowerCase().indexOf(q)>=0;
+      });
+      out += '<div class="recent-head"><b>Results ('+hits.length+')</b><span data-action="openChannel" data-channel="all">See all</span></div>'
+        + (hits.length ? '<div class="recent-list">'+hits.slice(0,30).map(specRowHtml).join("")+'</div>' : '<div class="empty">No specs match \u201c'+esc(S.homeSearch.trim())+'\u201d.</div>');
+    } else {
+      var recent = live.slice().sort(function(a,b){ return (b.updatedAt||"").localeCompare(a.updatedAt||""); }).slice(0,5);
+      out += '<div class="recent-head"><b>Recently updated</b><span data-action="openChannel" data-channel="all">See all</span></div>'
+        + (S.loadingSpecs && !S.specs.length ? '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>'
+          : (recent.length ? '<div class="recent-list">'+recent.map(specRowHtml).join("")+'</div>' : '<div class="empty">No spec sheets yet. Click <b>+ New Spec</b> to get started.</div>'));
+    }
+    return out + '</div>';
+  }
+
   function renderLibrary(){
     var q = S.search.trim().toLowerCase();
     var showArchived = S.libraryFilter === "archived";
     var groupFilter = (S.libraryFilter && S.libraryFilter !== "archived") ? S.libraryFilter : null;
     var list = S.specs.filter(function(s){
       if(!!s.archived !== showArchived) return false;
+      if(S.channel && S.channel !== "all" && specChannel(s) !== S.channel) return false;
       if(groupFilter && effectiveGroups(s).indexOf(groupFilter)<0) return false;
       if(!q) return true;
       return (s.productName||"").toLowerCase().indexOf(q)>=0 || (s.outputSku||"").toLowerCase().indexOf(q)>=0
         || (s.inputSku||"").toLowerCase().indexOf(q)>=0 || (s.outputSageDesc||"").toLowerCase().indexOf(q)>=0;
     });
-    var out = '<div class="field search-bar"><input type="text" id="librarySearchInput" placeholder="Search by product name, Sage description, or SKU\u2026" value="'+esc(S.search)+'" oninput="S.search=this.value; render();">'
+    var out = '<div class="tabs">' + CHANNELS.map(function(c){
+        return '<button class="tab'+(S.channel===c.key?' active':'')+'" data-action="openChannel" data-channel="'+c.key+'">'+esc(c.name)+'</button>';
+      }).join("")
+      + '<button class="tab'+(S.channel==="all"?' active':'')+'" data-action="openChannel" data-channel="all">All specs</button></div>';
+    out += '<div class="field search-bar"><input type="text" id="librarySearchInput" placeholder="Search by product name, Sage description, or SKU\u2026" value="'+esc(S.search)+'" oninput="S.search=this.value; render();">'
       + (S.search ? '<button class="btn-ghost btn-sm" onclick="S.search=\'\'; render();">\u00d7 Clear</button>' : '')
       + '<button class="btn-sm" onclick="loadSpecs()">\u21bb Refresh</button></div>';
     out += '<div class="chk-group" style="margin-bottom:6px">'
       + '<div class="chk-opt'+(!S.libraryFilter?' sel':'')+'" onclick="S.libraryFilter=null; render();"><span>All</span></div>'
-      + S.groupOptions.map(function(o){
+      + groupsForView().map(function(o){
           return '<div class="chk-opt'+(S.libraryFilter===o.key?' sel':'')+'" onclick="S.libraryFilter=\''+o.key+'\'; render();"><span>'+esc(o.label)+'</span></div>';
         }).join("")
       + '<div class="chk-opt'+(showArchived?' sel':'')+'" onclick="S.libraryFilter=\'archived\'; render();"><span>Archived</span></div>'
       + '</div>'
       + '<div style="margin-bottom:14px"><button class="btn-ghost btn-sm" onclick="goManageGroups()">\u2699 Manage groups</button></div>';
     if(S.loadingSpecs) out += '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>';
-    else if(!list.length) out += '<div class="empty">'+(showArchived ? 'No archived specs.' : 'No spec sheets yet. Click <b>+ New Spec</b> to get started.')+'</div>';
+    else if(!list.length) out += '<div class="empty">'+(showArchived ? 'No archived specs.' : 'No specs here yet. Click <b>+ New Spec</b> to add one.')+'</div>';
     else{
       out += '<div class="catalog-grid">';
       list.forEach(function(s){
@@ -870,7 +1181,7 @@
         out += '<div class="catalog-body">'
           + '<h3>'+esc(s.productName||"(untitled)")+(isStale(s) ? ' <span class="stale-flag" title="Issued over a year ago">\u26a0 1yr+</span>' : '')+'</h3>'
           + '<div class="catalog-sage">'+esc(s.outputSageDesc||"")+'</div>'
-          + '<div class="catalog-meta">'+esc(s.outputSku||"\u2014")+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
+          + '<div class="catalog-meta">'+channelBadgesHtml(s)+' '+esc(s.outputSku||"\u2014")+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
           + '<div class="catalog-actions">'
           + '<button class="btn-sm" data-action="print" data-id="'+esc(s.id)+'">View / Print</button>'
           + (showArchived ? '' : '<button class="btn-sm" data-action="edit" data-id="'+esc(s.id)+'">Edit</button>')
@@ -881,28 +1192,73 @@
     return out;
   }
 
-  function renderForm(){
-    var f = S.form;
-    var out = "";
-    if(S.importBanner) out += '<div class="banner">'+esc(S.importBanner)+'</div>';
-    out += '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;">'
-      + '<h2 style="margin:0;font-size:17px;">'+(S.formId?"Edit spec sheet":"New spec sheet")+'</h2>'
+  function formTopbar(f){
+    var ch = specChannel(f);
+    return '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;">'
+      + '<h2 style="margin:0;font-size:17px;">'+(S.formId?"Edit":"New")+' <span class="chan-badge '+ch+'" style="font-size:12px;vertical-align:middle">'+esc(channelShort(ch))+'</span> spec sheet</h2>'
       + '<div class="nav">'
       + '<span style="position:relative;display:inline-block">'
       + '<button class="btn-ghost btn-sm" onclick="toggleGroupsDropdown()">\ud83c\udff7 Groups ('+(f.groups||[]).length+') \u25be</button>'
-      + (S.groupsDropdownOpen ? '<div class="groups-dropdown">' + S.groupOptions.map(function(o){
+      + (S.groupsDropdownOpen ? '<div class="groups-dropdown">' + (groupsFor(ch).length ? '' : '<p class="note" style="max-width:220px">No groups for this template yet \u2014 add some with \u201cManage groups\u201d in the library.</p>') + groupsFor(ch).map(function(o){
           var on = (f.groups||[]).indexOf(o.key)>=0;
           return '<div class="chk-opt'+(on?" sel":"")+'" onclick="toggleGroupTag(\''+o.key+'\')"><span class="box">'+(on?"\u2611":"\u2610")+'</span><span>'+esc(o.label)+'</span></div>';
-        }).join("") + '<p class="note" style="margin-top:6px;max-width:200px">MMAH, British, Japanese & Chilean also auto-match by SKU/name.</p></div>' : '')
+        }).join("") + (groupsFor(ch).length ? '<p class="note" style="margin-top:6px;max-width:210px">Groups also apply automatically when their name is in the product name.</p>' : '') + '</div>' : '')
       + '</span>'
       + (S.formId ? '<button class="btn-ghost btn-sm" data-action="duplicate" data-id="'+esc(S.formId)+'">Duplicate</button>'
           + '<button class="btn-ghost btn-sm" data-action="'+(f.archived?"unarchive":"archive")+'" data-id="'+esc(S.formId)+'">'+(f.archived?"Restore":"Archive")+'</button>'
           + '<button class="btn-ghost btn-sm" data-action="delete" data-id="'+esc(S.formId)+'">Delete</button>' : '')
       + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Cancel</button>'
       + '<button class="btn-dark btn-sm" onclick="saveSpec()">Save</button></div></div>';
+  }
 
-    out += '<div id="specForm">';
+  function amendedByField(){
+    return '<div class="field'+(S.formErrors.editorName?' has-error':'')+'" id="fld-editorName"><label class="field-label">Amended by *</label>'
+      + '<input type="text" id="editorNameInput" value="'+esc(S.editorName)+'">'
+      + '<div class="field-err">Required</div></div>';
+  }
+  function furtherOutputsField(f, hint){
+    return '<div class="field"><label class="field-label">Further output(s)</label>'
+      + normFurther(f.furtherOutputs).map(function(item,idx,arr){ return furtherOutputRow(item, idx, arr.length); }).join("")
+      + '<button class="btn-sm" onclick="addFurtherOutput()">+ Add output</button>'
+      + '<p class="note" style="margin-top:6px">'+hint+'</p></div>';
+  }
+  function rawInput(name, val, type, placeholder){
+    return '<input type="'+(type||"text")+'" data-f="'+name+'" value="'+esc(val||"")+'"'+(placeholder?' placeholder="'+esc(placeholder)+'"':'')+'>';
+  }
 
+  // ---- shared: reference images section of the form ----
+  function formImagesBlock(f){
+    var out = "";
+    out += '<div class="section-bar">4 REFERENCE IMAGES</div><div class="section-body">';
+    out += '<button class="btn-sm" onclick="document.getElementById(\'imgUploadInput\').click()">+ Upload image(s)</button>'
+      + '<input type="file" id="imgUploadInput" accept="image/*" multiple style="display:none">';
+    out += '<div class="field" style="max-width:200px;margin-top:14px"><label class="field-label">Image display size</label>'
+      + '<select onchange="setField(\'imageDisplaySize\', this.value)">' + SIZE_OPTS.map(function(o){
+          return '<option value="'+o[0]+'"'+(f.imageDisplaySize===o[0]?' selected':'')+'>'+o[1]+'</option>';
+        }).join("") + '</select>'
+      + '<p class="note">Useful to shrink images down when a sheet has several.</p></div>';
+    out += '<div class="imgs-grid">' + (f.referenceImages||[]).map(function(img,idx){
+      return '<div class="img-box"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'">'
+        + '<div class="cap"><input type="text" placeholder="Caption" value="'+esc(img.caption||"")+'" oninput="setImgCaption('+idx+', this.value)"></div>'
+        + '<div style="display:flex">'
+        + '<button class="img-remove" style="border-right:1px solid var(--line)" data-action="rotateImg" data-idx="'+idx+'">\u27f3 Rotate</button>'
+        + '<button class="img-remove" data-action="removeImg" data-idx="'+idx+'">Remove</button>'
+        + '</div></div>';
+    }).join("") + '</div>';
+    if((f.referenceImages||[]).length){
+      out += '<div style="margin-top:18px"><label class="field-label">Preview on printed sheet</label>'
+        + '<div class="ss-imgs size-'+(f.imageDisplaySize||"large")+'" style="max-width:520px">' + f.referenceImages.map(function(img){
+            return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg)"><div class="cap">'+esc(img.caption||"")+'</div></div>';
+          }).join("") + '</div></div>';
+    }
+    out += '</div>';
+
+    return out;
+  }
+
+  // ---- MMAH template body (unchanged layout) ----
+  function formBodyMmah(f){
+    var out = "";
     out += '<div class="card"><div class="row">'
       + fieldText("productName","Product name",f.productName,true)
       + '</div><div class="row">'
@@ -957,34 +1313,80 @@
       + '</div>';
     out += '</div>';
 
-    out += '<div class="section-bar">4 REFERENCE IMAGES</div><div class="section-body">';
-    out += '<button class="btn-sm" onclick="document.getElementById(\'imgUploadInput\').click()">+ Upload image(s)</button>'
-      + '<input type="file" id="imgUploadInput" accept="image/*" multiple style="display:none">';
-    out += '<div class="field" style="max-width:200px;margin-top:14px"><label class="field-label">Image display size</label>'
-      + '<select onchange="setField(\'imageDisplaySize\', this.value)">' + SIZE_OPTS.map(function(o){
-          return '<option value="'+o[0]+'"'+(f.imageDisplaySize===o[0]?' selected':'')+'>'+o[1]+'</option>';
-        }).join("") + '</select>'
-      + '<p class="note">Useful to shrink images down when a sheet has several.</p></div>';
-    out += '<div class="imgs-grid">' + (f.referenceImages||[]).map(function(img,idx){
-      return '<div class="img-box"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'">'
-        + '<div class="cap"><input type="text" placeholder="Caption" value="'+esc(img.caption||"")+'" oninput="setImgCaption('+idx+', this.value)"></div>'
-        + '<div style="display:flex">'
-        + '<button class="img-remove" style="border-right:1px solid var(--line)" data-action="rotateImg" data-idx="'+idx+'">\u27f3 Rotate</button>'
-        + '<button class="img-remove" data-action="removeImg" data-idx="'+idx+'">Remove</button>'
-        + '</div></div>';
-    }).join("") + '</div>';
-    if((f.referenceImages||[]).length){
-      out += '<div style="margin-top:18px"><label class="field-label">Preview on printed sheet</label>'
-        + '<div class="ss-imgs size-'+(f.imageDisplaySize||"large")+'" style="max-width:520px">' + f.referenceImages.map(function(img){
-            return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg)"><div class="cap">'+esc(img.caption||"")+'</div></div>';
-          }).join("") + '</div></div>';
-    }
-    out += '</div>';
+    out += formImagesBlock(f);
 
     out += '<div class="section-bar">CUSTOM NOTES</div><div class="section-body">';
     out += fieldTextarea("customNotes","Any extra lines for this product (optional \u2014 appears at the bottom of the sheet)",f.customNotes);
     out += '</div>';
 
+    return out;
+  }
+
+  // ---- Retail template body ----
+  function formBodyRetail(f){
+    var out = "";
+    out += '<div class="card"><div class="row">'
+      + fieldText("productName","Product name",f.productName,true)
+      + '</div><div class="row">'
+      + fieldText("inputSku","Input SKU",f.inputSku)
+      + fieldText("inputSageDesc","Input SKU description",f.inputSageDesc)
+      + '</div><div class="row">'
+      + fieldText("outputSku","Primary Output SKU",f.outputSku)
+      + fieldText("outputSageDesc","Primary Output description",f.outputSageDesc)
+      + '</div><div class="row">'
+      + fieldText("outputSku2","and/or second Output SKU (optional)",f.outputSku2)
+      + fieldText("outputSageDesc2","Second Output description",f.outputSageDesc2)
+      + '</div>'
+      + furtherOutputsField(f, 'Pick a spec from the list to link it (e.g. an offcut spec) \u2014 it becomes a clickable link on the sheet.')
+      + fieldTextarea("trimText","Trim",f.trimText)
+      + '<div class="row">'
+      + fieldText("issuedDate","Issued date",f.issuedDate,false,"date")
+      + fieldText("writtenBy","Written by",f.writtenBy)
+      + amendedByField()
+      + '</div></div>';
+
+    out += '<div class="section-bar">1 CUTTING DETAILS</div><div class="section-body">';
+    out += fieldTextarea("cuttingNotes","Cutting notes",f.cuttingNotes);
+    out += '<div class="field"><label class="field-label">Weight band \u2014 every steak must fall within this range</label><div class="wb-grid">'
+      + '<div class="wb-cell"><div class="wb-label">Out-of-range minimum</div>'+rawInput("outOfRangeMin",f.outOfRangeMin,"text","e.g. 200 or NA")+'</div>'
+      + '<div class="wb-cell"><div class="wb-label">Absolute legal minimum (g)</div>'+rawInput("minWeight",f.minWeight,"number")+rawInput("toleranceNote",f.toleranceNote,"text","formula / note")+'</div>'
+      + '<div class="wb-cell"><div class="wb-label">Average weight minimum (g)</div>'+rawInput("avgWeightMin",f.avgWeightMin,"number")+rawInput("avgWeightNote",f.avgWeightNote,"text","formula / note")+'</div>'
+      + '<div class="wb-cell"><div class="wb-label">Target weight (g)</div>'+rawInput("targetWeight",f.targetWeight,"number")+'</div>'
+      + '<div class="wb-cell"><div class="wb-label">Maximum weight (g)</div>'+rawInput("maxWeight",f.maxWeight,"number")+'</div>'
+      + '</div></div>';
+    out += tickField("inputCondition","Input product condition", checkGroupHTML(CONDITION_OPTS, f.inputCondition, true, "inputCondition"));
+    out += fieldText("fatCover","Fat cover on finished product",f.fatCover);
+    out += tickField("cuttingMachine","Cutting machine", checkGroupHTML(MACHINE_OPTS, f.cuttingMachine, true, "cuttingMachine"));
+    out += fieldText("weightRecordingNote","Weight recording",f.weightRecordingNote);
+    out += '</div>';
+
+    out += '<div class="section-bar">2 PACKING INSTRUCTIONS</div><div class="section-body">';
+    out += tickField("packagingType","Packaging", checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType"));
+    out += fieldText("positionInTray","Position in tray",f.positionInTray);
+    out += fieldText("packingPrep","Packing preparation",f.packingPrep);
+    out += tickField("labelCuttingPlant","Label type \u2014 Cutting plant", checkGroupHTML(RT_LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant"));
+    out += tickField("secondaryPack","Secondary packaging \u2014 Warehouse", checkGroupHTML(RT_SECONDARY_OPTS, f.secondaryPack, true, "secondaryPack")
+      + (f.secondaryPack==="other" ? '<div style="margin-top:8px">'+fieldText("secondaryPackNote","Other secondary packaging",f.secondaryPackNote)+'</div>' : ''));
+    out += tickField("labelWarehouse","Label type \u2014 Warehouse", checkGroupHTML(RT_LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse"));
+    out += '</div>';
+
+    out += '<div class="section-bar">3 FINISHED PRODUCT DETAILS</div><div class="section-body">';
+    out += tickField("finishedState","Finished product state", checkGroupHTML(RT_FINISHED_OPTS, f.finishedState, true, "finishedState"));
+    out += '</div>';
+
+    out += formImagesBlock(f);
+    return out;
+  }
+
+  function renderForm(){
+    var f = S.form;
+    var out = "";
+    if(S.importBanner) out += '<div class="banner">'+esc(S.importBanner)+'</div>';
+    out += formTopbar(f);
+
+    out += '<div id="specForm">';
+
+    out += specChannel(f) === "retail" ? formBodyRetail(f) : formBodyMmah(f);
     out += '</div>';
 
     out += '<div style="margin-top:20px;display:flex;gap:8px;">'
@@ -997,6 +1399,9 @@
 
   function renderImport(){
     var out = '<div class="card">'
+      + '<div class="field-label" style="margin-bottom:6px">Import into</div><div class="tabs" style="margin-bottom:14px">' + CHANNELS.map(function(c){
+          return '<button class="tab'+(S.importChannel===c.key?' active':'')+'" data-action="importChannel" data-channel="'+c.key+'">'+esc(c.name)+' template</button>';
+        }).join("") + '</div>'
       + '<p style="margin-top:0">Upload an old spec sheet. A Word file (.docx) works best \u2014 its photos come across too. PDFs and photos of a sheet are read as well, but their photos need adding by hand. Nothing is saved until you check it and click Save.</p>'
       + '<div class="import-drop" onclick="document.getElementById(\'importFileInput\').click()">'
       + (S.importBusy ? '<span class="spinner"></span> Reading the document\u2026' : 'Click to choose a Word, PDF or image file')
@@ -1005,11 +1410,6 @@
       + '</div>';
     return out;
   }
-
-  var SCHEMA_FIELDS = ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
-    "toleranceNote","inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes",
-    "packingPrep","packagingType","packagingNote","secondaryPackaging","positionInTray","labelCuttingPlant","labelWarehouse","finishedState",
-    "frozenBestBefore","thawedProduct","customNotes"];
 
   function fileToBase64(file){
     return new Promise(function(resolve, reject){
@@ -1103,6 +1503,20 @@
     if(/^(picture|image|graphic|drawing|photo)\s*\d*$/i.test(d)) return "";
     return d.slice(0, 140);
   }
+  // the caption line just above a picture ("Finished presentation \u2014 ..."), as used on the spec templates
+  function docxLeadCaption(dr){
+    var p = dr; while(p && p.localName !== "p") p = p.parentNode;
+    if(!p) return "";
+    var prev = p.previousSibling, guard = 0;
+    while(prev && guard++ < 12){
+      if(prev.nodeType === 1 && prev.localName === "p"){
+        var t = docxParaText(prev).replace(/\s+/g, " ").trim();
+        if(t) return /^finished presentation/i.test(t) ? t.slice(0, 140) : "";
+      }
+      prev = prev.previousSibling;
+    }
+    return "";
+  }
   async function readDocx(file){
     if(typeof JSZip === "undefined") throw new Error("Word import didn't load \u2014 check your connection and refresh the page.");
     var zip = await JSZip.loadAsync(await file.arrayBuffer());
@@ -1147,7 +1561,7 @@
       if(!info) continue;
       if(info.w && info.h && (info.w < 100 || info.h < 100)) continue;       // tiny icons
       var docPr = dr.getElementsByTagNameNS(NS_WP, "docPr")[0];
-      images.push({bytes:bytes, info:info, caption:docxCaption(docPr && docPr.getAttribute("descr"))});
+      images.push({bytes:bytes, info:info, caption:docxLeadCaption(dr) || docxCaption(docPr && docPr.getAttribute("descr"))});
     }
     return {text: lines.join("\n"), images: images};
   }
@@ -1188,6 +1602,7 @@
     console.log("Import: starting, file type", file.type);
     try{
       var mode, content, mediaType, uploadP = null;
+      var ich = S.importChannel === "retail" ? "retail" : "mmah";
       if(file.type === "application/pdf"){
         var buf = await file.arrayBuffer();
         var pdf = await withTimeout(pdfjsLib.getDocument({data:buf}).promise, 20000);
@@ -1221,7 +1636,7 @@
       var res = await withTimeout(fetch(EDGE_FUNCTION_URL, {
         method:"POST",
         headers:{"Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY},
-        body: JSON.stringify({pwd:pwd, mode:mode, content:content, mediaType:mediaType})
+        body: JSON.stringify({pwd:pwd, mode:mode, content:content, mediaType:mediaType, schemaHint:TEMPLATE[ich].hint})
       }), 45000);
       console.log("Import: AI responded, status", res.status);
       var data = await res.json();
@@ -1230,17 +1645,17 @@
         console.error("Import: AI call failed \u2014 full response:", data);
         if(String(data.error||"").toLowerCase().indexOf("password")>=0) sessionStorage.removeItem("mmah_pwd");
         showToast("Import failed: " + (data.error || res.status) + ". You can still fill the form manually.");
-        S.form = blankSpec(); S.formId=null; S.view="form"; markPristine();
+        S.form = blankSpec(ich); S.formId=null; S.view="form"; markPristine();
         S.importBanner = "Automatic import didn't work \u2014 fill in the details manually below.";
         if(photos.length){ S.form.referenceImages = photos; markUnsaved(); S.importBanner += " The photos from the file were kept."; }
       } else {
-        applyImportedData(data, photos);
+        applyImportedData(data, photos, ich);
       }
     }catch(e){
       showToast("Import failed: " + (e.message||e) + ". You can still fill the form manually.");
       var keptPhotos = [];
       if(uploadP){ try{ keptPhotos = await uploadP; }catch(e2){} }
-      S.form = blankSpec(); S.formId=null; S.view="form"; markPristine();
+      S.form = blankSpec(ich); S.formId=null; S.view="form"; markPristine();
       S.importBanner = "Automatic import didn't work \u2014 fill in the details manually below.";
       if(keptPhotos.length){ S.form.referenceImages = keptPhotos; markUnsaved(); S.importBanner += " The photos from the file were kept."; }
     }
@@ -1248,20 +1663,22 @@
     render();
   }
 
-  function applyImportedData(data, photos){
-    var f = blankSpec();
-    var tickOpts = {
-      inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, trimUse:TRIM_OPTS, packagingType:PACKAGING_OPTS,
-      labelCuttingPlant:LABEL_CP_OPTS, labelWarehouse:LABEL_WH_OPTS, finishedState:FINISHED_OPTS
-    };
-    SCHEMA_FIELDS.forEach(function(k){
+  function applyImportedData(data, photos, ch){
+    ch = ch === "retail" ? "retail" : "mmah";
+    var T = TEMPLATE[ch];
+    var f = blankSpec(ch);
+    T.importFields.forEach(function(k){
       if(data && data[k] !== undefined && data[k] !== null && data[k] !== "" && typeof data[k] !== "object"){
-        if(tickOpts[k] && !tickOpts[k].some(function(o){ return o[0] === data[k]; })) return;   // ignore values that aren't a real option
+        if(T.tickOpts[k] && !T.tickOpts[k].some(function(o){ return o[0] === data[k]; })) return;   // ignore values that aren't a real option
         f[k] = data[k];
       }
     });
+    ["minWeight","maxWeight","targetWeight","avgWeightMin","outOfRangeMin"].forEach(function(k){
+      if(f[k]) f[k] = String(f[k]).replace(/\s*g$/i, "").trim();                                 // "232 g" -> "232"
+    });
     f.outputSku = stripSpaces(f.outputSku);        // PDF text comes through with stray spaces
     f.inputSku = stripSpaces(f.inputSku);
+    if(f.outputSku2) f.outputSku2 = stripSpaces(f.outputSku2);
     f.issuedDate = todayISO();                     // new sheet, issued today
     f.referenceImages = photos || [];
     S.form = f; S.formId = null; S.view = "form";
@@ -1286,7 +1703,7 @@
       + '<div class="field-err">Please choose one</div></div>';
   }
   function furtherOutputRow(item, idx, total){
-    var others = S.specs.filter(function(x){ return x.id !== S.formId; })
+    var others = S.specs.filter(function(x){ return x.id !== S.formId && specChannel(x) === specChannel(S.form); })
       .sort(function(a,b){ return (a.productName||"").localeCompare(b.productName||""); });
     var known = others.some(function(x){ return x.id === item.specId; });
     var opts = '<option value="">\u2014 link to a spec (optional) \u2014</option>'
@@ -1361,7 +1778,7 @@
     return out;
   }
 
-  function renderPrintable(s){
+  function renderPrintableMmah(s){
     var out = '<div class="spec-sheet">';
     out += '<div class="title">PRODUCT CUTTING SPECIFICATION</div>';
     out += '<div class="subtitle">'+esc(s.productName||"")+'</div>';
@@ -1438,23 +1855,113 @@
       out += '<div class="ss-bar">CUSTOM NOTES</div><div class="ss-custom">'+nl2br(s.customNotes)+'</div>';
     }
 
-    if((s.referenceImages||[]).length){
-      out += '<div class="ss-bar">4 REFERENCE IMAGES</div><div class="ss-imgs size-'+(s.imageDisplaySize||"large")+'">'
-        + s.referenceImages.map(function(img){
-            return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'"><div class="cap">'+esc(img.caption||"")+'</div></div>';
-          }).join("") + '</div>';
-    }
+    out += refImagesHtml(s);
+    out += sheetFooterHtml(s);
 
-    out += '<div class="ss-footer">'+esc(s.outputSku||"\u2014")
-      + (s.outputSageDesc ? ' \u2014 '+esc(s.outputSageDesc) : '');
+    out += '</div>';
+    return out;
+  }
+
+  function renderPrintable(s){ return specChannel(s) === "retail" ? renderPrintableRetail(s) : renderPrintableMmah(s); }
+
+  // ---- shared pieces of the printed sheet ----
+  function refImagesHtml(s){
+    if(!(s.referenceImages||[]).length) return "";
+    return '<div class="ss-bar">4 REFERENCE IMAGES</div><div class="ss-imgs size-'+(s.imageDisplaySize||"large")+'">'
+      + s.referenceImages.map(function(img){
+          return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'"><div class="cap">'+esc(img.caption||"")+'</div></div>';
+        }).join("") + '</div>';
+  }
+  function sheetFooterHtml(s){
+    var out = '<div class="ss-footer">'+esc(s.outputSku||"\u2014") + (s.outputSageDesc ? ' \u2014 '+esc(s.outputSageDesc) : '');
     if((s.editHistory||[]).length){
       var last = s.editHistory[s.editHistory.length-1];
       out += '<div class="ss-edit-note">Amended on '+fmtDate(last.at)+' by '+esc(last.by||"someone")+'</div>';
     } else {
       out += '<div class="ss-edit-note">Amended on \u2014 by \u2014</div>';
     }
-    out += '</div>';
+    return out + '</div>';
+  }
+  function mainProductsRowHtml(s){
+    var mp = s.id ? S.specs.filter(function(x){
+        return x.id !== s.id && normFurther(x.furtherOutputs).some(function(o){ return o.specId === s.id; });
+      }).sort(function(a,b){ return (a.productName||"").localeCompare(b.productName||""); }) : [];
+    if(!mp.length) return "";
+    return '<tr><td class="lbl">Main product'+(mp.length>1?'s':'')+'</td><td>'+mp.map(function(x){
+        return '<span class="ss-link" data-action="print" data-id="'+esc(x.id)+'" title="Open the main product spec">'+esc(x.productName||"(untitled)")+'</span>'
+          + (x.outputSku ? ' <span style="color:#606060">('+esc(x.outputSku)+')</span>' : '')
+          + (x.archived ? ' <i>(archived)</i>' : '');
+      }).join("<br>")+'</td></tr>';
+  }
+  function fmtWt(v){
+    v = (v == null ? "" : String(v)).trim();
+    if(!v) return "\u2014";
+    return /^\d+(\.\d+)?$/.test(v) ? v + " g" : v;         // "232" -> "232 g", "NA" stays "NA"
+  }
 
+  // ---- Retail printed sheet (layout follows the Retail Word template) ----
+  function renderPrintableRetail(s){
+    var out = '<div class="spec-sheet">';
+    out += '<div class="title">PRODUCT CUTTING SPECIFICATION</div>';
+    out += '<div class="subtitle">'+esc(s.productName||"")+'</div>';
+
+    var fo = normFurther(s.furtherOutputs).filter(function(o){ return (o.label||"").trim() || o.specId; });
+    function foHtml(o, i){
+      var linked = o.specId ? S.specs.filter(function(x){ return x.id===o.specId; })[0] : null;
+      var text = esc((o.label||"").trim() || (linked ? linked.productName : "") || "(linked spec)");
+      if(linked) text = '<span class="ss-link" data-action="print" data-id="'+esc(o.specId)+'" title="Open this spec">'+text+'</span>';
+      return (fo.length > 1 ? (i+1)+") " : "") + text;
+    }
+    function skuLine(sku, desc){ return '<b>'+esc(sku||"\u2014")+'</b>' + (desc ? ' \u2014 '+esc(desc) : ''); }
+    var outs = skuLine(s.outputSku, s.outputSageDesc);
+    if(s.outputSku2 || s.outputSageDesc2) outs += '<br><span class="ss-andor">and/or</span><br>' + skuLine(s.outputSku2, s.outputSageDesc2);
+
+    out += '<table class="ss-table">'
+      + '<tr><td class="lbl">Input SKU</td><td>'+skuLine(s.inputSku, s.inputSageDesc)+'</td></tr>'
+      + '<tr><td class="lbl">Primary Output SKU</td><td>'+outs+'</td></tr>'
+      + (fo.length ? '<tr><td class="lbl">Further Output(s)</td><td>'+fo.map(foHtml).join("<br>")+'</td></tr>' : '')
+      + mainProductsRowHtml(s)
+      + (s.trimText ? '<tr><td class="lbl">Trim</td><td>'+nl2br(s.trimText)+'</td></tr>' : '')
+      + '<tr><td class="lbl">Issued / By</td><td>'+fmtDate(s.issuedDate) + (s.writtenBy ? ' \u00b7 Written by <b>'+esc(s.writtenBy)+'</b>' : '')
+        + (isStale(s) ? ' <span style="color:#946200;font-weight:700">\u2014 \u26a0 over 1 year old, review recommended</span>' : '')
+        + '</td></tr></table>';
+
+    out += '<div class="ss-bar">1 CUTTING DETAILS</div>';
+    if(s.cuttingNotes) out += '<table class="ss-table"><tr><td class="lbl">Cutting notes</td><td>'+nl2br(s.cuttingNotes)+'</td></tr></table>';
+    function wb(label, val, note, cls){
+      return '<td class="'+(cls||'mincell')+'"><span class="k">'+label+'</span><span class="v">'+esc(val)+'</span>'+(note ? '<span class="d">'+esc(note)+'</span>' : '')+'</td>';
+    }
+    out += '<div class="ss-wbtitle">Weight band \u2014 every steak must fall within this range:</div>';
+    out += '<table class="ss-table ss-weightband wb5"><tr>'
+      + wb("OUT-OF-RANGE MINIMUM", fmtWt(s.outOfRangeMin), "")
+      + wb("ABSOLUTE LEGAL MINIMUM", fmtWt(s.minWeight), s.toleranceNote)
+      + wb("AVERAGE WEIGHT MINIMUM", fmtWt(s.avgWeightMin), s.avgWeightNote)
+      + wb("TARGET WEIGHT (W)", fmtWt(s.targetWeight), "Advertised weight", "targetcell")
+      + wb("MAXIMUM WEIGHT", fmtWt(s.maxWeight), "Do not exceed")
+      + '</tr></table>';
+    out += '<table class="ss-table">'
+      + '<tr><td class="lbl">Input product condition</td><td>'+ssSelectedOnly(CONDITION_OPTS,s.inputCondition)+'</td></tr>'
+      + '<tr><td class="lbl">Fat cover on finished product</td><td><b>'+esc(s.fatCover||"\u2014")+'</b></td></tr>'
+      + '<tr><td class="lbl">Cutting machine</td><td>'+ssSelectedOnly(MACHINE_OPTS,s.cuttingMachine)+'</td></tr>'
+      + (s.weightRecordingNote ? '<tr><td class="lbl">Weight recording</td><td>'+esc(s.weightRecordingNote)+'</td></tr>' : '')
+      + '</table>';
+
+    out += '<div class="ss-bar">2 PACKING INSTRUCTIONS</div>';
+    var secondary = (s.secondaryPack === "other" && s.secondaryPackNote) ? '<b>'+esc(s.secondaryPackNote)+'</b>' : ssSelectedOnly(RT_SECONDARY_OPTS, s.secondaryPack);
+    out += '<table class="ss-table">'
+      + '<tr><td class="lbl">Packaging</td><td>'+ssSelectedOnly(PACKAGING_OPTS,s.packagingType)+'</td></tr>'
+      + '<tr><td class="lbl">Position in tray</td><td>'+esc(s.positionInTray||"\u2014")+'</td></tr>'
+      + '<tr><td class="lbl">Packing preparation</td><td>'+esc(s.packingPrep||"\u2014")+'</td></tr>'
+      + '<tr><td class="lbl">Label type - Cutting plant</td><td>'+ssSelectedOnly(RT_LABEL_CP_OPTS,s.labelCuttingPlant)+'</td></tr>'
+      + '<tr><td class="lbl">Secondary Packaging - Warehouse</td><td>'+secondary+'</td></tr>'
+      + '<tr><td class="lbl">Label type - Warehouse</td><td>'+ssSelectedOnly(RT_LABEL_WH_OPTS,s.labelWarehouse)+'</td></tr>'
+      + '</table>';
+
+    out += '<div class="ss-bar">3 FINISHED PRODUCT DETAILS</div>';
+    out += '<table class="ss-table"><tr><td class="lbl">Finished product state</td><td>'+ssSelectedOnly(RT_FINISHED_OPTS,s.finishedState)+'</td></tr></table>';
+
+    out += refImagesHtml(s);
+    out += sheetFooterHtml(s);
     out += '</div>';
     return out;
   }
@@ -1463,16 +1970,11 @@
 
   // navigation that could lose typed-in work goes through tryLeave() (asks first if there are unsaved changes)
   window.goLibrary=function(){ tryLeave(goLibrary); };
-  // Logo: back to the whole library (clears any group / Archived filter and search). Cancel etc. still keep your filter.
-  window.goLibraryAll=function(){
-    tryLeave(function(){
-      S.libraryFilter = null; S.search = "";
-      goLibrary();
-      window.scrollTo(0,0);
-    });
-  };
   window.goNew=function(){ tryLeave(goNew); };
   window.goImport=function(){ tryLeave(goImport); };
+  window.goHome=function(){ tryLeave(goHome); };
+  window.startNew=startNew;
+  window.cancelChooseChannel=function(){ S.chooseChannel=false; render(); };
   window.goManageGroups=function(){ tryLeave(goManageGroups); };
   window.goEdit=goEdit; window.goPrint=goPrint;
   window.saveSpec=saveSpec; window.doPrint=doPrint; window.loadSpecs=loadSpecs; window.S=S; window.render=render;
@@ -1486,6 +1988,7 @@
         if(S.lightbox){ closeLightbox(); }
         else if(S.confirmDelete){ cancelDelete(); }
         else if(S.confirmLeave){ confirmLeaveStay(); }
+        else if(S.chooseChannel){ cancelChooseChannel(); }
       }
     });
     window.addEventListener("beforeunload", function(e){
