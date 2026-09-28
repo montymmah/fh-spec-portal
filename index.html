@@ -191,7 +191,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "1.1.3";
+  var APP_VERSION = "1.1.4";
 
   function todayISO(){
     var d = new Date();
@@ -763,7 +763,7 @@
 
   function topbar(){
     return '<div class="topbar">'
-      + '<a class="brand" href="#" onclick="goLibrary(); return false;" title="Back to Library"><img src="'+FF_LOGO+'" alt="Freedown Food" class="brand-logo">FF <span>Cutting Spec Portal</span></a>'
+      + '<a class="brand" href="#" onclick="goLibraryAll(); return false;" title="Back to Library (all specs)"><img src="'+FF_LOGO+'" alt="Freedown Food" class="brand-logo">FF <span>Cutting Spec Portal</span></a>'
       + '<div class="nav">'
       + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Library</button>'
       + '<button class="btn-sm" onclick="goImport()">Import Old Version</button>'
@@ -1291,6 +1291,14 @@
 
   // navigation that could lose typed-in work goes through tryLeave() (asks first if there are unsaved changes)
   window.goLibrary=function(){ tryLeave(goLibrary); };
+  // Logo: back to the whole library (clears any group / Archived filter and search). Cancel etc. still keep your filter.
+  window.goLibraryAll=function(){
+    tryLeave(function(){
+      S.libraryFilter = null; S.search = "";
+      goLibrary();
+      window.scrollTo(0,0);
+    });
+  };
   window.goNew=function(){ tryLeave(goNew); };
   window.goImport=function(){ tryLeave(goImport); };
   window.goManageGroups=function(){ tryLeave(goManageGroups); };
