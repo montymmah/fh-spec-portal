@@ -262,7 +262,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "2.4";
+  var APP_VERSION = "2.5";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -1728,16 +1728,32 @@
       + innerHtml
       + '<div class="field-err">Please choose one</div></div>';
   }
-  function furtherOutputRow(item, idx, total){
-    var others = S.specs.filter(function(x){ return x.id !== S.formId && specChannel(x) === specChannel(S.form); })
+  // Retail production often produces MMAH offcuts, so a Retail sheet can link a further output to either
+  // template; MMAH sheets still only link to other MMAH specs.
+  function furtherOutputOptionsHtml(item, ch){
+    var mine = S.specs.filter(function(x){ return x.id !== S.formId && specChannel(x) === ch; })
       .sort(function(a,b){ return (a.productName||"").localeCompare(b.productName||""); });
-    var known = others.some(function(x){ return x.id === item.specId; });
-    var opts = '<option value="">\u2014 link to a spec (optional) \u2014</option>'
-      + (item.specId && !known ? '<option value="'+esc(item.specId)+'" selected>(linked spec no longer exists)</option>' : '')
-      + others.map(function(x){
-          return '<option value="'+esc(x.id)+'"'+(x.id===item.specId?' selected':'')+'>'
-            + esc((x.productName||"(untitled)") + (x.outputSku ? " \u00b7 "+x.outputSku : "") + (x.archived ? " (archived)" : "")) + '</option>';
-        }).join("");
+    var other = ch === "retail" ? S.specs.filter(function(x){ return x.id !== S.formId && specChannel(x) === "mmah"; })
+      .sort(function(a,b){ return (a.productName||"").localeCompare(b.productName||""); }) : [];
+    var known = mine.concat(other).some(function(x){ return x.id === item.specId; });
+    function optionsFor(list){
+      return list.map(function(x){
+        return '<option value="'+esc(x.id)+'"'+(x.id===item.specId?' selected':'')+'>'
+          + esc((x.productName||"(untitled)") + (x.outputSku ? " \u00b7 "+x.outputSku : "") + (x.archived ? " (archived)" : "")) + '</option>';
+      }).join("");
+    }
+    var out = '<option value="">\u2014 link to a spec (optional) \u2014</option>'
+      + (item.specId && !known ? '<option value="'+esc(item.specId)+'" selected>(linked spec no longer exists)</option>' : '');
+    if(other.length){
+      out += '<optgroup label="'+esc(channelName(ch))+'">' + optionsFor(mine) + '</optgroup>'
+        + '<optgroup label="'+esc(channelName("mmah"))+' (e.g. an offcut from this production)">' + optionsFor(other) + '</optgroup>';
+    } else {
+      out += optionsFor(mine);
+    }
+    return out;
+  }
+  function furtherOutputRow(item, idx, total){
+    var opts = furtherOutputOptionsHtml(item, specChannel(S.form));
     return '<div class="row" style="margin-bottom:8px;align-items:center">'
       + '<input type="text" style="flex:2;min-width:180px" placeholder="Description / Sage code" value="'+esc(item.label)+'" oninput="setFurtherOutput('+idx+', this.value)">'
       + '<select style="flex:2;min-width:180px" onchange="setFurtherOutputLink('+idx+', this.value)">'+opts+'</select>'
