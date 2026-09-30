@@ -117,12 +117,13 @@
   .wb-cell input{margin-bottom:6px;}
   .spec-sheet .ss-wbtitle{font-weight:700;font-size:13px;margin:4px 0 8px;}
   .spec-sheet .ss-andor{color:#606060;font-style:italic;font-size:12px;}
+  .spec-sheet .wb4 td{width:25%;padding:10px 4px;}
   .spec-sheet .wb5 td{width:20%;padding:10px 4px;}
   .spec-sheet .wb5 .v{font-size:19px;}
   .field.has-error{outline:2px solid var(--red);outline-offset:6px;border-radius:6px;}
   .field .field-err{display:none;color:var(--red);font-size:12px;font-weight:700;margin-top:6px;}
   .field.has-error .field-err{display:block;}
-  .tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line);}
+  .tabs{display:flex;align-items:center;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line);}
   .tab{border:none;border-bottom:3px solid transparent;border-radius:0;background:none;padding:8px 16px;color:var(--grey1);font-weight:700;}
   .tab:hover{border-color:transparent;border-bottom-color:var(--line);}
   .tab.active{color:var(--red);border-bottom-color:var(--red);}
@@ -262,7 +263,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "2.5";
+  var APP_VERSION = "2.6";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -303,7 +304,7 @@
       trimDiscard:false, trimSku:"", trimText:RT_DEFAULTS.trimText,
       issuedDate:todayISO(), issuedByInitials:"",
       cuttingNotes:"",
-      outOfRangeMin:"", minWeight:"", toleranceNote:RT_DEFAULTS.toleranceNote,
+      minWeight:"", toleranceNote:RT_DEFAULTS.toleranceNote,
       avgWeightMin:"", avgWeightNote:RT_DEFAULTS.avgWeightNote, targetWeight:"", maxWeight:"",
       inputCondition:"", fatCover:"", cuttingMachine:"", weightRecordingNote:RT_DEFAULTS.weightRecordingNote,
       packagingType:"", positionInTray:RT_DEFAULTS.positionInTray, packingPrep:RT_DEFAULTS.packingPrep,
@@ -366,7 +367,7 @@
     },
     retail: {
       textFields: ["productName","inputSku","inputSageDesc","outputSku","outputSageDesc","outputSku2","outputSageDesc2","trimSku","trimText","issuedDate",
-        "cuttingNotes","outOfRangeMin","minWeight","toleranceNote","avgWeightMin","avgWeightNote","targetWeight","maxWeight",
+        "cuttingNotes","minWeight","toleranceNote","avgWeightMin","avgWeightNote","targetWeight","maxWeight",
         "fatCover","weightRecordingNote","positionInTray","packingPrep","secondaryPackNote"],
       requiredTicks: [
         ["inputCondition","Input product condition"],
@@ -380,7 +381,7 @@
       tickOpts: {inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, packagingType:PACKAGING_OPTS,
                  labelCuttingPlant:RT_LABEL_CP_OPTS, secondaryPack:RT_SECONDARY_OPTS, labelWarehouse:RT_LABEL_WH_OPTS, finishedState:RT_FINISHED_OPTS},
       importFields: ["productName","inputSku","inputSageDesc","outputSku","outputSageDesc","outputSku2","outputSageDesc2","trimSku","trimText",
-        "cuttingNotes","outOfRangeMin","minWeight","toleranceNote","avgWeightMin","avgWeightNote","targetWeight","maxWeight",
+        "cuttingNotes","minWeight","toleranceNote","avgWeightMin","avgWeightNote","targetWeight","maxWeight",
         "inputCondition","fatCover","cuttingMachine","weightRecordingNote","packagingType","positionInTray","packingPrep",
         "labelCuttingPlant","secondaryPack","secondaryPackNote","labelWarehouse","finishedState"],
       hint: 'Return ONLY a JSON object (no markdown fences, no commentary) with these keys \u2014 use "" if a value isn\'t present. '
@@ -391,7 +392,7 @@
         + 'outputSku (FIRST primary output SKU, code only), outputSageDesc (its description), '
         + 'outputSku2 and outputSageDesc2 (the SECOND primary output, only when the sheet says "and/or"), '
         + 'trimText (the Trim line as written), trimSku (a SKU code named in the Trim line, otherwise ""), trimDiscard ("yes" only if the sheet says the trim is discarded / not kept, otherwise ""), cuttingNotes, '
-        + 'outOfRangeMin, minWeight (the ABSOLUTE LEGAL MINIMUM), toleranceNote (its formula text, e.g. "W \u2013( 2 \u00d7 TNE)"), '
+        + 'minWeight (the ABSOLUTE LEGAL MINIMUM), toleranceNote (its formula text, e.g. "W \u2013( 2 \u00d7 TNE)"), '
         + 'avgWeightMin (AVERAGE WEIGHT MINIMUM), avgWeightNote (its formula), targetWeight, maxWeight, '
         + 'inputCondition (one of chilled/tempered/frozen), fatCover, cuttingMachine (one of na/hand/automatic/bonesaw/tableTop), weightRecordingNote, '
         + 'packagingType (one of transparentDeep/transparentShallow/blackDeep/blackShallow/vacuumTransparent/vacuumGold/boneGuard/other), '
@@ -1180,7 +1181,7 @@
         var thumb = (s.referenceImages||[])[0];
         out += '<div class="catalog-card">';
         if(thumb){
-          out += '<img class="catalog-thumb" src="'+esc(thumb.url)+'" style="transform:rotate('+(thumb.rotation||0)+'deg)" data-action="lightbox" data-url="'+esc(thumb.url)+'" data-rot="'+(thumb.rotation||0)+'">';
+          out += '<img class="catalog-thumb" src="'+esc(thumb.url)+'" style="transform:rotate('+(thumb.rotation||0)+'deg);cursor:pointer" data-action="print" data-id="'+esc(s.id)+'" title="Open this spec">';
         } else {
           out += '<div class="catalog-thumb-ph">\ud83e\udd69</div>';
         }
@@ -1370,7 +1371,6 @@
     out += '<div class="section-bar">1 CUTTING DETAILS</div><div class="section-body">';
     out += fieldTextarea("cuttingNotes","Cutting notes",f.cuttingNotes);
     out += '<div class="field"><label class="field-label">Weight band \u2014 every steak must fall within this range</label><div class="wb-grid">'
-      + '<div class="wb-cell"><div class="wb-label">Out-of-range minimum</div>'+rawInput("outOfRangeMin",f.outOfRangeMin,"text","e.g. 200 or NA")+'</div>'
       + '<div class="wb-cell"><div class="wb-label">Absolute legal minimum (g)</div>'+rawInput("minWeight",f.minWeight,"number")+rawInput("toleranceNote",f.toleranceNote,"text","formula / note")+'</div>'
       + '<div class="wb-cell"><div class="wb-label">Average weight minimum (g)</div>'+rawInput("avgWeightMin",f.avgWeightMin,"number")+rawInput("avgWeightNote",f.avgWeightNote,"text","formula / note")+'</div>'
       + '<div class="wb-cell"><div class="wb-label">Target weight (g)</div>'+rawInput("targetWeight",f.targetWeight,"number")+'</div>'
@@ -1695,7 +1695,7 @@
         f[k] = data[k];
       }
     });
-    ["minWeight","maxWeight","targetWeight","avgWeightMin","outOfRangeMin"].forEach(function(k){
+    ["minWeight","maxWeight","targetWeight","avgWeightMin"].forEach(function(k){
       if(f[k]) f[k] = String(f[k]).replace(/\s*g$/i, "").trim();                                 // "232 g" -> "232"
     });
     if(ch === "retail"){
@@ -1775,7 +1775,7 @@
       + '<button class="btn-sm" data-action="edit" data-id="'+esc(sp.id)+'">Edit</button>'
       + '<button class="btn-primary btn-sm" onclick="doPrint()">Print / Save as PDF</button>'
       + '</div></div>'
-      + '<div class="tabs">'
+      + '<div class="tabs"><span class="chan-badge '+specChannel(sp)+'" style="margin-right:10px;align-self:center">'+esc(channelShort(specChannel(sp)))+'</span>'
       + '<button class="tab'+(onHistory?'':' active')+'" data-action="printTab" data-tab="sheet">Sheet</button>'
       + '<button class="tab'+(onHistory?' active':'')+'" data-action="printTab" data-tab="history">History'+(hist.length?' ('+hist.length+')':'')+'</button>'
       + '</div>';
@@ -1811,7 +1811,7 @@
   function renderVersionView(){
     var s = S.versionSnapshot, m = S.versionMeta || {};
     var out = '<div class="topbar" style="margin-top:-8px;">'
-      + '<h2 style="margin:0;font-size:17px;">'+esc(s.productName||"")+' <span class="note">(previous version)</span></h2>'
+      + '<h2 style="margin:0;font-size:17px;">'+esc(s.productName||"")+' <span class="chan-badge '+specChannel(s)+'" style="font-size:12px;vertical-align:middle">'+esc(channelShort(specChannel(s)))+'</span> <span class="note">(previous version)</span></h2>'
       + '<div class="nav"><button class="btn-ghost btn-sm" onclick="S.versionSnapshot=null; S.view=\'print\'; S.printTab=\'history\'; render(); window.scrollTo(0,0);">Back to history</button></div></div>'
       + '<div class="banner">Read-only copy of the sheet as it was before '+esc(m.by||"someone")+'\u2019s change on '+fmtDate(m.at)+'. It can\u2019t be edited or printed.</div>'
       + '<div class="card" style="background:var(--panel)">'
@@ -1985,8 +1985,7 @@
       return '<td class="'+(cls||'mincell')+'"><span class="k">'+label+'</span><span class="v">'+esc(val)+'</span>'+(note ? '<span class="d">'+esc(note)+'</span>' : '')+'</td>';
     }
     out += '<div class="ss-wbtitle">Weight band \u2014 every steak must fall within this range:</div>';
-    out += '<table class="ss-table ss-weightband wb5"><tr>'
-      + wb("OUT-OF-RANGE MINIMUM", fmtWt(s.outOfRangeMin), "")
+    out += '<table class="ss-table ss-weightband wb4"><tr>'
       + wb("ABSOLUTE LEGAL MINIMUM", fmtWt(s.minWeight), s.toleranceNote)
       + wb("AVERAGE WEIGHT MINIMUM", fmtWt(s.avgWeightMin), s.avgWeightNote)
       + wb("TARGET WEIGHT (W)", fmtWt(s.targetWeight), "Advertised weight", "targetcell")
