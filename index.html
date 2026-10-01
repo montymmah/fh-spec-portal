@@ -168,6 +168,7 @@
   .setup-warning{background:#fdecea;border:1px solid #f2b8b5;color:#821E20;padding:14px 16px;border-radius:8px;font-size:13.5px;margin-bottom:18px;}
   .import-drop{border:2px dashed var(--line);border-radius:10px;padding:34px 16px;text-align:center;color:var(--grey2);cursor:pointer;}
   .import-drop:hover{border-color:var(--red);color:var(--red);}
+  .import-drop.drag-over{border-color:var(--red);color:var(--red);background:var(--highlight);}
   .banner{background:var(--panel);border:1px solid var(--line);color:var(--ink);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;}
 
   #printArea{display:none;}
@@ -286,7 +287,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "3.0";
+  var APP_VERSION = "3.2";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -377,7 +378,7 @@
                  labelCuttingPlant:LABEL_CP_OPTS, labelWarehouse:LABEL_WH_OPTS, finishedState:FINISHED_OPTS},
       importFields: ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
         "inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes",
-        "packingPrep","packagingType","packagingNote","secondaryPackaging","positionInTray","labelCuttingPlant","labelWarehouse","finishedState",
+        "packingPrep","packagingType","packagingNote","secondaryPackaging","positionInTray","labelWarehouse","finishedState",
         "frozenBestBefore","thawedProduct","customNotes"],
       hint: 'Return ONLY a JSON object (no markdown fences, no commentary) with these keys \u2014 use "" if a value isn\'t present, and keep units out of numeric fields. '
         + 'For every tick-box row choose the option marked \u2612 (ticked); if none is ticked use "". Keys: '
@@ -385,7 +386,7 @@
         + 'inputCondition (one of chilled/tempered/frozen), fatCover, cuttingMachine (one of na/hand/automatic/bonesaw/tableTop), '
         + 'trimUse (one of discard/repurpose), trimRepurposeNote, cuttingNotes, packingPrep, '
         + 'packagingType (one of blackDeep/blackShallow/transparentDeep/transparentShallow/vacuumTransparent/vacuumGold/boneGuard/other), '
-        + 'packagingNote, secondaryPackaging, positionInTray, labelCuttingPlant (one of smallWhite/na), labelWarehouse (one of bottom/cwrap), '
+        + 'packagingNote, secondaryPackaging, positionInTray, labelWarehouse (one of bottom/cwrap), '
         + 'finishedState (one of frozen/chilled/ambient), frozenBestBefore, thawedProduct, customNotes.'
     },
     retail: {
@@ -1062,6 +1063,17 @@
     if(imgInput){ imgInput.onchange = function(e){ handleImageUpload(e.target.files); e.target.value=""; }; }
     var impInput = document.getElementById("importFileInput");
     if(impInput){ impInput.onchange = function(e){ if(e.target.files[0]) handleImportFile(e.target.files[0]); e.target.value=""; }; }
+    var dropZone = document.getElementById("importDropZone");
+    if(dropZone){
+      dropZone.ondragover = function(e){ e.preventDefault(); if(!S.importBusy) dropZone.classList.add("drag-over"); };
+      dropZone.ondragleave = function(){ dropZone.classList.remove("drag-over"); };
+      dropZone.ondrop = function(e){
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+        var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if(file && !S.importBusy) handleImportFile(file);
+      };
+    }
     var el = document.getElementById("specForm");
     if(el){
       el.querySelectorAll("textarea, input[type=text], input[type=date]").forEach(function(inp){
@@ -1397,7 +1409,7 @@
     out += '</div>';
 
     out += '<div class="section-bar">2 PACKING INSTRUCTIONS</div><div class="section-body">';
-    out += fieldText("packingPrep","Packing preparation",f.packingPrep);
+    out += fieldText("packingPrep","Packing preparation",f.packingPrep,false,"text","e.g. Skinpack, Vacpack");
     out += tickField("packagingType","Packaging", checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType")
       + '<div style="margin-top:8px">'+fieldText("packagingNote","Bag size / other note (if applicable)",f.packagingNote)+'</div>');
     out += fieldText("secondaryPackaging","Secondary packaging (warehouse)",f.secondaryPackaging);
@@ -1479,7 +1491,7 @@
     out += '<div class="section-bar">2 PACKING INSTRUCTIONS</div><div class="section-body">';
     out += tickField("packagingType","Packaging", checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType"));
     out += fieldText("positionInTray","Position in tray",f.positionInTray);
-    out += fieldText("packingPrep","Packing preparation",f.packingPrep);
+    out += fieldText("packingPrep","Packing preparation",f.packingPrep,false,"text","e.g. Skinpack, Vacpack");
     out += tickField("labelCuttingPlant","Label type \u2014 Cutting plant", checkGroupHTML(RT_LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant"));
     out += tickField("secondaryPack","Secondary packaging \u2014 Warehouse", checkGroupHTML(RT_SECONDARY_OPTS, f.secondaryPack, true, "secondaryPack")
       + (f.secondaryPack==="other" ? '<div style="margin-top:8px">'+fieldText("secondaryPackNote","Other secondary packaging",f.secondaryPackNote)+'</div>' : ''));
@@ -1519,8 +1531,8 @@
           return '<button class="tab'+(S.importChannel===c.key?' active':'')+'" data-action="importChannel" data-channel="'+c.key+'">'+esc(c.name)+' template</button>';
         }).join("") + '</div>'
       + '<p style="margin-top:0">Upload an old spec sheet. A Word file (.docx) works best \u2014 its photos come across too. PDFs and photos of a sheet are read as well, but their photos need adding by hand. Nothing is saved until you check it and click Save.</p>'
-      + '<div class="import-drop" onclick="document.getElementById(\'importFileInput\').click()">'
-      + (S.importBusy ? '<span class="spinner"></span> Reading the document\u2026' : 'Click to choose a Word, PDF or image file')
+      + '<div class="import-drop" id="importDropZone" onclick="document.getElementById(\'importFileInput\').click()">'
+      + (S.importBusy ? '<span class="spinner"></span> Reading the document\u2026' : 'Click to choose, or drag and drop a Word, PDF or image file here')
       + '</div>'
       + '<input type="file" id="importFileInput" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/*" style="display:none">'
       + '</div>';
@@ -1809,10 +1821,10 @@
     render(); window.scrollTo(0,0);
   }
 
-  function fieldText(name,label,val,required,type){
+  function fieldText(name,label,val,required,type,placeholder){
     var err = S.formErrors && S.formErrors[name];
     return '<div class="field'+(err?' has-error':'')+'" id="fld-'+name+'"><label class="field-label">'+esc(label)+(required?' *':'')+'</label>'
-      + '<input type="'+(type||"text")+'" data-f="'+name+'" value="'+esc(val||"")+'">'
+      + '<input type="'+(type||"text")+'" data-f="'+name+'" value="'+esc(val||"")+'"'+(placeholder?' placeholder="'+esc(placeholder)+'"':'')+'>'
       + (required ? '<div class="field-err">Required</div>' : '')
       + '</div>';
   }
