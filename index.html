@@ -187,12 +187,29 @@
   .ss-weightband .targetcell .v{color:#821E20;}
   .ss-check{color:#808080;margin-right:14px;font-size:13px;}
   .ss-check.on{color:#1A1A1A;font-weight:700;}
-  .ss-imgs{display:grid;grid-template-columns:1fr;gap:18px;margin-top:8px;}
+  .ss-imgs{display:grid;gap:14px;margin-top:8px;}
   .ss-imgs .im{border:1px solid #BFBFBF;border-radius:4px;overflow:hidden;text-align:center;break-inside:avoid;page-break-inside:avoid;}
-  .ss-imgs img{width:100%;max-height:850px;object-fit:contain;background:#f5f5f5;}
-  .ss-imgs.size-small img{max-height:220px;}
-  .ss-imgs.size-medium img{max-height:450px;}
-  .ss-imgs.size-large img{max-height:850px;}
+  .ss-imgs img{width:100%;object-fit:contain;background:#f5f5f5;display:block;}
+  /* 1 image: full width. 2: side by side. 3: a row of three. 4: a 2x2 grid — whichever leaves the least blank space. */
+  .ss-imgs.cols-1{grid-template-columns:1fr;}
+  .ss-imgs.cols-2{grid-template-columns:1fr 1fr;}
+  .ss-imgs.cols-3{grid-template-columns:1fr 1fr 1fr;}
+  .ss-imgs.cols-4{grid-template-columns:1fr 1fr;}
+  /* The size picker (small/medium/large) still sets the ceiling for a single image; with more than one
+     on the page each gets proportionally less height so the group fits without spilling onto another page. */
+  .ss-imgs.cols-1.size-small img{max-height:220px;}
+  .ss-imgs.cols-1.size-medium img{max-height:450px;}
+  .ss-imgs.cols-1.size-large img{max-height:850px;}
+  .ss-imgs.cols-2.size-small img{max-height:160px;}
+  .ss-imgs.cols-2.size-medium img{max-height:280px;}
+  .ss-imgs.cols-2.size-large img{max-height:420px;}
+  .ss-imgs.cols-3.size-small img{max-height:130px;}
+  .ss-imgs.cols-3.size-medium img{max-height:220px;}
+  .ss-imgs.cols-3.size-large img{max-height:320px;}
+  .ss-imgs.cols-4.size-small img{max-height:150px;}
+  .ss-imgs.cols-4.size-medium img{max-height:240px;}
+  .ss-imgs.cols-4.size-large img{max-height:340px;}
+  @media (max-width:640px){ .ss-imgs.cols-3,.ss-imgs.cols-4{grid-template-columns:1fr 1fr;} }
   .ss-imgs .cap{font-size:12px;padding:6px;color:#404040;}
   .ss-footer{margin-top:20px;font-size:11px;color:#606060;border-top:1px solid #BFBFBF;padding-top:8px;}
   .ss-edit-note{font-size:11px;color:#909090;font-style:italic;margin-top:2px;}
@@ -269,7 +286,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "2.9";
+  var APP_VERSION = "3.0";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -1331,8 +1348,9 @@
         + '</div></div>';
     }).join("") + '</div>';
     if((f.referenceImages||[]).length){
+      var pCols = f.referenceImages.length>=4 ? 4 : f.referenceImages.length;
       out += '<div style="margin-top:18px"><label class="field-label">Preview on printed sheet</label>'
-        + '<div class="ss-imgs size-'+(f.imageDisplaySize||"large")+'" style="max-width:520px">' + f.referenceImages.map(function(img){
+        + '<div class="ss-imgs cols-'+pCols+' size-'+(f.imageDisplaySize||"large")+'" style="max-width:520px">' + f.referenceImages.map(function(img){
             return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg)"><div class="cap">'+esc(img.caption||"")+'</div></div>';
           }).join("") + '</div></div>';
     }
@@ -1983,9 +2001,11 @@
 
   // ---- shared pieces of the printed sheet ----
   function refImagesHtml(s){
-    if(!(s.referenceImages||[]).length) return "";
-    return '<div class="ss-bar">4 REFERENCE IMAGES</div><div class="ss-imgs size-'+(s.imageDisplaySize||"large")+'">'
-      + s.referenceImages.map(function(img){
+    var imgs = s.referenceImages||[];
+    if(!imgs.length) return "";
+    var cols = imgs.length>=4 ? 4 : imgs.length;        // 1→1, 2→2, 3→3, 4+→2x2 — whichever has the least white space
+    return '<div class="ss-bar">4 REFERENCE IMAGES</div><div class="ss-imgs cols-'+cols+' size-'+(s.imageDisplaySize||"large")+'">'
+      + imgs.map(function(img){
           return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'"><div class="cap">'+esc(img.caption||"")+'</div></div>';
         }).join("") + '</div>';
   }
