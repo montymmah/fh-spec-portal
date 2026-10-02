@@ -259,6 +259,7 @@
   var CONDITION_OPTS = [["chilled","Chilled"],["tempered","Tempered"],["frozen","Solid frozen"]];
   var MACHINE_OPTS = [["na","N/A"],["hand","Hand meat slicer"],["automatic","Automatic meat slicer"],["bonesaw","Bone saw"],["tableTop","Table Top Slicer"]];
   var TRIM_OPTS = [["discard","To be discarded"],["repurpose","To be repurposed into"]];
+  var UNIT_OF_SALE_OPTS = [["unit","Unit"],["kg","Kg"]];
   var PACKAGING_OPTS = [
     ["transparentDeep","Transparent D15-27 (deep tray)"],["transparentShallow","Transparent D15-13 (shallow tray)"],
     ["blackDeep","Black D15-27 (deep tray)"],["blackShallow","Black D15-13 (shallow tray)"],
@@ -287,7 +288,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "3.2";
+  var APP_VERSION = "3.5";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -332,7 +333,7 @@
       avgWeightMin:"", avgWeightNote:RT_DEFAULTS.avgWeightNote, targetWeight:"", maxWeight:"",
       inputCondition:"", fatCover:"", cuttingMachine:"", weightRecordingNote:RT_DEFAULTS.weightRecordingNote,
       packagingType:"", positionInTray:RT_DEFAULTS.positionInTray, packingPrep:RT_DEFAULTS.packingPrep,
-      labelCuttingPlant:"", secondaryPack:"", secondaryPackNote:"", labelWarehouse:"",
+      labelCuttingPlant:"", secondaryPack:"", secondaryPackNote:"", labelWarehouse:"", scalesLabelExists:false, unitOfSale:"unit",
       finishedState:"",
       referenceImages:[], imageDisplaySize:"large",
       groups:[], archived:false
@@ -349,7 +350,7 @@
       trimUse:"", trimRepurposeNote:"", cuttingNotes:"",
       packingPrep:"", packagingType:"", packagingNote:"", secondaryPackaging:"",
       positionInTray:"Centred (see reference image)",
-      labelCuttingPlant:"smallWhite", labelWarehouse:"bottom",
+      labelCuttingPlant:"smallWhite", labelWarehouse:"bottom", scalesLabelExists:false, unitOfSale:"unit",
       finishedState:"", frozenBestBefore:"Production date + X months", thawedProduct:"", customNotes:"",
       referenceImages:[], imageDisplaySize:"large", issuedDate:todayISO(), issuedByInitials:"",
       groups:[], archived:false
@@ -364,7 +365,8 @@
     ["packagingType","Packaging"],
     ["labelCuttingPlant","Label type \u2014 Cutting plant"],
     ["labelWarehouse","Label type \u2014 Warehouse"],
-    ["finishedState","Finished product state"]
+    ["finishedState","Finished product state"],
+    ["unitOfSale","Unit of Sale"]
   ];
 
   // One entry per channel: which typed fields exist, which tick rows are required, what the importer should fill in.
@@ -375,7 +377,7 @@
         "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","issuedDate"],
       requiredTicks: REQUIRED_TICKS,
       tickOpts: {inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, trimUse:TRIM_OPTS, packagingType:PACKAGING_OPTS,
-                 labelCuttingPlant:LABEL_CP_OPTS, labelWarehouse:LABEL_WH_OPTS, finishedState:FINISHED_OPTS},
+                 labelCuttingPlant:LABEL_CP_OPTS, labelWarehouse:LABEL_WH_OPTS, finishedState:FINISHED_OPTS, unitOfSale:UNIT_OF_SALE_OPTS},
       importFields: ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
         "inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes",
         "packingPrep","packagingType","packagingNote","secondaryPackaging","positionInTray","labelWarehouse","finishedState",
@@ -400,10 +402,11 @@
         ["labelCuttingPlant","Label type \u2014 Cutting plant"],
         ["secondaryPack","Secondary packaging \u2014 Warehouse"],
         ["labelWarehouse","Label type \u2014 Warehouse"],
-        ["finishedState","Finished product state"]
+        ["finishedState","Finished product state"],
+        ["unitOfSale","Unit of Sale"]
       ],
       tickOpts: {inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, packagingType:PACKAGING_OPTS,
-                 labelCuttingPlant:RT_LABEL_CP_OPTS, secondaryPack:RT_SECONDARY_OPTS, labelWarehouse:RT_LABEL_WH_OPTS, finishedState:RT_FINISHED_OPTS},
+                 labelCuttingPlant:RT_LABEL_CP_OPTS, secondaryPack:RT_SECONDARY_OPTS, labelWarehouse:RT_LABEL_WH_OPTS, finishedState:RT_FINISHED_OPTS, unitOfSale:UNIT_OF_SALE_OPTS},
       importFields: ["productName","inputSku","inputSageDesc","outputSku","outputSageDesc","outputSku2","outputSageDesc2","trimSku","trimText",
         "cuttingNotes","minWeight","toleranceNote","avgWeightMin","avgWeightNote","targetWeight","maxWeight",
         "inputCondition","fatCover","cuttingMachine","weightRecordingNote","packagingType","positionInTray","packingPrep",
@@ -432,7 +435,8 @@
     form:null, formId:null, toast:"", formErrors:{}, formBaseline:"", printTab:"sheet",
     confirmLeave:false, pendingLeave:null,
     editorName: localStorage.getItem("mmah_editor_name") || "",
-    groupLists: {mmah: DEFAULT_GROUP_OPTS.map(function(o){return {key:o[0], label:o[1]};}), retail: []}
+    groupLists: {mmah: DEFAULT_GROUP_OPTS.map(function(o){return {key:o[0], label:o[1]};}), retail: []},
+    nameOptions: ["ME","MJ","DR","JB"], editorNameIsOther: false
   };
 
   function showToast(msg){
@@ -488,6 +492,14 @@
       var lists = parseGroupLists(res.data && res.data.groups);
       if(lists){ S.groupLists = lists; render(); }
     }catch(e){ console.log("Using default groups (run groups_setup.sql to manage them on-site):", e.message||e); }
+  }
+  async function loadNameOptions(){
+    if(!SETUP_OK) return;
+    try{
+      var res = await sb.from("app_settings").select("names").eq("id",1).single();
+      if(res.error) throw res.error;
+      if(res.data && Array.isArray(res.data.names) && res.data.names.length){ S.nameOptions = res.data.names; render(); }
+    }catch(e){ console.log("Using default names (run names_setup.sql to manage them on-site):", e.message||e); }
   }
 
   async function loadSpecs(){
@@ -653,6 +665,68 @@
     }catch(e){ handleWriteError(e); }
   };
   window.cancelManageGroups = function(){ S.view="library"; render(); };
+
+  function goManageNames(){
+    S.namesDraft = S.nameOptions.slice();
+    S.newNameLabel = "";
+    S.view = "manageNames";
+    render();
+  }
+  window.addDraftName = function(){
+    var label = (S.newNameLabel||"").trim();
+    if(!label || S.namesDraft.indexOf(label)>=0) { S.newNameLabel=""; render(); return; }
+    S.namesDraft.push(label);
+    S.newNameLabel = "";
+    render();
+  };
+  window.removeDraftName = function(idx){ S.namesDraft.splice(idx,1); render(); };
+  window.renameDraftName = function(idx, val){ S.namesDraft[idx] = val; };
+  window.moveDraftName = function(idx, dir){
+    var list = S.namesDraft, newIdx = idx+dir;
+    if(newIdx<0 || newIdx>=list.length) return;
+    var tmp = list[idx]; list[idx]=list[newIdx]; list[newIdx]=tmp;
+    render();
+  };
+  window.saveNames = async function(){
+    if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
+    var pwd = getPassword();
+    if(!pwd) return;
+    var cleaned = S.namesDraft.map(function(n){ return (n||"").trim(); }).filter(function(n){ return n; });
+    try{
+      var res = await sb.rpc("update_names", {pwd:pwd, new_names: cleaned});
+      if(res.error) throw res.error;
+      S.nameOptions = cleaned;
+      showToast("Names updated.");
+      S.view = "library";
+      render();
+    }catch(e){ handleWriteError(e); }
+  };
+  window.cancelManageNames = function(){ S.view="library"; render(); };
+
+  function renderManageNames(){
+    var list = S.namesDraft;
+    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;">'
+      + '<h2 style="margin:0;font-size:17px;">Manage names</h2>'
+      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="cancelManageNames()">Cancel</button>'
+      + '<button class="btn-dark btn-sm" onclick="saveNames()">Save</button></div></div>';
+    out += '<div class="card">';
+    if(!list.length) out += '<p class="note">No names yet \u2014 add one below.</p>';
+    list.forEach(function(n, idx){
+      out += '<div class="row" style="align-items:center;margin-bottom:8px">'
+        + '<button class="btn-ghost btn-sm" onclick="moveDraftName('+idx+',-1)"'+(idx===0?' disabled':'')+'>\u2191</button>'
+        + '<button class="btn-ghost btn-sm" onclick="moveDraftName('+idx+',1)"'+(idx===list.length-1?' disabled':'')+'>\u2193</button>'
+        + '<input type="text" style="flex:1" value="'+esc(n)+'" oninput="renameDraftName('+idx+', this.value)">'
+        + '<button class="btn-ghost btn-sm" onclick="removeDraftName('+idx+')">Remove</button>'
+        + '</div>';
+    });
+    out += '<div class="row" style="margin-top:10px">'
+      + '<input type="text" style="flex:1" placeholder="e.g. initials, like MJ" value="'+esc(S.newNameLabel||"")+'" oninput="S.newNameLabel=this.value">'
+      + '<button class="btn-sm" onclick="addDraftName()">+ Add</button>'
+      + '</div>'
+      + '<p class="note" style="margin-top:14px">This is the list shown in the \u201cAmended by\u201d dropdown on both templates. Anyone can still type a one-off name via \u201cOther\u2026\u201d without adding it here.</p>'
+      + '</div>';
+    return out;
+  }
 
   function renderManageGroups(){
     var ch = S.groupsDraftChannel === "retail" ? "retail" : "mmah", list = draftList();
@@ -1088,8 +1162,6 @@
         };
       });
     }
-    var editorInput = document.getElementById("editorNameInput");
-    if(editorInput){ editorInput.oninput = function(){ S.editorName = editorInput.value; clearFieldError("editorName"); }; }
     wireImageDragDrop();
   }
 
@@ -1116,6 +1188,7 @@
     else if(S.view==="print") html += renderPrintChrome();
     else if(S.view==="version") html += renderVersionView();
     else if(S.view==="manageGroups") html += renderManageGroups();
+    else if(S.view==="manageNames") html += renderManageNames();
     if(S.lightbox){
       html += '<div class="lightbox-overlay" data-action="closeLightbox">'
         + '<button class="lightbox-close" data-action="closeLightbox">\u00d7</button>'
@@ -1273,6 +1346,7 @@
       + '<div class="chk-opt'+(showArchived?' sel':'')+'" onclick="S.libraryFilter=\'archived\'; render();"><span>Archived</span></div>'
       + '</div>'
       + '<div style="margin-bottom:14px"><button class="btn-ghost btn-sm" onclick="goManageGroups()">\u2699 Manage groups</button>'
+      + ' <button class="btn-ghost btn-sm" onclick="goManageNames()">\ud83d\udc64 Manage names</button>'
       + ' <button class="btn-ghost btn-sm" onclick="exportBackup()">\u2b07 Export backup</button></div>';
     if(S.loadingSpecs) out += '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>';
     else if(!list.length) out += '<div class="empty">'+(showArchived ? 'No archived specs.' : 'No specs here yet. Click <b>+ New Spec</b> to add one.')+'</div>';
@@ -1319,9 +1393,35 @@
       + '<button class="btn-dark btn-sm" onclick="saveSpec()">Save</button></div></div>';
   }
 
+  window.setEditorNameFromSelect = function(val){
+    if(val === "__other__"){
+      S.editorNameIsOther = true;
+      if(S.nameOptions.indexOf(S.editorName)>=0) S.editorName = "";   // switching to Other clears a previously-picked preset
+    } else {
+      S.editorNameIsOther = false;
+      S.editorName = val;
+    }
+    if(S.formErrors) delete S.formErrors.editorName;
+    render();
+    if(S.editorNameIsOther){ var inp = document.getElementById("editorNameOtherInput"); if(inp) inp.focus(); }
+  };
+  window.setEditorNameOther = function(val){
+    S.editorName = val;
+    if(S.formErrors) delete S.formErrors.editorName;
+  };
   function amendedByField(){
-    return '<div class="field'+(S.formErrors.editorName?' has-error':'')+'" id="fld-editorName"><label class="field-label">Amended by *</label>'
-      + '<input type="text" id="editorNameInput" value="'+esc(S.editorName)+'">'
+    var err = S.formErrors.editorName;
+    var cur = S.editorName || "";
+    var isKnown = S.nameOptions.indexOf(cur) >= 0;
+    var showOther = S.editorNameIsOther || (cur !== "" && !isKnown);
+    var selectVal = showOther ? "__other__" : cur;
+    return '<div class="field'+(err?' has-error':'')+'" id="fld-editorName"><label class="field-label">Amended by *</label>'
+      + '<select id="editorNameSelect" onchange="setEditorNameFromSelect(this.value)">'
+      + '<option value=""'+(selectVal===""?' selected':'')+'>\u2014 choose \u2014</option>'
+      + S.nameOptions.map(function(n){ return '<option value="'+esc(n)+'"'+(selectVal===n?' selected':'')+'>'+esc(n)+'</option>'; }).join("")
+      + '<option value="__other__"'+(selectVal==="__other__"?' selected':'')+'>Other\u2026</option>'
+      + '</select>'
+      + (showOther ? '<input type="text" id="editorNameOtherInput" placeholder="Type a name" value="'+esc(cur)+'" oninput="setEditorNameOther(this.value)" style="margin-top:8px">' : '')
       + '<div class="field-err">Required</div></div>';
   }
   function furtherOutputsField(f, hint){
@@ -1389,9 +1489,7 @@
       + '<p class="note" style="margin-top:6px">Pick a spec from the list to link it (e.g. the offcut spec) \u2014 it becomes a clickable link on the sheet.</p></div>'
       + '<div class="row">'
       + fieldText("issuedDate","Issued date",f.issuedDate,false,"date")
-      + '<div class="field'+(S.formErrors.editorName?' has-error':'')+'" id="fld-editorName"><label class="field-label">Amended by *</label>'
-      + '<input type="text" id="editorNameInput" value="'+esc(S.editorName)+'">'
-      + '<div class="field-err">Required</div></div>'
+      + amendedByField()
       + '</div></div>';
 
     out += '<div class="section-bar">1 CUTTING DETAILS</div><div class="section-body">';
@@ -1415,11 +1513,13 @@
     out += fieldText("secondaryPackaging","Secondary packaging (warehouse)",f.secondaryPackaging);
     out += fieldText("positionInTray","Position in tray",f.positionInTray);
     out += tickField("labelCuttingPlant","Label type \u2014 Cutting plant", checkGroupHTML(LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant"));
+    out += boolField("scalesLabelExists","Scales label","Yes, already exists in Sage","Leave unticked as a reminder to request one \u2014 mainly needed for brand new products. Most existing products already have one.");
     out += tickField("labelWarehouse","Label type \u2014 Warehouse", checkGroupHTML(LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse"));
     out += '</div>';
 
     out += '<div class="section-bar">3 FINISHED PRODUCT DETAILS</div><div class="section-body">';
     out += tickField("finishedState","Finished product state", checkGroupHTML(FINISHED_OPTS, f.finishedState, true, "finishedState"));
+    out += tickField("unitOfSale","Unit of Sale (applies to all, for Sage)", checkGroupHTML(UNIT_OF_SALE_OPTS, f.unitOfSale, true, "unitOfSale"));
     out += '<div class="row">'
       + fieldText("frozenBestBefore","Frozen best before",f.frozenBestBefore)
       + fieldText("thawedProduct","Thawed product",f.thawedProduct)
@@ -1442,6 +1542,20 @@
     if(S.form.trimDiscard && S.formErrors) delete S.formErrors.trimSku;
     render();
   };
+  // Generic yes/no reminder-style checkbox (not required, not touched by AI import) — used for things like
+  // "Scales label exists in Sage", where the point is to leave it unticked until someone has actually checked.
+  window.toggleBoolField = function(name){
+    readFormFromInputs();
+    S.form[name] = !S.form[name];
+    render();
+  };
+  function boolField(name, label, onText, hint){
+    var on = !!S.form[name];
+    return '<div class="field"><label class="field-label">'+esc(label)+'</label>'
+      + '<div class="chk-group"><div class="chk-opt'+(on?' sel':'')+'" onclick="toggleBoolField(\''+name+'\')"><span class="box">'+(on?"\u2611":"\u2610")+'</span><span>'+esc(onText)+'</span></div></div>'
+      + (hint ? '<p class="note">'+esc(hint)+'</p>' : '')
+      + '</div>';
+  }
   function trimBlockRetail(f){
     var on = !!f.trimDiscard;
     return '<div class="field"><label class="field-label">Trim</label>'
@@ -1493,6 +1607,7 @@
     out += fieldText("positionInTray","Position in tray",f.positionInTray);
     out += fieldText("packingPrep","Packing preparation",f.packingPrep,false,"text","e.g. Skinpack, Vacpack");
     out += tickField("labelCuttingPlant","Label type \u2014 Cutting plant", checkGroupHTML(RT_LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant"));
+    out += boolField("scalesLabelExists","Scales label","Yes, already exists in Sage","Leave unticked as a reminder to request one \u2014 mainly needed for brand new products. Most existing products already have one.");
     out += tickField("secondaryPack","Secondary packaging \u2014 Warehouse", checkGroupHTML(RT_SECONDARY_OPTS, f.secondaryPack, true, "secondaryPack")
       + (f.secondaryPack==="other" ? '<div style="margin-top:8px">'+fieldText("secondaryPackNote","Other secondary packaging",f.secondaryPackNote)+'</div>' : ''));
     out += tickField("labelWarehouse","Label type \u2014 Warehouse", checkGroupHTML(RT_LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse"));
@@ -1500,6 +1615,7 @@
 
     out += '<div class="section-bar">3 FINISHED PRODUCT DETAILS</div><div class="section-body">';
     out += tickField("finishedState","Finished product state", checkGroupHTML(RT_FINISHED_OPTS, f.finishedState, true, "finishedState"));
+    out += tickField("unitOfSale","Unit of Sale (applies to all, for Sage)", checkGroupHTML(UNIT_OF_SALE_OPTS, f.unitOfSale, true, "unitOfSale"));
     out += '</div>';
 
     out += formImagesBlock(f);
@@ -1871,9 +1987,74 @@
       + '<textarea data-f="'+name+'">'+esc(val||"")+'</textarea></div>';
   }
 
+  // ---------- "Copy Sage lines" — turns a spec into ready-to-paste Sage order text ----------
+  function sageCutLine(desc, sku){
+    return "To be cut into   x " + ((desc||"").trim() || "(no description)") + " (" + ((sku||"").trim() || "___") + ")";
+  }
+  function sageOutputLines(s){
+    var lines = [];
+    if((s.outputSku||"").trim() || (s.outputSageDesc||"").trim()) lines.push(sageCutLine(s.outputSageDesc||s.productName, s.outputSku));
+    if((s.outputSku2||"").trim() || (s.outputSageDesc2||"").trim()) lines.push(sageCutLine(s.outputSageDesc2, s.outputSku2));   // Retail's "and/or" second output
+    normFurther(s.furtherOutputs).forEach(function(o){
+      if(!(o.label||"").trim() && !o.specId) return;
+      var desc = (o.label||"").trim(), sku = "";
+      if(o.specId){
+        var linked = S.specs.filter(function(x){ return x.id===o.specId; })[0];
+        if(linked){ sku = linked.outputSku||""; if(!desc) desc = linked.outputSageDesc||linked.productName||""; }
+      }
+      lines.push(sageCutLine(desc, sku));
+    });
+    return lines;
+  }
+  function sageTrimLine(s){
+    if(specChannel(s) === "retail") return s.trimDiscard ? "Trim to be discarded" : ("Trim to be put into " + ((s.trimSku||"").trim() || "___"));
+    return s.trimUse === "repurpose" ? ("Trim to be put into " + ((s.trimRepurposeNote||"").trim() || "___")) : "Trim to be discarded";
+  }
+  function sageProcessedProduct(finishedState){
+    if(finishedState === "chilledFrozen") return "CHILLED / FROZEN";    // Retail's combined option — genuinely either, so left for manual deletion
+    if(finishedState === "chilled") return "CHILLED";
+    if(finishedState === "frozen") return "FROZEN";
+    if(finishedState === "ambient") return "AMBIENT";
+    return "___";
+  }
+  function sagePackingInstructions(packagingType){
+    if(packagingType === "vacuumTransparent" || packagingType === "vacuumGold") return "CLEAR";
+    if(packagingType === "transparentDeep" || packagingType === "transparentShallow" || packagingType === "blackDeep"
+       || packagingType === "blackShallow" || packagingType === "boneGuard" || packagingType === "other") return "TRAY";
+    return "___";
+  }
+  function sageLinesText(s){
+    var lines = sageOutputLines(s);
+    lines.push(sageTrimLine(s));
+    lines.push("");
+    lines.push("Processed product: " + sageProcessedProduct(s.finishedState));
+    lines.push("Unit of Sale: " + (labelOf(UNIT_OF_SALE_OPTS, s.unitOfSale) || "___") + " (applies to all)");
+    lines.push("Packing instructions: " + sagePackingInstructions(s.packagingType) + " (applies to all)");
+    return lines.join("\n");
+  }
+  window.copySageLines = async function(){
+    var ta = document.getElementById("sageLinesText");
+    if(!ta) return;
+    try{
+      await navigator.clipboard.writeText(ta.value);
+      showToast("Copied.");
+    }catch(e){
+      try{ ta.focus(); ta.select(); document.execCommand("copy"); showToast("Copied."); }
+      catch(e2){ showToast("Couldn\'t copy automatically \u2014 select the text and press Ctrl+C."); }
+    }
+  };
+  function renderSageLinesTab(s){
+    var out = '<div class="card">';
+    out += '<p class="note" style="margin-top:0">Ready to paste into Sage. The blank after \u201cTo be cut into\u201d is where you type today\u2019s quantity \u2014 feel free to edit anything else here too before copying.</p>';
+    out += '<textarea id="sageLinesText" style="min-height:220px;font-family:monospace;font-size:13px;white-space:pre">'+esc(sageLinesText(s))+'</textarea>';
+    out += '<button class="btn-dark btn-sm" style="margin-top:10px" onclick="copySageLines()">\ud83d\udccb Copy to clipboard</button>';
+    out += '</div>';
+    return out;
+  }
+
   function renderPrintChrome(){
     var sp = S.printSpec, hist = sp.editHistory || [];
-    var onHistory = S.printTab === "history";
+    var tab = S.printTab || "sheet";
     var out = '<div class="topbar" style="margin-top:-8px;">'
       + '<h2 style="margin:0;font-size:17px;">'+esc(sp.productName||"")+'</h2>'
       + '<div class="nav">'
@@ -1882,11 +2063,14 @@
       + '<button class="btn-primary btn-sm" onclick="doPrint()">Print / Save as PDF</button>'
       + '</div></div>'
       + '<div class="tabs"><span class="chan-badge '+specChannel(sp)+'" style="margin-right:10px;align-self:center">'+esc(channelShort(specChannel(sp)))+'</span>'
-      + '<button class="tab'+(onHistory?'':' active')+'" data-action="printTab" data-tab="sheet">Sheet</button>'
-      + '<button class="tab'+(onHistory?' active':'')+'" data-action="printTab" data-tab="history">History'+(hist.length?' ('+hist.length+')':'')+'</button>'
+      + '<button class="tab'+(tab==="sheet"?' active':'')+'" data-action="printTab" data-tab="sheet">Sheet</button>'
+      + '<button class="tab'+(tab==="sage"?' active':'')+'" data-action="printTab" data-tab="sage">Copy Sage lines</button>'
+      + '<button class="tab'+(tab==="history"?' active':'')+'" data-action="printTab" data-tab="history">History'+(hist.length?' ('+hist.length+')':'')+'</button>'
       + '</div>';
-    if(onHistory){
+    if(tab==="history"){
       out += renderHistoryTab(sp);
+    } else if(tab==="sage"){
+      out += renderSageLinesTab(sp);
     } else {
       out += '<div class="card" style="background:var(--panel)">' + renderPrintable(sp) + '</div>';
     }
@@ -2135,6 +2319,7 @@
   window.startNew=startNew;
   window.cancelChooseChannel=function(){ S.chooseChannel=false; render(); };
   window.goManageGroups=function(){ tryLeave(goManageGroups); };
+  window.goManageNames=function(){ tryLeave(goManageNames); };
   window.goEdit=goEdit; window.goPrint=goPrint;
   window.saveSpec=saveSpec; window.doPrint=doPrint; window.loadSpecs=loadSpecs; window.S=S; window.render=render;
   window.performDelete=performDelete; window.cancelDelete=cancelDelete;
@@ -2156,6 +2341,7 @@
     render();
     loadSpecs();
     loadGroupOptions();
+    loadNameOptions();
   })();
 })();
 </script>
