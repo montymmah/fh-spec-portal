@@ -173,13 +173,14 @@
 
   #printArea{display:none;}
   .spec-sheet{max-width:760px;margin:0 auto;background:#fff;color:#1A1A1A;font-size:13px;}
-  .ss-letterhead{margin-bottom:12px;}
-  .ss-letterhead img{height:46px;width:auto;display:block;}
-  .spec-sheet.mmah .ss-letterhead img{height:66px;}      /* the MMAH emblem is a compact icon, not a wordmark, so it needs more height to carry the same visual weight */
-  .ss-accent-bar{height:3px;margin-bottom:18px;background:#821E20;}
+  .ss-letterhead{display:flex;align-items:center;gap:18px;margin-bottom:12px;}
+  .ss-letterhead img{height:42px;width:auto;flex-shrink:0;display:block;}
+  .spec-sheet.mmah .ss-letterhead img{height:54px;}      /* the MMAH emblem is a compact icon, not a wordmark, so it needs more height to carry the same visual weight */
+  .ss-letterhead-text{min-width:0;}
+  .ss-accent-bar{height:3px;margin-bottom:16px;background:#821E20;}
   .spec-sheet.mmah .ss-accent-bar{background:#ba5c08;}
-  .spec-sheet .title{font-weight:800;font-size:22px;line-height:1.15;margin-bottom:6px;}
-  .spec-sheet .subtitle{font-weight:800;font-size:16px;color:#821E20;margin-bottom:14px;}
+  .spec-sheet .title{font-weight:800;font-size:19px;line-height:1.2;margin:0;}
+  .spec-sheet .subtitle{font-weight:800;font-size:14px;color:#821E20;margin:2px 0 0;}
   .spec-sheet.mmah .subtitle{color:#ba5c08;}
   .ss-table{width:100%;border-collapse:collapse;margin-bottom:16px;}
   .ss-table td,.ss-table th{border:1px solid #BFBFBF;padding:8px 10px;vertical-align:middle;font-size:13px;}
@@ -294,7 +295,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "3.8";
+  var APP_VERSION = "3.9";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -2108,9 +2109,10 @@
 
   function renderPrintableMmah(s){
     var out = '<div class="spec-sheet mmah">';
-    out += '<div class="ss-letterhead"><img src="'+MMAH_LOGO+'" alt="Meat Me At Home"></div><div class="ss-accent-bar"></div>';
-    out += '<div class="title">PRODUCT CUTTING SPECIFICATION</div>';
-    out += '<div class="subtitle">'+esc(s.productName||"")+'</div>';
+    out += '<div class="ss-letterhead"><img src="'+MMAH_LOGO+'" alt="Meat Me At Home"><div class="ss-letterhead-text">'
+      + '<div class="title">PRODUCT CUTTING SPECIFICATION</div>'
+      + '<div class="subtitle">'+esc(s.productName||"")+'</div></div></div>';
+    out += '<div class="ss-accent-bar"></div>';
 
     var furtherOut = normFurther(s.furtherOutputs).filter(function(o){ return (o.label||"").trim() || o.specId; });
     function furtherOutHtml(o, i){
@@ -2232,9 +2234,10 @@
   // ---- Retail printed sheet (layout follows the Retail Word template) ----
   function renderPrintableRetail(s){
     var out = '<div class="spec-sheet retail">';
-    out += '<div class="ss-letterhead"><img src="'+FF_LOGO+'" alt="Freedown Food"></div><div class="ss-accent-bar"></div>';
-    out += '<div class="title">PRODUCT CUTTING SPECIFICATION</div>';
-    out += '<div class="subtitle">'+esc(s.productName||"")+'</div>';
+    out += '<div class="ss-letterhead"><img src="'+FF_LOGO+'" alt="Freedown Food"><div class="ss-letterhead-text">'
+      + '<div class="title">PRODUCT CUTTING SPECIFICATION</div>'
+      + '<div class="subtitle">'+esc(s.productName||"")+'</div></div></div>';
+    out += '<div class="ss-accent-bar"></div>';
 
     var fo = normFurther(s.furtherOutputs).filter(function(o){ return (o.label||"").trim() || o.specId; });
     function foHtml(o, i){
