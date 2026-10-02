@@ -288,7 +288,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "3.5";
+  var APP_VERSION = "3.6";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -1513,7 +1513,7 @@
     out += fieldText("secondaryPackaging","Secondary packaging (warehouse)",f.secondaryPackaging);
     out += fieldText("positionInTray","Position in tray",f.positionInTray);
     out += tickField("labelCuttingPlant","Label type \u2014 Cutting plant", checkGroupHTML(LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant"));
-    out += boolField("scalesLabelExists","Scales label","Yes, already exists in Sage","Leave unticked as a reminder to request one \u2014 mainly needed for brand new products. Most existing products already have one.");
+    out += boolField("scalesLabelExists","Scales label","Yes, exists on scales","Leave unticked as a reminder to request one \u2014 mainly needed for brand new products. Most existing products already have one.");
     out += tickField("labelWarehouse","Label type \u2014 Warehouse", checkGroupHTML(LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse"));
     out += '</div>';
 
@@ -1607,7 +1607,7 @@
     out += fieldText("positionInTray","Position in tray",f.positionInTray);
     out += fieldText("packingPrep","Packing preparation",f.packingPrep,false,"text","e.g. Skinpack, Vacpack");
     out += tickField("labelCuttingPlant","Label type \u2014 Cutting plant", checkGroupHTML(RT_LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant"));
-    out += boolField("scalesLabelExists","Scales label","Yes, already exists in Sage","Leave unticked as a reminder to request one \u2014 mainly needed for brand new products. Most existing products already have one.");
+    out += boolField("scalesLabelExists","Scales label","Yes, exists on scales","Leave unticked as a reminder to request one \u2014 mainly needed for brand new products. Most existing products already have one.");
     out += tickField("secondaryPack","Secondary packaging \u2014 Warehouse", checkGroupHTML(RT_SECONDARY_OPTS, f.secondaryPack, true, "secondaryPack")
       + (f.secondaryPack==="other" ? '<div style="margin-top:8px">'+fieldText("secondaryPackNote","Other secondary packaging",f.secondaryPackNote)+'</div>' : ''));
     out += tickField("labelWarehouse","Label type \u2014 Warehouse", checkGroupHTML(RT_LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse"));
@@ -2023,31 +2023,21 @@
        || packagingType === "blackShallow" || packagingType === "boneGuard" || packagingType === "other") return "TRAY";
     return "___";
   }
+  function sageInputLine(s){
+    return "Input: " + ((s.inputSageDesc||"").trim() || "(no description)") + " (" + ((s.inputSku||"").trim() || "___") + ")";
+  }
   function sageLinesText(s){
-    var lines = sageOutputLines(s);
+    var lines = [sageInputLine(s)].concat(sageOutputLines(s));
     lines.push(sageTrimLine(s));
-    lines.push("");
     lines.push("Processed product: " + sageProcessedProduct(s.finishedState));
     lines.push("Unit of Sale: " + (labelOf(UNIT_OF_SALE_OPTS, s.unitOfSale) || "___") + " (applies to all)");
     lines.push("Packing instructions: " + sagePackingInstructions(s.packagingType) + " (applies to all)");
-    return lines.join("\n");
+    return lines.join("\n\n");   // a blank line between every line, so each one is easy to select on its own
   }
-  window.copySageLines = async function(){
-    var ta = document.getElementById("sageLinesText");
-    if(!ta) return;
-    try{
-      await navigator.clipboard.writeText(ta.value);
-      showToast("Copied.");
-    }catch(e){
-      try{ ta.focus(); ta.select(); document.execCommand("copy"); showToast("Copied."); }
-      catch(e2){ showToast("Couldn\'t copy automatically \u2014 select the text and press Ctrl+C."); }
-    }
-  };
   function renderSageLinesTab(s){
     var out = '<div class="card">';
-    out += '<p class="note" style="margin-top:0">Ready to paste into Sage. The blank after \u201cTo be cut into\u201d is where you type today\u2019s quantity \u2014 feel free to edit anything else here too before copying.</p>';
-    out += '<textarea id="sageLinesText" style="min-height:220px;font-family:monospace;font-size:13px;white-space:pre">'+esc(sageLinesText(s))+'</textarea>';
-    out += '<button class="btn-dark btn-sm" style="margin-top:10px" onclick="copySageLines()">\ud83d\udccb Copy to clipboard</button>';
+    out += '<p class="note" style="margin-top:0">Each line is entered into Sage individually \u2014 select one at a time to copy it. The blank after \u201cTo be cut into\u201d is where you type today\u2019s quantity; feel free to edit anything else here too.</p>';
+    out += '<textarea id="sageLinesText" style="min-height:260px;font-family:monospace;font-size:13px;white-space:pre">'+esc(sageLinesText(s))+'</textarea>';
     out += '</div>';
     return out;
   }
