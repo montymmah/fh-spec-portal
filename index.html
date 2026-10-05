@@ -193,15 +193,24 @@
   .ss-weightband .mincell .v{color:#1A1A1A;}
   .ss-weightband .targetcell{background:#ECDDDE;}
   .ss-weightband .targetcell .v{color:#821E20;}
+  .spec-sheet.mmah .ss-weightband .targetcell{background:#f7e8d8;}
+  .spec-sheet.mmah .ss-weightband .targetcell .v{color:#ba5c08;}
   .ss-check{color:#808080;margin-right:14px;font-size:13px;}
   .ss-check.on{color:#1A1A1A;font-weight:700;}
   .ss-imgs{display:grid;gap:14px;margin-top:8px;}
+  .ss-img-section{break-inside:avoid;page-break-inside:avoid;}
   .ss-imgs .im{border:1px solid #BFBFBF;border-radius:4px;overflow:hidden;text-align:center;break-inside:avoid;page-break-inside:avoid;}
   .ss-imgs img{width:100%;object-fit:contain;background:#f5f5f5;display:block;}
   /* 1 image: full width. 2: side by side. 3: a row of three. 4: a 2x2 grid — whichever leaves the least blank space. */
   .ss-imgs.cols-1{grid-template-columns:1fr;}
   .ss-imgs.cols-2{grid-template-columns:1fr 1fr;}
   .ss-imgs.cols-3{grid-template-columns:1fr 1fr 1fr;}
+  .ss-imgs.cols-3.featured{grid-template-columns:1fr 1fr;}
+  .ss-imgs.cols-3.featured .im:first-child{grid-column:1 / -1;}
+  .ss-imgs.cols-3.featured.size-small .im:first-child img{max-height:260px;}
+  .ss-imgs.cols-3.featured.size-medium .im:first-child img{max-height:420px;}
+  .ss-imgs.cols-3.featured.size-large .im:first-child img{max-height:560px;}
+  .ss-imgs.cols-3.featured .im:not(:first-child) img{max-height:200px;}
   .ss-imgs.cols-4{grid-template-columns:1fr 1fr;}
   /* The size picker (small/medium/large) still sets the ceiling for a single image; with more than one
      on the page each gets proportionally less height so the group fits without spilling onto another page. */
@@ -270,7 +279,7 @@
   var PACKAGING_OPTS = [
     ["transparentDeep","Transparent D15-27 (deep tray)"],["transparentShallow","Transparent D15-13 (shallow tray)"],
     ["blackDeep","Black D15-27 (deep tray)"],["blackShallow","Black D15-13 (shallow tray)"],
-    ["vacuumTransparent","Vacuum packed transparent"],["vacuumGold","Vacuum packed gold"],
+    ["vacuumTransparent","Vacuum bag transparent"],["vacuumGold","Vacuum bag gold"],
     ["boneGuard","Bone Guard"],["other","Other"]
   ];
   var LABEL_CP_OPTS = [["smallWhite","Small white label"],["na","N/A"]];
@@ -295,7 +304,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "3.9";
+  var APP_VERSION = "4.0";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -333,7 +342,7 @@
       productName:"", inputSku:"", inputSageDesc:"",
       outputSku:"", outputSageDesc:"", outputSku2:"", outputSageDesc2:"",
       furtherOutputs:[{label:RT_DEFAULTS.furtherOutput, specId:""}],
-      trimDiscard:false, trimSku:"", trimText:RT_DEFAULTS.trimText,
+      trimDiscard:true, trimSku:"", trimText:RT_DEFAULTS.trimText,
       issuedDate:todayISO(), issuedByInitials:"",
       cuttingNotes:"",
       minWeight:"", toleranceNote:RT_DEFAULTS.toleranceNote,
@@ -342,7 +351,7 @@
       packagingType:"", positionInTray:RT_DEFAULTS.positionInTray, packingPrep:RT_DEFAULTS.packingPrep,
       labelCuttingPlant:"", secondaryPack:"", secondaryPackNote:"", labelWarehouse:"", scalesLabelExists:false, unitOfSale:"unit",
       finishedState:"",
-      referenceImages:[], imageDisplaySize:"large",
+      referenceImages:[], imageDisplaySize:"large", imageLayout3:"row",
       groups:[], archived:false
     };
   }
@@ -354,12 +363,12 @@
       furtherOutputs:[{label:"", specId:""}],
       targetWeight:"", minWeight:"", maxWeight:"",
       inputCondition:"", fatCover:"", cuttingMachine:"",
-      trimUse:"", trimRepurposeNote:"", cuttingNotes:"",
-      packingPrep:"", packagingType:"", packagingNote:"", secondaryPackaging:"",
+      trimUse:"discard", trimRepurposeNote:"", cuttingNotes:"",
+      packingPrep:"", packagingType:"", packagingNote:"",
       positionInTray:"Centred (see reference image)",
       labelCuttingPlant:"smallWhite", labelWarehouse:"bottom", scalesLabelExists:false, unitOfSale:"unit",
       finishedState:"", frozenBestBefore:"Production date + X months", thawedProduct:"", customNotes:"",
-      referenceImages:[], imageDisplaySize:"large", issuedDate:todayISO(), issuedByInitials:"",
+      referenceImages:[], imageDisplaySize:"large", imageLayout3:"row", issuedDate:todayISO(), issuedByInitials:"",
       groups:[], archived:false
     };
   }
@@ -372,22 +381,21 @@
     ["packagingType","Packaging"],
     ["labelCuttingPlant","Label type \u2014 Cutting plant"],
     ["labelWarehouse","Label type \u2014 Warehouse"],
-    ["finishedState","Finished product state"],
-    ["unitOfSale","Unit of Sale"]
+    ["finishedState","Finished product state"]
   ];
 
   // One entry per channel: which typed fields exist, which tick rows are required, what the importer should fill in.
   var TEMPLATE = {
     mmah: {
       textFields: ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
-        "fatCover","cuttingNotes","packingPrep","packagingNote","secondaryPackaging","positionInTray",
+        "fatCover","cuttingNotes","packingPrep","packagingNote","positionInTray",
         "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","issuedDate"],
       requiredTicks: REQUIRED_TICKS,
       tickOpts: {inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, trimUse:TRIM_OPTS, packagingType:PACKAGING_OPTS,
-                 labelCuttingPlant:LABEL_CP_OPTS, labelWarehouse:LABEL_WH_OPTS, finishedState:FINISHED_OPTS, unitOfSale:UNIT_OF_SALE_OPTS},
+                 labelCuttingPlant:LABEL_CP_OPTS, labelWarehouse:LABEL_WH_OPTS, finishedState:FINISHED_OPTS},
       importFields: ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
         "inputCondition","fatCover","cuttingMachine","trimUse","trimRepurposeNote","cuttingNotes",
-        "packingPrep","packagingType","packagingNote","secondaryPackaging","positionInTray","labelWarehouse","finishedState",
+        "packingPrep","packagingType","packagingNote","positionInTray","labelWarehouse","finishedState",
         "frozenBestBefore","thawedProduct","customNotes"],
       hint: 'Return ONLY a JSON object (no markdown fences, no commentary) with these keys \u2014 use "" if a value isn\'t present, and keep units out of numeric fields. '
         + 'For every tick-box row choose the option marked \u2612 (ticked); if none is ticked use "". Keys: '
@@ -395,7 +403,7 @@
         + 'inputCondition (one of chilled/tempered/frozen), fatCover, cuttingMachine (one of na/hand/automatic/bonesaw/tableTop), '
         + 'trimUse (one of discard/repurpose), trimRepurposeNote, cuttingNotes, packingPrep, '
         + 'packagingType (one of blackDeep/blackShallow/transparentDeep/transparentShallow/vacuumTransparent/vacuumGold/boneGuard/other), '
-        + 'packagingNote, secondaryPackaging, positionInTray, labelWarehouse (one of bottom/cwrap), '
+        + 'packagingNote, positionInTray, labelWarehouse (one of bottom/cwrap), '
         + 'finishedState (one of frozen/chilled/ambient), frozenBestBefore, thawedProduct, customNotes.'
     },
     retail: {
@@ -409,11 +417,10 @@
         ["labelCuttingPlant","Label type \u2014 Cutting plant"],
         ["secondaryPack","Secondary packaging \u2014 Warehouse"],
         ["labelWarehouse","Label type \u2014 Warehouse"],
-        ["finishedState","Finished product state"],
-        ["unitOfSale","Unit of Sale"]
+        ["finishedState","Finished product state"]
       ],
       tickOpts: {inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, packagingType:PACKAGING_OPTS,
-                 labelCuttingPlant:RT_LABEL_CP_OPTS, secondaryPack:RT_SECONDARY_OPTS, labelWarehouse:RT_LABEL_WH_OPTS, finishedState:RT_FINISHED_OPTS, unitOfSale:UNIT_OF_SALE_OPTS},
+                 labelCuttingPlant:RT_LABEL_CP_OPTS, secondaryPack:RT_SECONDARY_OPTS, labelWarehouse:RT_LABEL_WH_OPTS, finishedState:RT_FINISHED_OPTS},
       importFields: ["productName","inputSku","inputSageDesc","outputSku","outputSageDesc","outputSku2","outputSageDesc2","trimSku","trimText",
         "cuttingNotes","minWeight","toleranceNote","avgWeightMin","avgWeightNote","targetWeight","maxWeight",
         "inputCondition","fatCover","cuttingMachine","weightRecordingNote","packagingType","positionInTray","packingPrep",
@@ -1444,7 +1451,7 @@
   // ---- shared: reference images section of the form ----
   function formImagesBlock(f){
     var out = "";
-    out += '<div class="section-bar">4 REFERENCE IMAGES</div><div class="section-body">';
+    out += '<div class="section-bar">4 - REFERENCE IMAGES</div><div class="section-body">';
     out += '<button class="btn-sm" onclick="document.getElementById(\'imgUploadInput\').click()">+ Upload image(s)</button>'
       + '<input type="file" id="imgUploadInput" accept="image/*" multiple style="display:none">';
     out += '<div class="field" style="max-width:200px;margin-top:14px"><label class="field-label">Image display size</label>'
@@ -1453,6 +1460,14 @@
         }).join("") + '</select>'
       + '<p class="note">Useful to shrink images down when a sheet has several.</p></div>';
     var imgCount = (f.referenceImages||[]).length;
+    if(imgCount===3){
+      var feat = f.imageLayout3==="featured";
+      out += '<div class="field" style="max-width:320px"><label class="field-label">Layout for these 3 photos</label>'
+        + '<div class="chk-group">'
+        + '<div class="chk-opt'+(!feat?' sel':'')+'" onclick="setField(\'imageLayout3\',\'row\')"><span class="box">'+(!feat?"\u2611":"\u2610")+'</span><span>Side by side</span></div>'
+        + '<div class="chk-opt'+(feat?' sel':'')+'" onclick="setField(\'imageLayout3\',\'featured\')"><span class="box">'+(feat?"\u2611":"\u2610")+'</span><span>1st photo bigger, other 2 below</span></div>'
+        + '</div></div>';
+    }
     if(imgCount>1) out += '<p class="note" style="margin-top:10px">Drag a photo to reorder it, or use the \u2190 \u2192 buttons.</p>';
     out += '<div class="imgs-grid">' + (f.referenceImages||[]).map(function(img,idx){
       return '<div class="img-box" draggable="true" data-img-idx="'+idx+'"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'">'
@@ -1468,8 +1483,9 @@
     }).join("") + '</div>';
     if((f.referenceImages||[]).length){
       var pCols = f.referenceImages.length>=4 ? 4 : f.referenceImages.length;
+      var pFeatured = pCols===3 && f.imageLayout3==="featured";
       out += '<div style="margin-top:18px"><label class="field-label">Preview on printed sheet</label>'
-        + '<div class="ss-imgs cols-'+pCols+' size-'+(f.imageDisplaySize||"large")+'" style="max-width:520px">' + f.referenceImages.map(function(img){
+        + '<div class="ss-imgs cols-'+pCols+(pFeatured?' featured':'')+' size-'+(f.imageDisplaySize||"large")+'" style="max-width:520px">' + f.referenceImages.map(function(img){
             return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg)"><div class="cap">'+esc(img.caption||"")+'</div></div>';
           }).join("") + '</div></div>';
     }
@@ -1499,7 +1515,7 @@
       + amendedByField()
       + '</div></div>';
 
-    out += '<div class="section-bar">1 CUTTING DETAILS</div><div class="section-body">';
+    out += '<div class="section-bar">1 - CUTTING DETAILS</div><div class="section-body">';
     out += '<div class="field"><label class="field-label">Weight band</label><div class="row">'
       + fieldText("minWeight","Minimum weight (g)",f.minWeight,false,"number")
       + fieldText("targetWeight","Target weight (g)",f.targetWeight,false,"number")
@@ -1513,20 +1529,18 @@
     out += fieldTextarea("cuttingNotes","Cutting notes",f.cuttingNotes);
     out += '</div>';
 
-    out += '<div class="section-bar">2 PACKING INSTRUCTIONS</div><div class="section-body">';
+    out += '<div class="section-bar">2 - PACKING INSTRUCTIONS</div><div class="section-body">';
     out += fieldText("packingPrep","Packing preparation",f.packingPrep,false,"text","e.g. Skinpack, Vacpack");
     out += tickField("packagingType","Packaging", checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType")
       + '<div style="margin-top:8px">'+fieldText("packagingNote","Bag size / other note (if applicable)",f.packagingNote)+'</div>');
-    out += fieldText("secondaryPackaging","Secondary packaging (warehouse)",f.secondaryPackaging);
     out += fieldText("positionInTray","Position in tray",f.positionInTray);
     out += tickField("labelCuttingPlant","Label type \u2014 Cutting plant", checkGroupHTML(LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant"));
     out += boolField("scalesLabelExists","Scales label","Yes, exists on scales","Leave unticked as a reminder to request one \u2014 mainly needed for brand new products. Most existing products already have one.");
     out += tickField("labelWarehouse","Label type \u2014 Warehouse", checkGroupHTML(LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse"));
     out += '</div>';
 
-    out += '<div class="section-bar">3 FINISHED PRODUCT DETAILS</div><div class="section-body">';
+    out += '<div class="section-bar">3 - FINISHED PRODUCT DETAILS</div><div class="section-body">';
     out += tickField("finishedState","Finished product state", checkGroupHTML(FINISHED_OPTS, f.finishedState, true, "finishedState"));
-    out += tickField("unitOfSale","Unit of Sale (applies to all, for Sage)", checkGroupHTML(UNIT_OF_SALE_OPTS, f.unitOfSale, true, "unitOfSale"));
     out += '<div class="row">'
       + fieldText("frozenBestBefore","Frozen best before",f.frozenBestBefore)
       + fieldText("thawedProduct","Thawed product",f.thawedProduct)
@@ -1595,7 +1609,7 @@
       + amendedByField()
       + '</div></div>';
 
-    out += '<div class="section-bar">1 CUTTING DETAILS</div><div class="section-body">';
+    out += '<div class="section-bar">1 - CUTTING DETAILS</div><div class="section-body">';
     out += fieldTextarea("cuttingNotes","Cutting notes",f.cuttingNotes);
     out += '<div class="field"><label class="field-label">Weight band \u2014 every steak must fall within this range</label><div class="wb-grid">'
       + '<div class="wb-cell"><div class="wb-label">Absolute legal minimum (g)</div>'+rawInput("minWeight",f.minWeight,"number")+rawInput("toleranceNote",f.toleranceNote,"text","formula / note")+'</div>'
@@ -1609,7 +1623,7 @@
     out += fieldText("weightRecordingNote","Weight recording",f.weightRecordingNote);
     out += '</div>';
 
-    out += '<div class="section-bar">2 PACKING INSTRUCTIONS</div><div class="section-body">';
+    out += '<div class="section-bar">2 - PACKING INSTRUCTIONS</div><div class="section-body">';
     out += tickField("packagingType","Packaging", checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType"));
     out += fieldText("positionInTray","Position in tray",f.positionInTray);
     out += fieldText("packingPrep","Packing preparation",f.packingPrep,false,"text","e.g. Skinpack, Vacpack");
@@ -1620,9 +1634,8 @@
     out += tickField("labelWarehouse","Label type \u2014 Warehouse", checkGroupHTML(RT_LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse"));
     out += '</div>';
 
-    out += '<div class="section-bar">3 FINISHED PRODUCT DETAILS</div><div class="section-body">';
+    out += '<div class="section-bar">3 - FINISHED PRODUCT DETAILS</div><div class="section-body">';
     out += tickField("finishedState","Finished product state", checkGroupHTML(RT_FINISHED_OPTS, f.finishedState, true, "finishedState"));
-    out += tickField("unitOfSale","Unit of Sale (applies to all, for Sage)", checkGroupHTML(UNIT_OF_SALE_OPTS, f.unitOfSale, true, "unitOfSale"));
     out += '</div>';
 
     out += formImagesBlock(f);
@@ -2037,7 +2050,7 @@
     var lines = [sageInputLine(s)].concat(sageOutputLines(s));
     lines.push(sageTrimLine(s));
     lines.push("Processed product: " + sageProcessedProduct(s.finishedState));
-    lines.push("Unit of Sale: " + (labelOf(UNIT_OF_SALE_OPTS, s.unitOfSale) || "___") + " (applies to all)");
+    lines.push("Unit of Sale: Unit (applies to all)");   // always Unit in practice — no longer a spec-sheet field, just fixed here
     lines.push("Packing instructions: " + sagePackingInstructions(s.packagingType) + " (applies to all)");
     return lines.join("\n\n");   // a blank line between every line, so each one is easy to select on its own
   }
@@ -2061,7 +2074,7 @@
       + '</div></div>'
       + '<div class="tabs"><span class="chan-badge '+specChannel(sp)+'" style="margin-right:10px;align-self:center">'+esc(channelShort(specChannel(sp)))+'</span>'
       + '<button class="tab'+(tab==="sheet"?' active':'')+'" data-action="printTab" data-tab="sheet">Sheet</button>'
-      + '<button class="tab'+(tab==="sage"?' active':'')+'" data-action="printTab" data-tab="sage">Copy Sage lines</button>'
+      + '<button class="tab'+(tab==="sage"?' active':'')+'" data-action="printTab" data-tab="sage">Copy Sage M-Lines</button>'
       + '<button class="tab'+(tab==="history"?' active':'')+'" data-action="printTab" data-tab="history">History'+(hist.length?' ('+hist.length+')':'')+'</button>'
       + '</div>';
     if(tab==="history"){
@@ -2148,7 +2161,7 @@
         + (isStale(s) ? ' <span style="color:#946200;font-weight:700">\u2014 \u26a0 over 1 year old, review recommended</span>' : '')
         + '</td></tr></table>';
 
-    out += '<div class="ss-bar">1 CUTTING DETAILS</div>';
+    out += '<div class="ss-bar">1 - CUTTING DETAILS</div>';
     out += '<table class="ss-table ss-weightband"><tr>'
       + '<td class="mincell"><span class="k">MINIMUM WEIGHT</span><span class="v">'+esc(s.minWeight||"\u2014")+' g</span><span class="d">Not to fall below</span></td>'
       + '<td class="targetcell"><span class="k">TARGET WEIGHT (W)</span><span class="v">'+esc(s.targetWeight||"\u2014")+' g</span><span class="d">Advertised weight</span></td>'
@@ -2164,18 +2177,17 @@
       + '<tr><td class="lbl">Cutting notes</td><td>'+esc(s.cuttingNotes||"\u2014")+'</td></tr>'
       + '</table>';
 
-    out += '<div class="ss-bar">2 PACKING INSTRUCTIONS</div>';
+    out += '<div class="ss-bar">2 - PACKING INSTRUCTIONS</div>';
     out += '<table class="ss-table">'
       + '<tr><td class="lbl">Packing preparation</td><td><b>'+esc(s.packingPrep||"\u2014")+'</b></td></tr>'
       + '<tr><td class="lbl">Packaging</td><td>'+ssSelectedOnly(PACKAGING_OPTS,s.packagingType)
         + (s.packagingNote ? ' &mdash; <i>'+esc(s.packagingNote)+'</i>' : '')+'</td></tr>'
-      + (s.secondaryPackaging ? '<tr><td class="lbl">Secondary packaging (warehouse)</td><td>'+esc(s.secondaryPackaging)+'</td></tr>' : '')
       + '<tr><td class="lbl">Position in tray</td><td>'+esc(s.positionInTray||"\u2014")+'</td></tr>'
       + '<tr><td class="lbl">Label type \u2014 Cutting plant</td><td>'+ssSelectedOnly(LABEL_CP_OPTS,s.labelCuttingPlant)+'</td></tr>'
       + '<tr><td class="lbl">Label type \u2014 Warehouse</td><td>'+ssSelectedOnly(LABEL_WH_OPTS,s.labelWarehouse)+'</td></tr>'
       + '</table>';
 
-    out += '<div class="ss-bar">3 FINISHED PRODUCT DETAILS</div>';
+    out += '<div class="ss-bar">3 - FINISHED PRODUCT DETAILS</div>';
     out += '<table class="ss-table"><tr><td class="lbl">Finished product state</td><td>'+ssSelectedOnly(FINISHED_OPTS,s.finishedState)+'</td></tr>'
       + (s.frozenBestBefore ? '<tr><td class="lbl">Frozen best before</td><td>'+esc(s.frozenBestBefore)+'</td></tr>' : '')
       + (s.thawedProduct ? '<tr><td class="lbl">Thawed product</td><td>'+esc(s.thawedProduct)+'</td></tr>' : '')
@@ -2199,10 +2211,12 @@
     var imgs = s.referenceImages||[];
     if(!imgs.length) return "";
     var cols = imgs.length>=4 ? 4 : imgs.length;        // 1→1, 2→2, 3→3, 4+→2x2 — whichever has the least white space
-    return '<div class="ss-bar">4 REFERENCE IMAGES</div><div class="ss-imgs cols-'+cols+' size-'+(s.imageDisplaySize||"large")+'">'
+    var featured = cols===3 && s.imageLayout3==="featured";
+    // kept as one block so the "4 - REFERENCE IMAGES" heading never prints alone with the photos pushed to the next page
+    return '<div class="ss-img-section"><div class="ss-bar">4 - REFERENCE IMAGES</div><div class="ss-imgs cols-'+cols+(featured?' featured':'')+' size-'+(s.imageDisplaySize||"large")+'">'
       + imgs.map(function(img){
           return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'"><div class="cap">'+esc(img.caption||"")+'</div></div>';
-        }).join("") + '</div>';
+        }).join("") + '</div></div>';
   }
   function sheetFooterHtml(s){
     var out = '<div class="ss-footer">'+esc(s.outputSku||"\u2014") + (s.outputSageDesc ? ' \u2014 '+esc(s.outputSageDesc) : '');
@@ -2271,7 +2285,7 @@
         + (isStale(s) ? ' <span style="color:#946200;font-weight:700">\u2014 \u26a0 over 1 year old, review recommended</span>' : '')
         + '</td></tr></table>';
 
-    out += '<div class="ss-bar">1 CUTTING DETAILS</div>';
+    out += '<div class="ss-bar">1 - CUTTING DETAILS</div>';
     if(s.cuttingNotes) out += '<table class="ss-table"><tr><td class="lbl">Cutting notes</td><td>'+nl2br(s.cuttingNotes)+'</td></tr></table>';
     function wb(label, val, note, cls){
       return '<td class="'+(cls||'mincell')+'"><span class="k">'+label+'</span><span class="v">'+esc(val)+'</span>'+(note ? '<span class="d">'+esc(note)+'</span>' : '')+'</td>';
@@ -2290,7 +2304,7 @@
       + (s.weightRecordingNote ? '<tr><td class="lbl">Weight recording</td><td>'+esc(s.weightRecordingNote)+'</td></tr>' : '')
       + '</table>';
 
-    out += '<div class="ss-bar">2 PACKING INSTRUCTIONS</div>';
+    out += '<div class="ss-bar">2 - PACKING INSTRUCTIONS</div>';
     var secondary = (s.secondaryPack === "other" && s.secondaryPackNote) ? '<b>'+esc(s.secondaryPackNote)+'</b>' : ssSelectedOnly(RT_SECONDARY_OPTS, s.secondaryPack);
     out += '<table class="ss-table">'
       + '<tr><td class="lbl">Packaging</td><td>'+ssSelectedOnly(PACKAGING_OPTS,s.packagingType)+'</td></tr>'
@@ -2301,7 +2315,7 @@
       + '<tr><td class="lbl">Label type - Warehouse</td><td>'+ssSelectedOnly(RT_LABEL_WH_OPTS,s.labelWarehouse)+'</td></tr>'
       + '</table>';
 
-    out += '<div class="ss-bar">3 FINISHED PRODUCT DETAILS</div>';
+    out += '<div class="ss-bar">3 - FINISHED PRODUCT DETAILS</div>';
     out += '<table class="ss-table"><tr><td class="lbl">Finished product state</td><td>'+ssSelectedOnly(RT_FINISHED_OPTS,s.finishedState)+'</td></tr></table>';
 
     out += refImagesHtml(s);
