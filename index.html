@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -135,6 +135,14 @@
   .section-bar{background:var(--ink);color:#fff;font-weight:800;font-size:13px;letter-spacing:.03em;padding:8px 14px;border-radius:6px 6px 0 0;margin-top:26px;}
   .section-body{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;padding:16px;}
   .chk-group{display:flex;gap:16px;flex-wrap:wrap;}
+  :focus-visible{outline:2px solid #1d4ed8;outline-offset:2px;}
+  .chk-opt:focus-visible{background:rgba(29,78,216,.08);}
+  @media screen and ((pointer:coarse), (max-width:720px)){
+    button, .btn, .btn-sm, .tab{min-height:44px;}
+    input[type=text], input[type=number], input[type=date], select{min-height:44px;}
+    .chk-opt{min-height:44px;padding:8px 6px;}
+    .chk-group{gap:6px 14px;}
+  }
   .chk-opt{display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 2px;border-radius:4px;}
   .chk-opt .box{font-size:15px;}
   .chk-opt.sel{font-weight:700;color:var(--ink);}
@@ -250,10 +258,25 @@
 <div id="toastHost"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
-  try{ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }catch(e){}
+  // Import helpers (PDF reader, Word reader) load only when the Import screen needs them.
+  var _libP = {};
+  function loadLib(name){
+    if(_libP[name]) return _libP[name];
+    var url = name === "pdf" ? "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+                             : "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
+    _libP[name] = new Promise(function(resolve, reject){
+      var t = document.createElement("script");
+      t.src = url;
+      t.onload = function(){
+        if(name === "pdf"){ try{ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }catch(e){} }
+        resolve();
+      };
+      t.onerror = function(){ delete _libP[name]; reject(new Error("Couldn't load the import tools \u2014 check your connection and try again.")); };
+      document.head.appendChild(t);
+    });
+    return _libP[name];
+  }
 </script>
 <script>
   /* ====================================================================
@@ -293,6 +316,22 @@
   var RT_SECONDARY_OPTS = [["sleeve13","13mm Steak Sleeve"],["retailBoxD13","MMAH Retail Box for D13 tray"],["other","Other"]];
   var RT_LABEL_WH_OPTS  = [["steakSleeve","Steak Sleeve Label"],["cwrapBox","C Wrap onto Box"],["na","N/A"]];
   var RT_FINISHED_OPTS  = [["chilledFrozen","Chilled and/or Frozen (refer to Production/Processing SOP)"],["chilled","Chilled"],["frozen","Frozen"]];
+  // UK Weights & Measures (Packaged Goods) Regs: tolerable negative error by nominal quantity (g)
+  function tneFor(q){
+    var t;
+    if(q<=0) return null;
+    if(q<=50) t=q*0.09; else if(q<=100) t=4.5; else if(q<=200) t=q*0.045; else if(q<=300) t=9;
+    else if(q<=500) t=q*0.03; else if(q<=1000) t=15; else if(q<=10000) t=q*0.015;
+    else if(q<=15000) t=150; else t=q*0.01;
+    return q<=1000 ? Math.ceil(t*10-1e-9)/10 : Math.ceil(t-1e-9);
+  }
+  function fmtG(n){ return String(Math.round(n*10)/10); }
+  function autoRetailMins(f){
+    var q = parseFloat(f.targetWeight), t = tneFor(q);
+    if(t===null || isNaN(q)) return;
+    f.minWeight = fmtG(q-2*t);
+    f.avgWeightMin = fmtG(q-t);
+  }
   var RT_DEFAULTS = {
     furtherOutput: "Out-of-Range Steaks. Refer to attached CUTTING PLANT JOB print out (Sage SOP)",
     trimText: "Pack & freeze any usable trim (min 80:20vl) above 500g, otherwise discard",
@@ -306,7 +345,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "4.1";
+  var APP_VERSION = "4.4";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -450,7 +489,7 @@
     view:"home", channel:null, lastChannel:(localStorage.getItem("mmah_last_channel")||""), homeSearch:"", importChannel:"mmah", chooseChannel:false, specs:[], loadingSpecs:true, search:"",
     form:null, formId:null, toast:"", formErrors:{}, formBaseline:"", printTab:"sheet",
     confirmLeave:false, pendingLeave:null,
-    editorName: localStorage.getItem("mmah_editor_name") || "",
+    editorName: "",
     groupLists: {mmah: DEFAULT_GROUP_OPTS.map(function(o){return {key:o[0], label:o[1]};}), retail: []},
     nameOptions: ["ME","MJ","DR","JB"], editorNameIsOther: false
   };
@@ -522,8 +561,12 @@
     if(!SETUP_OK){ S.loadingSpecs=false; render(); return; }
     S.loadingSpecs = true; render();
     try{
-      var res = await sb.from("specs").select("id, spec, updated_at").order("updated_at", {ascending:false});
-      if(res.error) throw res.error;
+      var res = await sb.rpc("list_specs");
+      S.lightList = !res.error && Array.isArray(res.data);
+      if(!S.lightList){
+        res = await sb.from("specs").select("id, spec, updated_at").order("updated_at", {ascending:false});
+        if(res.error) throw res.error;
+      }
       S.specs = (res.data||[]).map(function(row){
         var d = Object.assign({}, row.spec || {});
         d.id = row.id; d.updatedAt = row.updated_at;
@@ -536,6 +579,24 @@
 
   // Downloads every spec (both channels, archived included) as one JSON file \u2014 a safety copy independent
   // of Supabase. Fetches fresh rather than using whatever's already in memory, so the backup is never stale.
+  // Full stored history (with old-version copies) for one spec; the library list leaves these out.
+  async function fetchFullHistory(id){
+    var r = await sb.from("specs").select("spec").eq("id", id).single();
+    if(r.error) throw r.error;
+    return (r.data && r.data.spec && r.data.spec.editHistory) || [];
+  }
+  function ensureHistory(sp){
+    if(!sp || !sp.id || sp._histFull || sp._histLoading) return;
+    sp._histLoading = true;
+    fetchFullHistory(sp.id).then(function(h){
+      sp.editHistory = h; sp._histFull = true; sp._histLoading = false;
+      if(S.printSpec === sp && S.view === "print") render();
+    }).catch(function(e){
+      sp._histLoading = false; sp._histFailed = true;
+      showToast("Couldn\u2019t load history: " + (e.message||e));
+      if(S.printSpec === sp && S.view === "print") render();
+    });
+  }
   window.exportBackup = async function(){
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     showToast("Preparing backup\u2026");
@@ -773,7 +834,7 @@
   }
 
   // --- unsaved-changes tracking ---
-  function resetFormMeta(){ S.formErrors = {}; S.groupsDropdownOpen = false; S.importBanner = ""; }
+  function resetFormMeta(){ S.editorName = ""; S.editorNameIsOther = false; S.formErrors = {}; S.groupsDropdownOpen = false; S.importBanner = ""; }
   function markPristine(){ S.formBaseline = JSON.stringify(S.form); }          // nothing to lose yet
   function markUnsaved(){ S.formBaseline = JSON.stringify(blankSpec(specChannel(S.form))); }      // e.g. imported/duplicated but never saved
   function isFormDirty(){
@@ -833,7 +894,7 @@
       if(rows.length){
         var lock = rows[0];
         var age = Date.now() - new Date(lock.locked_at).getTime();
-        if(age < 10*60*1000 && lock.editor_name && lock.editor_name !== (S.editorName||"")){
+        if(age < 10*60*1000 && lock.editor_name && lock.editor_name !== (S.editorName||"Someone")){
           showToast("\u26a0 " + lock.editor_name + " may currently be editing this \u2014 check with them before saving.");
         }
       }
@@ -891,6 +952,11 @@
     var payload = JSON.parse(JSON.stringify(spec));
     delete payload.id;
     payload.archived = archivedFlag;
+    delete payload._histFull; delete payload._histLoading; delete payload._histFailed;
+    if(S.lightList){
+      try{ payload.editHistory = await fetchFullHistory(id); }
+      catch(e){ showToast("Couldn\u2019t load the sheet\u2019s history, so nothing was changed. Try again."); return; }
+    }
     payload.editHistory = (payload.editHistory||[]).concat([{by:name, at:new Date().toISOString(), action: archivedFlag?"archived":"unarchived"}]);
     try{
       var res = await sb.rpc("update_spec", {pwd:pwd, spec_id:id, payload:payload});
@@ -1005,13 +1071,41 @@
   window.openLightbox = function(url, rotation){ S.lightbox = {url:url, rotation:rotation||0}; render(); };
   window.closeLightbox = function(){ S.lightbox = null; render(); };
 
+  // Resize to max 1800px on the long edge and re-encode as JPEG (~85%) before uploading.
+  async function shrinkImage(file){
+    var MAX = 1800;
+    var bmp;
+    try{ bmp = await createImageBitmap(file, {imageOrientation:"from-image"}); }
+    catch(e){ bmp = await createImageBitmap(file); }
+    var scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+    var w = Math.max(1, Math.round(bmp.width*scale)), h = Math.max(1, Math.round(bmp.height*scale));
+    var c = document.createElement("canvas"); c.width = w; c.height = h;
+    var ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0,0,w,h);          // flatten transparency to white
+    ctx.drawImage(bmp, 0, 0, w, h);
+    if(bmp.close) bmp.close();
+    var blob = await new Promise(function(res){ c.toBlob(res, "image/jpeg", 0.85); });
+    if(!blob) throw new Error("encode failed");
+    if(blob.size >= file.size && scale === 1 && file.type === "image/jpeg") return file;     // already smaller
+    var base = (file.name||"photo").replace(/\.[^.]*$/, "");
+    return new File([blob], base + ".jpg", {type:"image/jpeg"});
+  }
   async function handleImageUpload(files){
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     for(var i=0;i<files.length;i++){
       var file = files[i];
+      if(/heic|heif/i.test(file.type || "") || /\.(heic|heif)$/i.test(file.name || "")){
+        showToast("HEIC photos aren\u2019t supported \u2014 on iPhone set Camera > Formats > Most Compatible, or export as JPG, then upload again.");
+        continue;
+      }
+      if(!/^image\//.test(file.type || "")){ showToast("\u201c" + (file.name||"File") + "\u201d isn\u2019t an image."); continue; }
+      var small;
+      try{ small = await shrinkImage(file); }
+      catch(e){ showToast("Couldn\u2019t read \u201c" + (file.name||"image") + "\u201d \u2014 try a JPG or PNG."); continue; }
+      file = small;
       var path = Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+file.name.replace(/[^a-zA-Z0-9.\-_]/g,"_");
       try{
-        var up = await sb.storage.from("spec-images").upload(path, file, {upsert:false});
+        var up = await sb.storage.from("spec-images").upload(path, file, {upsert:false, contentType:file.type});
         if(up.error) throw up.error;
         var pub = sb.storage.from("spec-images").getPublicUrl(path);
         S.form.referenceImages.push({id:path, url:pub.data.publicUrl, caption:"", rotation:0});
@@ -1081,6 +1175,11 @@
     var payload = JSON.parse(JSON.stringify(S.form));
     payload.issuedByInitials = name;
     delete payload.id;
+    delete payload._histFull; delete payload._histLoading; delete payload._histFailed;
+    if(S.formId && S.lightList){
+      try{ payload.editHistory = await fetchFullHistory(S.formId); }
+      catch(e){ showToast("Couldn\u2019t load the sheet\u2019s history, so nothing was saved. Try again."); return; }
+    }
     if(S.formId){
       var priorSpec = S.specs.filter(function(s){return s.id===S.formId;})[0];
       var snapshot = null;
@@ -1094,12 +1193,12 @@
         if(res.error) throw res.error;
         showToast("Spec updated.");
         releaseEditLock(S.formId);
-        var updated = JSON.parse(JSON.stringify(payload)); updated.id = S.formId; updated.updatedAt = new Date().toISOString();
+        var updated = JSON.parse(JSON.stringify(payload)); updated._histFull = true; updated.id = S.formId; updated.updatedAt = new Date().toISOString();
         openPrintSpec(updated);
         loadSpecs();
       }catch(e){ handleWriteError(e); }
     } else {
-      payload.editHistory = [];
+      payload.editHistory = [{by:name, at:new Date().toISOString(), action:"created"}];
       try{
         var res2 = await sb.rpc("create_spec", {pwd:pwd, payload:payload});
         if(res2.error) throw res2.error;
@@ -1131,10 +1230,13 @@
     var refocusId = (active && (active.id === "librarySearchInput" || active.id === "homeSearchInput")) ? active.id : null;
     var selStart = refocusId ? active.selectionStart : null;
     var selEnd = refocusId ? active.selectionEnd : null;
+    var focusKey = refocusId ? null : a11yKey(active);
     try{
       document.getElementById("app").innerHTML = renderView();
       document.getElementById("printArea").innerHTML = (S.view==="print" && S.printSpec) ? renderPrintable(S.printSpec) : "";
       wireFileInputs();
+      enhanceA11y();
+      if(focusKey) a11yRefocus(focusKey);
       if(refocusId){
         var el = document.getElementById(refocusId);
         if(el){ el.focus(); if(selStart!=null){ try{ el.setSelectionRange(selStart, selEnd); }catch(e){} } }
@@ -1148,6 +1250,84 @@
     }
   }
 
+  // ---- accessibility: roles, keyboard, label links (runs after every render) ----
+  var _a11yUid = 0;
+  function enhanceA11y(){
+    var app = document.getElementById("app");
+    if(!app) return;
+    // tick-boxes: real roles + keyboard focus
+    app.querySelectorAll(".chk-opt[onclick]").forEach(function(el){
+      var oc = el.getAttribute("onclick") || "";
+      var isRadio = /setField\(|libraryFilter|setImageLayout|imageLayout/.test(oc);
+      el.setAttribute("role", isRadio ? "radio" : "checkbox");
+      el.setAttribute("aria-checked", el.classList.contains("sel") ? "true" : "false");
+      if(!el.hasAttribute("tabindex")) el.setAttribute("tabindex","0");
+    });
+    app.querySelectorAll(".chk-group").forEach(function(g){
+      if(!g.getAttribute("role") && g.querySelector(".chk-opt[role]")) g.setAttribute("role", g.querySelector('.chk-opt[role=radio]') ? "radiogroup" : "group");
+      var f = g.closest(".field"), lab = f && f.querySelector(".field-label");
+      if(lab && !g.hasAttribute("aria-labelledby")){
+        if(!lab.id) lab.id = "lbl" + (++_a11yUid);
+        g.setAttribute("aria-labelledby", lab.id);
+      }
+    });
+    // other clickable cards / rows / images
+    app.querySelectorAll("[onclick], [data-action]").forEach(function(el){
+      var tag = el.tagName;
+      if(tag==="BUTTON" || tag==="A" || tag==="INPUT" || tag==="SELECT" || tag==="TEXTAREA" || tag==="LABEL") return;
+      if(el.classList.contains("chk-opt")) return;
+      if(el.getAttribute("data-action")==="lightbox" && tag==="IMG"){ if(!el.hasAttribute("alt")) el.setAttribute("alt","Reference photo (open spec)"); }
+      if(!el.hasAttribute("role")) el.setAttribute("role","button");
+      if(!el.hasAttribute("tabindex")) el.setAttribute("tabindex","0");
+    });
+    // link every label to its single input
+    app.querySelectorAll(".field").forEach(function(f){
+      var lab = f.querySelector("label.field-label");
+      if(!lab || lab.hasAttribute("for")) return;
+      var ctrls = f.querySelectorAll("input:not([type=file]):not([type=hidden]), select, textarea");
+      if(ctrls.length !== 1) return;
+      var c = ctrls[0];
+      if(!c.id) c.id = "ctl" + (++_a11yUid);
+      lab.setAttribute("for", c.id);
+    });
+    // unlabelled search / icon-only controls
+    app.querySelectorAll("input:not([type=file]):not([type=hidden]), select, textarea").forEach(function(c){
+      if(c.id && app.querySelector('label[for="'+c.id+'"]')) return;
+      if(c.hasAttribute("aria-label") || c.hasAttribute("aria-labelledby")) return;
+      var ph = c.getAttribute("placeholder");
+      if(ph) c.setAttribute("aria-label", ph);
+    });
+    var th = document.getElementById("toastHost");
+    if(th && !th.hasAttribute("aria-live")){ th.setAttribute("aria-live","polite"); th.setAttribute("role","status"); }
+  }
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Enter" && e.key !== " ") return;
+    var el = e.target;
+    if(!el || !el.getAttribute) return;
+    var role = el.getAttribute("role");
+    if(role !== "button" && role !== "radio" && role !== "checkbox") return;
+    var tag = el.tagName;
+    if(tag==="BUTTON" || tag==="A" || tag==="INPUT" || tag==="SELECT" || tag==="TEXTAREA") return;
+    e.preventDefault();
+    el.click();
+  });
+  function a11yKey(el){
+    if(!el || !el.getAttribute) return null;
+    var oc = el.getAttribute("onclick"), da = el.getAttribute("data-action");
+    if(!oc && !da) return null;
+    return {tag:el.tagName, oc:oc, da:da, id:el.getAttribute("data-id"), idx:el.getAttribute("data-idx"), txt:el.classList.contains("chk-opt") ? "" : (el.textContent||"").slice(0,40)};
+  }
+  function a11yRefocus(k){
+    if(!k) return;
+    var all = document.querySelectorAll("#app [tabindex], #app button");
+    for(var i=0;i<all.length;i++){
+      var c = all[i];
+      if(c.tagName===k.tag && c.getAttribute("onclick")===k.oc && c.getAttribute("data-action")===k.da
+         && c.getAttribute("data-id")===k.id && c.getAttribute("data-idx")===k.idx && (k.txt==="" || (c.textContent||"").slice(0,40)===k.txt)){
+        c.focus(); return;
+      }
+    }
+  }
   function wireFileInputs(){
     var imgInput = document.getElementById("imgUploadInput");
     if(imgInput){ imgInput.onchange = function(e){ handleImageUpload(e.target.files); e.target.value=""; }; }
@@ -1174,6 +1354,10 @@
             if(cleaned !== inp.value) inp.value = cleaned;
           }
           S.form[f] = inp.value;
+          if(f==="targetWeight" && specChannel(S.form)==="retail"){
+            autoRetailMins(S.form);
+            ["minWeight","avgWeightMin"].forEach(function(k){ var o=el.querySelector('[data-f="'+k+'"]'); if(o) o.value=S.form[k]; });
+          }
           clearFieldError(f);
         };
       });
@@ -1615,7 +1799,7 @@
     out += fieldTextarea("cuttingNotes","Cutting notes",f.cuttingNotes);
     out += '<div class="field"><label class="field-label">Weight band \u2014 every steak must fall within this range</label><div class="wb-grid">'
       + '<div class="wb-cell"><div class="wb-label">Absolute legal minimum (g)</div>'+rawInput("minWeight",f.minWeight,"number")+rawInput("toleranceNote",f.toleranceNote,"text","formula / note")+'</div>'
-      + '<div class="wb-cell"><div class="wb-label">Average weight minimum (g)</div>'+rawInput("avgWeightMin",f.avgWeightMin,"number")+rawInput("avgWeightNote",f.avgWeightNote,"text","formula / note")+'</div>'
+      + '<div class="wb-cell"><div class="wb-label">1-in-40 limit, T1 (g)</div>'+rawInput("avgWeightMin",f.avgWeightMin,"number")+rawInput("avgWeightNote",f.avgWeightNote,"text","formula / note")+'</div>'
       + '<div class="wb-cell"><div class="wb-label">Target weight (g)</div>'+rawInput("targetWeight",f.targetWeight,"number")+'</div>'
       + '<div class="wb-cell"><div class="wb-label">Maximum weight (g)</div>'+rawInput("maxWeight",f.maxWeight,"number")+'</div>'
       + '</div></div>';
@@ -1820,7 +2004,7 @@
     return "";
   }
   async function readDocx(file){
-    if(typeof JSZip === "undefined") throw new Error("Word import didn't load \u2014 check your connection and refresh the page.");
+    await loadLib("zip");
     var zip = await JSZip.loadAsync(await file.arrayBuffer());
     var docFile = zip.file("word/document.xml");
     if(!docFile) throw new Error("That doesn't look like a Word (.docx) file.");
@@ -1907,6 +2091,7 @@
       var ich = S.importChannel === "retail" ? "retail" : "mmah";
       if(file.type === "application/pdf"){
         var buf = await file.arrayBuffer();
+        await loadLib("pdf");
         var pdf = await withTimeout(pdfjsLib.getDocument({data:buf}).promise, 20000);
         var extracted = "";
         for(var p=1;p<=pdf.numPages;p++){
@@ -2126,6 +2311,10 @@
   }
 
   function renderHistoryTab(sp){
+    if(S.lightList && sp.id && !sp._histFull){
+      ensureHistory(sp);
+      return '<div class="card"><p class="note" role="status">'+(sp._histFailed ? 'Couldn\u2019t load the history \u2014 reopen this sheet to try again.' : 'Loading history\u2026')+'</p></div>';
+    }
     var hist = sp.editHistory || [];
     var last = hist.length ? hist[hist.length-1] : null;
     var out = '<div class="card">';
@@ -2134,7 +2323,7 @@
       + '<button class="btn-sm" data-action="printTab" data-tab="sheet">View sheet</button></div>';
     for(var i=hist.length-1;i>=0;i--){
       var h = hist[i];
-      var verb = h.action==="archived" ? "archived this sheet" : (h.action==="unarchived" ? "restored this sheet" : "amended this sheet");
+      var verb = h.action==="archived" ? "archived this sheet" : (h.action==="unarchived" ? "restored this sheet" : (h.action==="created" ? "created this sheet" : "amended this sheet"));
       out += '<div class="hist-row"><div><b>'+fmtDate(h.at)+'</b> \u00b7 '+esc(h.by||"someone")+' '+verb
         + (h.snapshot ? '' : '<div class="note">No copy of the earlier version was kept for this change.</div>')
         + '</div>'
@@ -2262,7 +2451,7 @@
       var last = s.editHistory[s.editHistory.length-1];
       out += '<div class="ss-edit-note">Amended on '+fmtDate(last.at)+' by '+esc(last.by||"someone")+'</div>';
     } else {
-      out += '<div class="ss-edit-note">Amended on \u2014 by \u2014</div>';
+      out += '<div class="ss-edit-note">Amended on '+(s.updatedAt?fmtDate(s.updatedAt):'\u2014')+' by '+esc(s.issuedByInitials||'\u2014')+'</div>';
     }
     return out + '</div>';
   }
@@ -2331,8 +2520,8 @@
     out += '<div class="ss-wbtitle">Weight band \u2014 every steak must fall within this range:</div>';
     out += '<table class="ss-table ss-weightband wb4"><tr>'
       + wb("ABSOLUTE LEGAL MINIMUM", fmtWt(s.minWeight), s.toleranceNote)
-      + wb("AVERAGE WEIGHT MINIMUM", fmtWt(s.avgWeightMin), s.avgWeightNote)
-      + wb("TARGET WEIGHT (W)", fmtWt(s.targetWeight), "Advertised weight", "targetcell")
+      + wb("1-IN-40 LIMIT (T1)", fmtWt(s.avgWeightMin), "No more than 1 in 40 packs below this" + (s.avgWeightNote ? " \u00b7 " + s.avgWeightNote : ""))
+      + wb("TARGET WEIGHT (W)", fmtWt(s.targetWeight), "Advertised weight \u00b7 batch average must not fall below this", "targetcell")
       + wb("MAXIMUM WEIGHT", fmtWt(s.maxWeight), "Do not exceed")
       + '</tr></table>';
     out += '<table class="ss-table">'
