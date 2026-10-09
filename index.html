@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FF Cutting Spec Portal</title>
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="referrer" content="no-referrer">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&display=swap" rel="stylesheet">
@@ -33,6 +35,38 @@
   .brand-logo{height:26px;width:auto;display:block;}
   .brand span{color:var(--red);}
   .subnote{font-size:12px;color:var(--grey2);margin-bottom:18px;}
+  .who{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--grey1);}
+  .who b{background:var(--ink);color:#fff;border-radius:999px;padding:3px 10px;font-size:12px;letter-spacing:.4px;}
+  .amended-fixed{padding:9px 0;font-size:14px;}
+  .login-box{max-width:360px;}
+  .login-box label{display:block;font-size:12px;font-weight:700;color:var(--grey1);margin:10px 0 4px;}
+  .login-box input{width:100%;}
+  .login-err{color:var(--red);font-size:13px;margin:10px 0 0;}
+  .login-hint{font-size:12px;color:var(--grey2);margin-top:12px;}
+  .locked-cards .ch-card{cursor:pointer;}
+  .people-table{width:100%;border-collapse:collapse;font-size:14px;}
+  .people-table th{font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--grey2);text-align:center;padding:6px 8px;border-bottom:2px solid var(--line);}
+  .people-table th:first-child,.people-table td:first-child{text-align:left;}
+  .people-table td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:center;}
+  .people-table input[type=checkbox]{width:20px;height:20px;accent-color:var(--red);cursor:pointer;}
+  .people-table tr.off td{opacity:.5;}
+  .prod-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:#fff;}
+  .prod-table{border-collapse:collapse;font-size:12.5px;white-space:nowrap;}
+  .prod-table th{position:sticky;top:0;background:var(--panel);font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--grey1);padding:7px 10px;text-align:left;border-bottom:2px solid var(--line);}
+  .prod-table td{padding:6px 10px;border-bottom:1px solid var(--line);}
+  .prod-table tr.run-head td{background:#f6efe2;font-weight:700;font-size:12px;}
+  .prod-table tr.other td{color:var(--grey2);}
+  .prod-table tr.mine td{color:var(--ink);}
+  .prod-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:12px 0;}
+  .prod-tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;}
+  .prod-tile .k{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--grey2);}
+  .prod-tile .v{font-size:20px;font-weight:700;margin-top:2px;}
+  .prod-tile .d{font-size:11.5px;color:var(--grey2);margin-top:2px;}
+  .altcut{margin-top:6px;}
+  .altcut .chk-opt{font-size:13px;}
+  .altcut-detail{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 0 24px;font-size:13px;color:var(--grey1);}
+  .altcut-detail select{min-width:200px;max-width:340px;}
+  .altcut-detail input[type=number]{width:90px;}
   .nav{display:flex;gap:8px;flex-wrap:wrap;}
   button, .btn{
     font-family:inherit; cursor:pointer; border:1px solid var(--line); background:var(--bg); color:var(--ink);
@@ -264,7 +298,8 @@
   function loadLib(name){
     if(_libP[name]) return _libP[name];
     var url = name === "pdf" ? "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
-                             : "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
+            : name === "xlsx" ? "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+                              : "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
     _libP[name] = new Promise(function(resolve, reject){
       var t = document.createElement("script");
       t.src = url;
@@ -345,7 +380,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "4.4";
+  var APP_VERSION = "5.0";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -405,6 +440,7 @@
       targetWeight:"", minWeight:"", maxWeight:"",
       inputCondition:"", fatCover:"", cuttingMachine:"",
       trimUse:"discard", trimRepurposeNote:"", cuttingNotes:"",
+      altCutOn:false, altCutMinG:"", altCutSpecId:"", altCutNote:"",
       packingPrep:"", packagingType:"", packagingNote:"",
       positionInTray:"Centred (see reference image)",
       labelCuttingPlant:"smallWhite", labelWarehouse:"bottom", scalesLabelExists:false, unitOfSale:"unit",
@@ -430,7 +466,7 @@
     mmah: {
       textFields: ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
         "fatCover","cuttingNotes","packingPrep","packagingNote","positionInTray",
-        "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","issuedDate"],
+        "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","altCutMinG","altCutNote","issuedDate"],
       requiredTicks: REQUIRED_TICKS,
       tickOpts: {inputCondition:CONDITION_OPTS, cuttingMachine:MACHINE_OPTS, trimUse:TRIM_OPTS, packagingType:PACKAGING_OPTS,
                  labelCuttingPlant:LABEL_CP_OPTS, labelWarehouse:LABEL_WH_OPTS, finishedState:FINISHED_OPTS},
@@ -491,7 +527,10 @@
     confirmLeave:false, pendingLeave:null,
     editorName: "",
     groupLists: {mmah: DEFAULT_GROUP_OPTS.map(function(o){return {key:o[0], label:o[1]};}), retail: []},
-    nameOptions: ["ME","MJ","DR","JB"], editorNameIsOther: false
+    nameOptions: [], editorNameIsOther: false,
+    session: null, loginOpen: null, loginErr: "", loginBusy: false, loginName: (function(){ try{ return localStorage.getItem("ff_last_user")||""; }catch(e){ return ""; } })(),
+    mustChange: false, changePw: false, pwErr: "", sessionLost: false, reauthErr: "",
+    users: null, usersErr: "", pwModal: null, prodCache: {}
   };
 
   function showToast(msg){
@@ -502,23 +541,112 @@
     S._toastTimer = setTimeout(function(){ S.toast=""; var h=document.getElementById("toastHost"); if(h) h.innerHTML=""; }, 3200);
   }
 
-  // ---------- password / editor name ----------
-  function getPassword(){
-    var p = sessionStorage.getItem("mmah_pwd");
-    if(!p){
-      p = prompt("Enter the shared edit password:");
-      if(p) sessionStorage.setItem("mmah_pwd", p);
+  // ---------- login / session ----------
+  var SESSION_KEY = "ff_session";
+  function storeSession(){
+    try{ if(S.session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(S.session)); else sessionStorage.removeItem(SESSION_KEY); }catch(e){}
+  }
+  function can(p){ return !!(S.session && S.session.perms && S.session.perms[p]); }
+  function sessionEnded(){
+    // keep whatever is on screen (an unsaved form stays put); just ask for the login again
+    S.session = null; storeSession(); S.sessionLost = true;
+    S.loginOpen = {resume:true}; S.loginErr = "Your session ended \\u2014 please log in again to continue.";
+    render();
+  }
+  // every call that touches data goes through here with the person's session token
+  async function rpcA(fn, args){
+    if(!S.session){ var e0 = {message:"Please log in."}; return {data:null, error:e0}; }
+    var res = await sb.rpc(fn, Object.assign({p_token:S.session.token}, args||{}));
+    if(res.error){
+      var m = String(res.error.message||"");
+      if(m.indexOf("SESSION_EXPIRED")>=0){ res.error.message = "Your session ended \\u2014 please log in again."; sessionEnded(); }
+      else if(m.indexOf("MUST_CHANGE")>=0){ S.mustChange = true; render(); }
+      else if(m.indexOf("NO_PERMISSION")>=0){ res.error.message = "You don\\u2019t have permission to do that."; }
     }
-    return p || null;
+    return res;
   }
   function handleWriteError(e){
     var msg = (e && e.message) || String(e);
-    if(msg.toLowerCase().indexOf("password")>=0){
-      sessionStorage.removeItem("mmah_pwd");
-      showToast("Incorrect password \u2014 try again.");
-    } else {
-      showToast("Save failed: " + msg);
-    }
+    if(msg.indexOf("session ended")>=0) return;            // login box is already showing
+    showToast(msg.indexOf("permission")>=0 ? msg : "Save failed: " + msg);
+  }
+  window.openLogin = function(then){
+    S.loginOpen = {then: then||null}; S.loginErr = ""; render();
+  };
+  window.cancelLogin = function(){ if(S.sessionLost) return; S.loginOpen = null; S.loginErr = ""; render(); };
+  window.doLogin = async function(){
+    var nm = ((document.getElementById("loginName")||{}).value||"").trim();
+    var pw = (document.getElementById("loginPwd")||{}).value||"";
+    S.loginName = nm;
+    if(!nm || !pw){ S.loginErr = "Enter your initials and password."; render(); return; }
+    S.loginBusy = true; S.loginErr = ""; render();
+    var d = null;
+    try{
+      var res = await sb.rpc("app_login", {p_name:nm, p_pwd:pw});
+      if(res.error) throw res.error;
+      d = res.data;
+    }catch(e){ S.loginBusy = false; S.loginErr = "Couldn\\u2019t log in: " + (e.message||e); render(); return; }
+    S.loginBusy = false;
+    if(!d || !d.ok){ S.loginErr = (d && d.error) || "Login failed."; render(); return; }
+    var wasLost = S.sessionLost;
+    S.session = {token:d.token, name:d.name, perms:d.perms};
+    storeSession(); S.sessionLost = false;
+    try{ localStorage.setItem("ff_last_user", d.name); }catch(e){}
+    S.editorName = d.name;
+    var then = S.loginOpen && S.loginOpen.then;
+    S.loginOpen = null; S.loginErr = "";
+    if(d.must_change){ S.mustChange = true; S.tmpPwd = pw; S.afterLogin = then; render(); return; }
+    await afterLogin(then, wasLost);
+  };
+  async function afterLogin(then, resume){
+    S.mustChange = false; S.tmpPwd = null;
+    render();
+    await Promise.all([loadSpecs(), loadGroupOptions()]);
+    if(resume) showToast("Logged in again \\u2014 you can carry on.");
+    if(then) then();
+  }
+  window.doLogout = function(){
+    tryLeave(function(){
+      var tok = S.session && S.session.token;
+      if(tok){ try{ sb.rpc("app_logout", {p_token:tok}); }catch(e){} }
+      S.session = null; storeSession(); S.sessionLost = false;
+      S.specs = []; S.form = null; S.formId = null; S.printSpec = null; S.view = "home"; S.channel = null;
+      S.loginOpen = null; S.mustChange = false; S.changePw = false; S.prodCache = {}; S.users = null;
+      render(); window.scrollTo(0,0);
+    });
+  };
+  window.openChangePw = function(){ S.changePw = true; S.pwErr = ""; render(); };
+  window.cancelChangePw = function(){ if(S.mustChange) return; S.changePw = false; S.pwErr = ""; render(); };
+  window.doChangePw = async function(){
+    var forced = !!S.mustChange;
+    var oldEl = document.getElementById("pwOld");
+    var oldPw = forced ? (S.tmpPwd||"") : ((oldEl||{}).value||"");
+    var n1 = (document.getElementById("pwNew")||{}).value||"", n2 = (document.getElementById("pwNew2")||{}).value||"";
+    if(!oldPw){ S.pwErr = "Enter your current password."; render(); return; }
+    if(n1.length < 8){ S.pwErr = "Use at least 8 characters."; render(); return; }
+    if(n1 !== n2){ S.pwErr = "The two new passwords don\\u2019t match."; render(); return; }
+    try{
+      var res = await sb.rpc("app_change_password", {p_token:S.session.token, p_old:oldPw, p_new:n1});
+      if(res.error) throw res.error;
+      if(!res.data || !res.data.ok){ S.pwErr = (res.data && res.data.error) || "Couldn\\u2019t change the password."; render(); return; }
+    }catch(e){ S.pwErr = "Couldn\\u2019t change the password: " + (e.message||e); render(); return; }
+    S.pwErr = ""; S.changePw = false;
+    if(forced){ var then = S.afterLogin; S.afterLogin = null; await afterLogin(then); showToast("Password set \\u2014 welcome."); }
+    else { render(); showToast("Password changed."); }
+  };
+  async function restoreSession(){
+    var st = null;
+    try{ st = JSON.parse(sessionStorage.getItem(SESSION_KEY)||"null"); }catch(e){}
+    if(!st || !st.token || !SETUP_OK) return false;
+    try{
+      var res = await sb.rpc("app_whoami", {p_token:st.token});
+      if(res.error || !res.data) throw (res.error || new Error("no session"));
+      S.session = {token:st.token, name:res.data.name, perms:res.data.perms};
+      S.editorName = res.data.name;
+      storeSession();
+      if(res.data.must_change){ S.mustChange = true; render(); return true; }
+      return true;
+    }catch(e){ S.session = null; storeSession(); return false; }
   }
 
   // ---------- data ----------
@@ -540,33 +668,22 @@
     return out;
   }
   async function loadGroupOptions(){
-    if(!SETUP_OK) return;
+    if(!SETUP_OK || !S.session) return;
     try{
-      var res = await sb.from("app_settings").select("groups").eq("id",1).single();
+      var res = await rpcA("app_get_settings");
       if(res.error) throw res.error;
       var lists = parseGroupLists(res.data && res.data.groups);
       if(lists){ S.groupLists = lists; render(); }
     }catch(e){ console.log("Using default groups (run groups_setup.sql to manage them on-site):", e.message||e); }
   }
-  async function loadNameOptions(){
-    if(!SETUP_OK) return;
-    try{
-      var res = await sb.from("app_settings").select("names").eq("id",1).single();
-      if(res.error) throw res.error;
-      if(res.data && Array.isArray(res.data.names) && res.data.names.length){ S.nameOptions = res.data.names; render(); }
-    }catch(e){ console.log("Using default names (run names_setup.sql to manage them on-site):", e.message||e); }
-  }
 
   async function loadSpecs(){
-    if(!SETUP_OK){ S.loadingSpecs=false; render(); return; }
+    if(!SETUP_OK || !S.session){ S.loadingSpecs=false; render(); return; }
     S.loadingSpecs = true; render();
     try{
-      var res = await sb.rpc("list_specs");
-      S.lightList = !res.error && Array.isArray(res.data);
-      if(!S.lightList){
-        res = await sb.from("specs").select("id, spec, updated_at").order("updated_at", {ascending:false});
-        if(res.error) throw res.error;
-      }
+      var res = await rpcA("app_list_specs");
+      if(res.error) throw res.error;
+      S.lightList = true;
       S.specs = (res.data||[]).map(function(row){
         var d = Object.assign({}, row.spec || {});
         d.id = row.id; d.updatedAt = row.updated_at;
@@ -581,9 +698,9 @@
   // of Supabase. Fetches fresh rather than using whatever's already in memory, so the backup is never stale.
   // Full stored history (with old-version copies) for one spec; the library list leaves these out.
   async function fetchFullHistory(id){
-    var r = await sb.from("specs").select("spec").eq("id", id).single();
+    var r = await rpcA("app_get_history", {p_id:id});
     if(r.error) throw r.error;
-    return (r.data && r.data.spec && r.data.spec.editHistory) || [];
+    return Array.isArray(r.data) ? r.data : [];
   }
   function ensureHistory(sp){
     if(!sp || !sp.id || sp._histFull || sp._histLoading) return;
@@ -601,7 +718,7 @@
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     showToast("Preparing backup\u2026");
     try{
-      var res = await sb.from("specs").select("id, spec, updated_at").order("updated_at", {ascending:false});
+      var res = await rpcA("app_export_specs");
       if(res.error) throw res.error;
       var specs = (res.data||[]).map(function(row){
         var d = Object.assign({}, row.spec || {});
@@ -729,11 +846,10 @@
   };
   window.saveGroups = async function(){
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
-    var pwd = getPassword();
-    if(!pwd) return;
+    if(!can("edit")){ showToast("You don\u2019t have permission to change groups."); return; }
     var toSave = S.groupsDraft.retail.length ? {mmah: S.groupsDraft.mmah, retail: S.groupsDraft.retail} : S.groupsDraft.mmah;
     try{
-      var res = await sb.rpc("update_groups", {pwd:pwd, new_groups: toSave});
+      var res = await rpcA("app_update_groups", {p_groups: toSave});
       if(res.error) throw res.error;
       S.groupLists = {mmah: S.groupsDraft.mmah, retail: S.groupsDraft.retail};
       showToast("Groups updated.");
@@ -742,68 +858,6 @@
     }catch(e){ handleWriteError(e); }
   };
   window.cancelManageGroups = function(){ S.view="library"; render(); };
-
-  function goManageNames(){
-    S.namesDraft = S.nameOptions.slice();
-    S.newNameLabel = "";
-    S.view = "manageNames";
-    render();
-  }
-  window.addDraftName = function(){
-    var label = (S.newNameLabel||"").trim();
-    if(!label || S.namesDraft.indexOf(label)>=0) { S.newNameLabel=""; render(); return; }
-    S.namesDraft.push(label);
-    S.newNameLabel = "";
-    render();
-  };
-  window.removeDraftName = function(idx){ S.namesDraft.splice(idx,1); render(); };
-  window.renameDraftName = function(idx, val){ S.namesDraft[idx] = val; };
-  window.moveDraftName = function(idx, dir){
-    var list = S.namesDraft, newIdx = idx+dir;
-    if(newIdx<0 || newIdx>=list.length) return;
-    var tmp = list[idx]; list[idx]=list[newIdx]; list[newIdx]=tmp;
-    render();
-  };
-  window.saveNames = async function(){
-    if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
-    var pwd = getPassword();
-    if(!pwd) return;
-    var cleaned = S.namesDraft.map(function(n){ return (n||"").trim(); }).filter(function(n){ return n; });
-    try{
-      var res = await sb.rpc("update_names", {pwd:pwd, new_names: cleaned});
-      if(res.error) throw res.error;
-      S.nameOptions = cleaned;
-      showToast("Names updated.");
-      S.view = "library";
-      render();
-    }catch(e){ handleWriteError(e); }
-  };
-  window.cancelManageNames = function(){ S.view="library"; render(); };
-
-  function renderManageNames(){
-    var list = S.namesDraft;
-    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;">'
-      + '<h2 style="margin:0;font-size:17px;">Manage names</h2>'
-      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="cancelManageNames()">Cancel</button>'
-      + '<button class="btn-dark btn-sm" onclick="saveNames()">Save</button></div></div>';
-    out += '<div class="card">';
-    if(!list.length) out += '<p class="note">No names yet \u2014 add one below.</p>';
-    list.forEach(function(n, idx){
-      out += '<div class="row" style="align-items:center;margin-bottom:8px">'
-        + '<button class="btn-ghost btn-sm" onclick="moveDraftName('+idx+',-1)"'+(idx===0?' disabled':'')+'>\u2191</button>'
-        + '<button class="btn-ghost btn-sm" onclick="moveDraftName('+idx+',1)"'+(idx===list.length-1?' disabled':'')+'>\u2193</button>'
-        + '<input type="text" style="flex:1" value="'+esc(n)+'" oninput="renameDraftName('+idx+', this.value)">'
-        + '<button class="btn-ghost btn-sm" onclick="removeDraftName('+idx+')">Remove</button>'
-        + '</div>';
-    });
-    out += '<div class="row" style="margin-top:10px">'
-      + '<input type="text" style="flex:1" placeholder="e.g. initials, like MJ" value="'+esc(S.newNameLabel||"")+'" oninput="S.newNameLabel=this.value">'
-      + '<button class="btn-sm" onclick="addDraftName()">+ Add</button>'
-      + '</div>'
-      + '<p class="note" style="margin-top:14px">This is the list shown in the \u201cAmended by\u201d dropdown on both templates. Anyone can still type a one-off name via \u201cOther\u2026\u201d without adding it here.</p>'
-      + '</div>';
-    return out;
-  }
 
   function renderManageGroups(){
     var ch = S.groupsDraftChannel === "retail" ? "retail" : "mmah", list = draftList();
@@ -834,7 +888,7 @@
   }
 
   // --- unsaved-changes tracking ---
-  function resetFormMeta(){ S.editorName = ""; S.editorNameIsOther = false; S.formErrors = {}; S.groupsDropdownOpen = false; S.importBanner = ""; }
+  function resetFormMeta(){ S.editorName = S.session ? S.session.name : ""; S.editorNameIsOther = false; S.formErrors = {}; S.groupsDropdownOpen = false; S.importBanner = ""; }
   function markPristine(){ S.formBaseline = JSON.stringify(S.form); }          // nothing to lose yet
   function markUnsaved(){ S.formBaseline = JSON.stringify(blankSpec(specChannel(S.form))); }      // e.g. imported/duplicated but never saved
   function isFormDirty(){
@@ -870,6 +924,7 @@
     render(); window.scrollTo(0,0);
   }
   function goNew(){
+    if(!can("edit")){ showToast("You have view-only access."); return; }
     var ch = (S.channel === "mmah" || S.channel === "retail") ? S.channel : null;
     if(!ch){ S.chooseChannel = true; render(); return; }        // on the picker / "All specs": ask which template
     startNew(ch);
@@ -882,28 +937,28 @@
     if(pn) pn.focus();
   }
   function goImport(){
+    if(!can("edit")){ showToast("You have view-only access."); return; }
     S.importChannel = (S.channel === "mmah" || S.channel === "retail") ? S.channel : (S.lastChannel === "retail" ? "retail" : "mmah");
     S.view="import"; S.importBanner=""; render();
   }
   async function checkEditLock(id){
-    if(!SETUP_OK) return;
+    if(!SETUP_OK || !S.session) return;
     try{
-      var res = await sb.from("edit_locks").select("*").eq("spec_id", id);
+      var res = await rpcA("app_get_lock", {p_spec_id:id});
       if(res.error) throw res.error;
-      var rows = res.data||[];
-      if(rows.length){
-        var lock = rows[0];
+      var lock = res.data;
+      if(lock){
         var age = Date.now() - new Date(lock.locked_at).getTime();
-        if(age < 10*60*1000 && lock.editor_name && lock.editor_name !== (S.editorName||"Someone")){
+        if(age < 10*60*1000 && lock.editor_name && lock.editor_name !== S.session.name){
           showToast("\u26a0 " + lock.editor_name + " may currently be editing this \u2014 check with them before saving.");
         }
       }
-      await sb.rpc("claim_edit_lock", {p_spec_id:id, p_editor_name:(S.editorName||"Someone")});
+      await rpcA("app_claim_lock", {p_spec_id:id});
     }catch(e){ console.error("Edit lock check failed:", e); }
   }
   async function releaseEditLock(id){
-    if(!SETUP_OK || !id) return;
-    try{ await sb.rpc("release_edit_lock", {p_spec_id:id}); }
+    if(!SETUP_OK || !id || !S.session) return;
+    try{ await rpcA("app_release_lock", {p_spec_id:id}); }
     catch(e){ console.error("Release lock failed:", e); }
   }
 
@@ -944,11 +999,8 @@
   async function archiveSpec(id, archivedFlag){
     var spec = S.specs.filter(function(s){return s.id===id;})[0];
     if(!spec){ showToast("Couldn't find that spec \u2014 try again from the Library."); return; }
-    var name = (S.editorName||"").trim();
-    if(!name){ showToast("Your name is required \u2014 enter it above first."); return; }
-    var pwd = getPassword();
-    if(!pwd) return;
-    localStorage.setItem("mmah_editor_name", name);
+    if(!can("edit")){ showToast("You don\u2019t have permission to do that."); return; }
+    var name = S.session.name;
     var payload = JSON.parse(JSON.stringify(spec));
     delete payload.id;
     payload.archived = archivedFlag;
@@ -959,7 +1011,7 @@
     }
     payload.editHistory = (payload.editHistory||[]).concat([{by:name, at:new Date().toISOString(), action: archivedFlag?"archived":"unarchived"}]);
     try{
-      var res = await sb.rpc("update_spec", {pwd:pwd, spec_id:id, payload:payload});
+      var res = await rpcA("app_update_spec", {p_id:id, p_payload:payload});
       if(res.error) throw res.error;
       showToast(archivedFlag ? "Archived." : "Restored.");
       releaseEditLock(id);
@@ -982,9 +1034,13 @@
     if(!el) return;
     var action = el.getAttribute("data-action");
     var id = el.getAttribute("data-id");
+    if(!S.session){
+      if(action === "openChannel"){ var chk = el.getAttribute("data-channel"); openLogin(function(){ goChannel(chk); }); }
+      return;
+    }
     try{
       if(action==="print") goPrint(id);
-      else if(action==="edit") goEdit(id);
+      else if(action==="edit"){ if(can("edit")) goEdit(id); else showToast("You have view-only access."); }
       else if(action==="duplicate") tryLeave(function(){ duplicateSpec(id); });
       else if(action==="archive") tryLeave(function(){ archiveSpec(id, true); });
       else if(action==="unarchive") tryLeave(function(){ archiveSpec(id, false); });
@@ -1004,9 +1060,9 @@
           render(); window.scrollTo(0,0);
         }
       }
-      else if(action==="delete"){ S.confirmDelete = id; render(); }
+      else if(action==="delete"){ if(can("delete")){ S.confirmDelete = id; S.reauthErr = ""; render(); } else showToast("You don\u2019t have permission to delete."); }
       else if(action==="reallyDelete") performDelete(id);
-      else if(action==="cancelDelete"){ S.confirmDelete = null; render(); }
+      else if(action==="cancelDelete"){ S.confirmDelete = null; S.reauthErr = ""; render(); }
       else if(action==="removeImg") removeImg(parseInt(el.getAttribute("data-idx"),10));
       else if(action==="rotateImg") rotateImg(parseInt(el.getAttribute("data-idx"),10));
       else if(action==="moveImg") moveImg(parseInt(el.getAttribute("data-idx"),10), parseInt(el.getAttribute("data-dir"),10));
@@ -1129,7 +1185,7 @@
     var errs = {}, order = [];
     if(!(S.form.productName||"").trim()){ errs.productName = true; order.push("productName"); }
     if(specChannel(S.form) === "retail" && !S.form.trimDiscard && !(S.form.trimSku||"").trim()){ errs.trimSku = true; order.push("trimSku"); }
-    if(!(S.editorName||"").trim()){ errs.editorName = true; order.push("editorName"); }
+    if(!S.session){ errs.editorName = true; order.push("editorName"); }
     TEMPLATE[specChannel(S.form)].requiredTicks.forEach(function(t){ if(!S.form[t[0]]){ errs[t[0]] = true; order.push(t[0]); } });
     S.formErrors = errs;
     return order;                                   // in on-screen order, so [0] is the first one to jump to
@@ -1158,7 +1214,9 @@
       showToast("Please complete the highlighted required field" + (missing.length>1 ? "s" : "") + ".");
       return;
     }
-    var name = (S.editorName||"").trim();
+    if(!can("edit")){ showToast("You don\u2019t have permission to save changes."); return; }
+    S.editorName = S.session.name;
+    var name = S.session.name;
     S.form.outputSku = stripSpaces(S.form.outputSku);
     S.form.inputSku = stripSpaces(S.form.inputSku);
     if(S.form.outputSku2) S.form.outputSku2 = stripSpaces(S.form.outputSku2);
@@ -1169,9 +1227,6 @@
     }
     S.form.furtherOutputs = normFurther(S.form.furtherOutputs).filter(function(o){ return (o.label||"").trim() || o.specId; });
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
-    var pwd = getPassword();
-    if(!pwd) return;
-    localStorage.setItem("mmah_editor_name", name);
     var payload = JSON.parse(JSON.stringify(S.form));
     payload.issuedByInitials = name;
     delete payload.id;
@@ -1189,7 +1244,7 @@
       }
       payload.editHistory = (payload.editHistory||[]).concat([{by:name, at:new Date().toISOString(), snapshot:snapshot}]);
       try{
-        var res = await sb.rpc("update_spec", {pwd:pwd, spec_id:S.formId, payload:payload});
+        var res = await rpcA("app_update_spec", {p_id:S.formId, p_payload:payload});
         if(res.error) throw res.error;
         showToast("Spec updated.");
         releaseEditLock(S.formId);
@@ -1200,7 +1255,7 @@
     } else {
       payload.editHistory = [{by:name, at:new Date().toISOString(), action:"created"}];
       try{
-        var res2 = await sb.rpc("create_spec", {pwd:pwd, payload:payload});
+        var res2 = await rpcA("app_create_spec", {p_payload:payload});
         if(res2.error) throw res2.error;
         showToast("Spec created.");
         var created = JSON.parse(JSON.stringify(payload)); created.id = res2.data; created.updatedAt = new Date().toISOString();
@@ -1212,14 +1267,19 @@
 
   async function performDelete(id){
     if(!SETUP_OK) return;
-    var pwd = getPassword();
-    if(!pwd) return;
+    if(!can("delete")){ S.confirmDelete = null; render(); showToast("You don\u2019t have permission to delete."); return; }
+    var pwd = ((document.getElementById("delPwd")||{}).value||"");
+    if(!pwd){ S.reauthErr = "Enter your password to confirm."; render(); return; }
     try{
-      var res = await sb.rpc("delete_spec", {pwd:pwd, spec_id:id});
-      if(res.error) throw res.error;
+      var res = await rpcA("app_delete_spec", {p_id:id, p_pwd:pwd});
+      if(res.error){
+        if(/Incorrect password/i.test(res.error.message||"")){ S.reauthErr = "That password isn\u2019t right."; render(); return; }
+        throw res.error;
+      }
+      S.reauthErr = "";
       releaseEditLock(id);
       S.confirmDelete = null; showToast("Deleted."); goLibrary();
-    }catch(e){ S.confirmDelete=null; render(); handleWriteError(e); }
+    }catch(e){ S.confirmDelete=null; S.reauthErr = ""; render(); handleWriteError(e); }
   }
 
   function doPrint(){ window.print(); }
@@ -1236,6 +1296,7 @@
       document.getElementById("printArea").innerHTML = (S.view==="print" && S.printSpec) ? renderPrintable(S.printSpec) : "";
       wireFileInputs();
       enhanceA11y();
+      focusOverlay();
       if(focusKey) a11yRefocus(focusKey);
       if(refocusId){
         var el = document.getElementById(refocusId);
@@ -1328,6 +1389,16 @@
       }
     }
   }
+  // when a login / password / confirm box is showing, put the cursor in its first empty box
+  function focusOverlay(){
+    var ov = document.querySelector("#app .confirm-overlay form");
+    if(!ov) return;
+    var act = document.activeElement;
+    if(act && ov.contains(act)) return;
+    var ins = ov.querySelectorAll("input:not([type=hidden])"), pick = null;
+    for(var i=0;i<ins.length;i++){ if(!ins[i].value){ pick = ins[i]; break; } }
+    (pick || ins[0] || {focus:function(){}}).focus();
+  }
   function wireFileInputs(){
     var imgInput = document.getElementById("imgUploadInput");
     if(imgInput){ imgInput.onchange = function(e){ handleImageUpload(e.target.files); e.target.value=""; }; }
@@ -1366,14 +1437,139 @@
   }
 
   function topbar(){
-    return '<div class="topbar">'
+    var out = '<div class="topbar">'
       + '<div class="brand" onclick="goHome()" title="Back to the channel picker"><img src="'+FF_LOGO+'" alt="Freedown Food" class="brand-logo"><span class="brand-sep"></span><span class="brand-title">Cutting Spec Portal</span></div>'
-      + '<div class="nav">'
-      + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Library</button>'
-      + '<button class="btn-sm" onclick="goImport()">Import Old Version</button>'
-      + '<button class="btn-primary btn-sm" onclick="goNew()">+ New Spec</button>'
-      + '</div></div>'
-      + '<div class="subnote">Anyone with this link can view. Adding, editing, or deleting needs the shared password.</div>';
+      + '<div class="nav">';
+    if(!S.session){
+      out += '<button class="btn-dark btn-sm" onclick="openLogin()">Log in</button>';
+    } else {
+      out += '<button class="btn-ghost btn-sm" onclick="goLibrary()">Library</button>'
+        + (can("edit") ? '<button class="btn-sm" onclick="goImport()">Import Old Version</button>'
+                       + '<button class="btn-primary btn-sm" onclick="goNew()">+ New Spec</button>' : '')
+        + '<span class="who"><b>'+esc(S.session.name)+'</b>'
+        + '<button class="btn-ghost btn-sm" onclick="openChangePw()">Password</button>'
+        + '<button class="btn-ghost btn-sm" onclick="doLogout()">Log out</button></span>';
+    }
+    out += '</div></div>';
+    if(S.session && !can("edit")) out += '<div class="subnote">You have view-only access.</div>';
+    return out;
+  }
+
+  function loginOverlays(){
+    var h = "";
+    if(S.loginOpen && !S.session){
+      h += '<div class="confirm-overlay"' + (S.sessionLost ? '' : ' onclick="cancelLogin()"') + '>'
+        + '<form class="confirm-box login-box" onclick="event.stopPropagation()" onsubmit="event.preventDefault();doLogin();return false" aria-labelledby="loginTitle">'
+        + '<p id="loginTitle"><b>Log in</b></p>'
+        + '<label for="loginName">Your initials</label><input type="text" id="loginName" autocomplete="username" autocapitalize="characters" value="'+esc(S.loginName||"")+'">'
+        + '<label for="loginPwd">Password</label><input type="password" id="loginPwd" autocomplete="current-password">'
+        + (S.loginErr ? '<div class="login-err" role="alert">'+esc(S.loginErr)+'</div>' : '')
+        + '<div class="row" style="margin-top:14px">'
+        + (S.sessionLost ? '' : '<button type="button" class="btn-ghost btn-sm" onclick="cancelLogin()">Cancel</button>')
+        + '<button type="submit" class="btn-dark btn-sm"'+(S.loginBusy?' disabled':'')+'>'+(S.loginBusy?'Checking\u2026':'Log in')+'</button></div>'
+        + '<div class="login-hint">Forgotten your password? Ask an admin to reset it.</div>'
+        + '</form></div>';
+    }
+    if(S.session && (S.mustChange || S.changePw)){
+      var forced = !!S.mustChange;
+      h += '<div class="confirm-overlay"' + (forced ? '' : ' onclick="cancelChangePw()"') + '>'
+        + '<form class="confirm-box login-box" onclick="event.stopPropagation()" onsubmit="event.preventDefault();doChangePw();return false" aria-labelledby="pwTitle">'
+        + '<p id="pwTitle"><b>'+(forced ? 'Choose your own password' : 'Change password')+'</b>'
+        + (forced ? '<br><span class="note">You\u2019re using a temporary password. Pick one only you know (8+ characters).</span>' : '') + '</p>'
+        + (forced ? '' : '<label for="pwOld">Current password</label><input type="password" id="pwOld" autocomplete="current-password">')
+        + '<label for="pwNew">New password</label><input type="password" id="pwNew" autocomplete="new-password">'
+        + '<label for="pwNew2">New password again</label><input type="password" id="pwNew2" autocomplete="new-password">'
+        + (S.pwErr ? '<div class="login-err" role="alert">'+esc(S.pwErr)+'</div>' : '')
+        + '<div class="row" style="margin-top:14px">'
+        + (forced ? '<button type="button" class="btn-ghost btn-sm" onclick="doLogout()">Log out</button>' : '<button type="button" class="btn-ghost btn-sm" onclick="cancelChangePw()">Cancel</button>')
+        + '<button type="submit" class="btn-dark btn-sm">Save password</button></div></form></div>';
+    }
+    if(S.pwModal){
+      h += '<div class="confirm-overlay" onclick="closePwModal()">'
+        + '<form class="confirm-box login-box" onclick="event.stopPropagation()" onsubmit="event.preventDefault();submitPwModal();return false" aria-labelledby="pmTitle">'
+        + '<p id="pmTitle"><b>'+(S.pwModal.kind==="add" ? 'Add a person' : 'Reset password for '+esc(S.pwModal.name))+'</b></p>'
+        + (S.pwModal.kind==="add" ? '<label for="pmName">Initials (letters/numbers, up to 12)</label><input type="text" id="pmName" autocapitalize="characters" value="'+esc(S.pwModal.newName||"")+'">' : '')
+        + '<label for="pmPwd">Temporary password (8+ characters)</label><input type="text" id="pmPwd" autocomplete="off" value="'+esc(S.pwModal.pwd||"")+'">'
+        + '<div class="login-hint">They\u2019ll be asked to choose their own at first login'+(S.pwModal.name && S.pwModal.name.toUpperCase()==="GUEST" ? ' (not for the shared guest login)' : '')+'. Give it to them privately.</div>'
+        + (S.pwModal.err ? '<div class="login-err" role="alert">'+esc(S.pwModal.err)+'</div>' : '')
+        + '<div class="row" style="margin-top:14px"><button type="button" class="btn-ghost btn-sm" onclick="closePwModal()">Cancel</button>'
+        + '<button type="submit" class="btn-dark btn-sm">'+(S.pwModal.kind==="add" ? 'Add person' : 'Set password')+'</button></div></form></div>';
+    }
+    return h;
+  }
+
+  // ---------- people (admin) ----------
+  function randomPw(){
+    var a = "abcdefghjkmnpqrstuvwxyzACDEFGHJKLMNPQRTUVWXY346789", o = "";
+    var arr = new Uint32Array(10); (window.crypto||{getRandomValues:function(x){ for(var i=0;i<x.length;i++) x[i]=Math.floor(Math.random()*4e9); }}).getRandomValues(arr);
+    for(var i=0;i<10;i++) o += a[arr[i] % a.length];
+    return o;
+  }
+  window.goPeople = function(){
+    if(!can("admin")){ showToast("Only an admin can manage people."); return; }
+    tryLeave(function(){ S.view = "people"; S.users = null; S.usersErr = ""; render(); window.scrollTo(0,0); loadUsers(); });
+  };
+  async function loadUsers(){
+    var res = await rpcA("app_list_users");
+    if(res.error){ S.usersErr = res.error.message || "Couldn\u2019t load people."; S.users = []; }
+    else S.users = res.data || [];
+    render();
+  }
+  window.togglePerm = async function(name, key, checked){
+    var u = (S.users||[]).filter(function(x){ return x.name===name; })[0];
+    if(!u) return;
+    var prev = u[key]; u[key] = checked;
+    var res = await rpcA("app_save_user", {p_name:name, p_edit:!!u.edit, p_delete:!!u.delete, p_production:!!u.production, p_admin:!!u.admin, p_active:!!u.active});
+    if(res.error || !res.data || !res.data.ok){
+      u[key] = prev;
+      showToast((res.data && res.data.error) || (res.error && res.error.message) || "Couldn\u2019t save.");
+    } else if(S.session && name === S.session.name){
+      S.session.perms = {edit:!!u.edit, delete:!!u.delete, production:!!u.production, admin:!!u.admin}; storeSession();
+      if(!u.active){ doLogout(); return; }
+    }
+    render();
+  };
+  window.openPwModal = function(kind, name){
+    S.pwModal = {kind:kind, name:name||"", pwd:randomPw(), err:"", newName:""}; render();
+  };
+  window.closePwModal = function(){ S.pwModal = null; render(); };
+  window.submitPwModal = async function(){
+    var m = S.pwModal; if(!m) return;
+    var pwd = ((document.getElementById("pmPwd")||{}).value||"").trim();
+    var res;
+    if(m.kind === "add"){
+      var nm = ((document.getElementById("pmName")||{}).value||"").trim();
+      m.newName = nm; m.pwd = pwd;
+      res = await rpcA("app_add_user", {p_name:nm, p_temp_pwd:pwd});
+    } else {
+      m.pwd = pwd;
+      res = await rpcA("app_reset_password", {p_name:m.name, p_temp_pwd:pwd});
+    }
+    if(res.error || !res.data || !res.data.ok){ m.err = (res.data && res.data.error) || (res.error && res.error.message) || "Couldn\u2019t save."; render(); return; }
+    var done = (m.kind === "add" ? "Added " + m.newName.toUpperCase() : "Password reset for " + m.name);
+    S.pwModal = null; showToast(done + " \u2014 give them the temporary password privately.");
+    await loadUsers();
+  };
+  function renderPeople(){
+    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">People &amp; permissions</h2>'
+      + '<div class="nav"><button class="btn-sm" onclick="openPwModal(\'add\')">+ Add person</button>'
+      + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button></div></div>';
+    if(S.users === null) return out + '<div class="empty"><span class="spinner"></span> Loading\u2026</div>';
+    if(S.usersErr) out += '<div class="banner">'+esc(S.usersErr)+'</div>';
+    out += '<div class="card" style="overflow-x:auto"><table class="people-table"><thead><tr><th scope="col">Person</th>'
+      + '<th scope="col">Edit</th><th scope="col">Delete</th><th scope="col">Production data</th><th scope="col">Admin</th><th scope="col">Active</th><th scope="col"></th></tr></thead><tbody>';
+    S.users.forEach(function(u){
+      function cb(key, label){
+        return '<td><input type="checkbox" aria-label="'+esc(u.name)+': '+label+'"'+(u[key]?' checked':'')+' onchange="togglePerm(\''+esc(u.name)+'\',\''+key+'\',this.checked)"></td>';
+      }
+      out += '<tr'+(u.active?'':' class="off"')+'><td><b>'+esc(u.name)+'</b>'+(u.must_change?' <span class="note">(hasn\u2019t chosen a password yet)</span>':'')+'</td>'
+        + cb("edit","can edit") + cb("delete","can delete") + cb("production","can see production data") + cb("admin","is admin") + cb("active","is active")
+        + '<td><button class="btn-ghost btn-sm" onclick="openPwModal(\'reset\',\''+esc(u.name)+'\')">Reset password</button></td></tr>';
+    });
+    out += '</tbody></table>'
+      + '<p class="note" style="margin-top:12px">Everyone can view. <b>Edit</b> = create, change, archive and import. <b>Delete</b> also asks for the password again. <b>Production data</b> = the costs and yields tab. <b>Admin</b> = this screen, uploading production data and backups. '
+      + 'Changes apply straight away. Untick Active to stop someone logging in (their old sheets and history stay).</p></div>';
+    return out;
   }
 
   function renderView(){
@@ -1381,6 +1577,7 @@
     if(!SETUP_OK){
       html += '<div class="setup-warning"><b>Setup needed:</b> open the HTML file and paste your Supabase Project URL and anon public key at the top, then re-upload it. See the setup instructions for where to find them.</div>';
     }
+    if(!S.session && !S.sessionLost && S.view !== "home") S.view = "home";
     if(S.view==="home") html += renderHome();
     else if(S.view==="library") html += renderLibrary();
     else if(S.view==="form") html += renderForm();
@@ -1388,7 +1585,8 @@
     else if(S.view==="print") html += renderPrintChrome();
     else if(S.view==="version") html += renderVersionView();
     else if(S.view==="manageGroups") html += renderManageGroups();
-    else if(S.view==="manageNames") html += renderManageNames();
+    else if(S.view==="people") html += renderPeople();
+    else if(S.view==="productions") html += renderProductionsImport();
     if(S.lightbox){
       html += '<div class="lightbox-overlay" data-action="closeLightbox">'
         + '<button class="lightbox-close" data-action="closeLightbox">\u00d7</button>'
@@ -1397,12 +1595,15 @@
     }
     if(S.confirmDelete){
       html += '<div class="confirm-overlay" onclick="cancelDelete()">'
-        + '<div class="confirm-box" onclick="event.stopPropagation()">'
-        + '<p>Delete this spec sheet permanently? This can\'t be undone.</p>'
-        + '<div class="row"><button class="btn-ghost btn-sm" onclick="cancelDelete()">Cancel</button>'
-        + '<button class="btn-primary btn-sm" onclick="performDelete(\''+esc(S.confirmDelete)+'\')">Delete</button></div>'
-        + '</div></div>';
+        + '<form class="confirm-box login-box" onclick="event.stopPropagation()" onsubmit="event.preventDefault();performDelete(\''+esc(S.confirmDelete)+'\');return false">'
+        + '<p><b>Delete this spec sheet permanently?</b><br>This can\'t be undone. Enter your password to confirm.</p>'
+        + '<label for="delPwd">Your password</label><input type="password" id="delPwd" autocomplete="current-password">'
+        + (S.reauthErr ? '<div class="login-err" role="alert">'+esc(S.reauthErr)+'</div>' : '')
+        + '<div class="row" style="margin-top:14px"><button type="button" class="btn-ghost btn-sm" onclick="cancelDelete()">Cancel</button>'
+        + '<button type="submit" class="btn-primary btn-sm">Delete</button></div>'
+        + '</form></div>';
     }
+    html += loginOverlays();
     if(S.chooseChannel){
       html += '<div class="confirm-overlay" onclick="cancelChooseChannel()">'
         + '<div class="confirm-box" onclick="event.stopPropagation()">'
@@ -1474,7 +1675,23 @@
       + '<span class="recent-sku">'+esc(x.outputSku||"")+'</span>'
       + '<span class="recent-date">'+fmtDate(x.updatedAt)+'</span></div>';
   }
+  function renderHomeLocked(){
+    var out = '<div class="home"><h1 class="home-title">Which specs do you need?</h1>'
+      + '<p class="home-sub">Pick a channel \u2014 you\u2019ll be asked to log in.</p>'
+      + '<div class="channel-cards locked-cards">';
+    CHANNELS.forEach(function(c){
+      var logo = "";
+      if(c.key==="mmah" && MMAH_LOGO) logo = '<span class="ch-logo mm"><img src="'+MMAH_LOGO+'" alt="Meat Me At Home emblem"></span>';
+      if(c.key==="retail") logo = '<span class="ch-logo ff"><img src="'+FF_LOGO+'" alt="Freedown Food"></span>';
+      out += '<div class="ch-card" data-action="openChannel" data-channel="'+c.key+'">'
+        + '<div class="ch-eyebrow">'+esc(c.eyebrow)+'</div><div class="ch-name">'+esc(c.name)+'</div>'
+        + '<p class="ch-desc">'+esc(c.desc)+'</p>' + logo
+        + '<div class="ch-foot"><div class="ch-chips"><span class="ch-chip">\ud83d\udd12 Log in to open</span></div><span class="ch-open">Open \u2192</span></div></div>';
+    });
+    return out + '</div></div>';
+  }
   function renderHome(){
+    if(!S.session) return renderHomeLocked();
     var out = '<div class="home"><h1 class="home-title">Which specs do you need?</h1>'
       + '<p class="home-sub">Pick a channel. The portal remembers your choice next time.</p>'
       + '<div class="channel-cards">';
@@ -1514,7 +1731,7 @@
       var recent = live.slice().sort(function(a,b){ return (b.updatedAt||"").localeCompare(a.updatedAt||""); }).slice(0,5);
       out += '<div class="recent-head"><b>Recently updated</b><span data-action="openChannel" data-channel="all">See all</span></div>'
         + (S.loadingSpecs && !S.specs.length ? '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>'
-          : (recent.length ? '<div class="recent-list">'+recent.map(specRowHtml).join("")+'</div>' : '<div class="empty">No spec sheets yet. Click <b>+ New Spec</b> to get started.</div>'));
+          : (recent.length ? '<div class="recent-list">'+recent.map(specRowHtml).join("")+'</div>' : '<div class="empty">No spec sheets yet.'+(can("edit") ? ' Click <b>+ New Spec</b> to get started.' : '')+'</div>'));
     }
     return out + '</div>';
   }
@@ -1545,11 +1762,14 @@
         }).join("")
       + '<div class="chk-opt'+(showArchived?' sel':'')+'" onclick="S.libraryFilter=\'archived\'; render();"><span>Archived</span></div>'
       + '</div>'
-      + '<div style="margin-bottom:14px"><button class="btn-ghost btn-sm" onclick="goManageGroups()">\u2699 Manage groups</button>'
-      + ' <button class="btn-ghost btn-sm" onclick="goManageNames()">\ud83d\udc64 Manage names</button>'
-      + ' <button class="btn-ghost btn-sm" onclick="exportBackup()">\u2b07 Export backup</button></div>';
+      + '<div style="margin-bottom:14px">'
+      + (can("edit") ? '<button class="btn-ghost btn-sm" onclick="goManageGroups()">⚙ Manage groups</button> ' : '')
+      + (can("admin") ? '<button class="btn-ghost btn-sm" onclick="goPeople()">👥 People &amp; permissions</button> '
+                      + '<button class="btn-ghost btn-sm" onclick="goProductions()">📈 Production data</button> '
+                      + '<button class="btn-ghost btn-sm" onclick="exportBackup()">⬇ Export backup</button>' : '')
+      + '</div>';
     if(S.loadingSpecs) out += '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>';
-    else if(!list.length) out += '<div class="empty">'+(showArchived ? 'No archived specs.' : 'No specs here yet. Click <b>+ New Spec</b> to add one.')+'</div>';
+    else if(!list.length) out += '<div class="empty">'+(showArchived ? 'No archived specs.' : (can("edit") ? 'No specs here yet. Click <b>+ New Spec</b> to add one.' : 'No specs here yet.'))+'</div>';
     else{
       out += '<div class="catalog-grid">';
       list.forEach(function(s){
@@ -1566,7 +1786,7 @@
           + '<div class="catalog-meta">'+channelBadgesHtml(s)+' '+esc(s.outputSku||"\u2014")+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
           + '<div class="catalog-actions">'
           + '<button class="btn-sm" data-action="print" data-id="'+esc(s.id)+'">View / Print</button>'
-          + (showArchived ? '' : '<button class="btn-sm" data-action="edit" data-id="'+esc(s.id)+'">Edit</button>')
+          + (showArchived || !can("edit") ? '' : '<button class="btn-sm" data-action="edit" data-id="'+esc(s.id)+'">Edit</button>')
           + '</div></div></div>';
       });
       out += '</div>';
@@ -1588,41 +1808,14 @@
       + '</span>'
       + (S.formId ? '<button class="btn-ghost btn-sm" data-action="duplicate" data-id="'+esc(S.formId)+'">Duplicate</button>'
           + '<button class="btn-ghost btn-sm" data-action="'+(f.archived?"unarchive":"archive")+'" data-id="'+esc(S.formId)+'">'+(f.archived?"Restore":"Archive")+'</button>'
-          + '<button class="btn-ghost btn-sm" data-action="delete" data-id="'+esc(S.formId)+'">Delete</button>' : '')
+          + (can("delete") ? '<button class="btn-ghost btn-sm" data-action="delete" data-id="'+esc(S.formId)+'">Delete</button>' : '') : '')
       + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Cancel</button>'
       + '<button class="btn-dark btn-sm" onclick="saveSpec()">Save</button></div></div>';
   }
 
-  window.setEditorNameFromSelect = function(val){
-    if(val === "__other__"){
-      S.editorNameIsOther = true;
-      if(S.nameOptions.indexOf(S.editorName)>=0) S.editorName = "";   // switching to Other clears a previously-picked preset
-    } else {
-      S.editorNameIsOther = false;
-      S.editorName = val;
-    }
-    if(S.formErrors) delete S.formErrors.editorName;
-    render();
-    if(S.editorNameIsOther){ var inp = document.getElementById("editorNameOtherInput"); if(inp) inp.focus(); }
-  };
-  window.setEditorNameOther = function(val){
-    S.editorName = val;
-    if(S.formErrors) delete S.formErrors.editorName;
-  };
   function amendedByField(){
-    var err = S.formErrors.editorName;
-    var cur = S.editorName || "";
-    var isKnown = S.nameOptions.indexOf(cur) >= 0;
-    var showOther = S.editorNameIsOther || (cur !== "" && !isKnown);
-    var selectVal = showOther ? "__other__" : cur;
-    return '<div class="field'+(err?' has-error':'')+'" id="fld-editorName"><label class="field-label">Amended by *</label>'
-      + '<select id="editorNameSelect" onchange="setEditorNameFromSelect(this.value)">'
-      + '<option value=""'+(selectVal===""?' selected':'')+'>\u2014 choose \u2014</option>'
-      + S.nameOptions.map(function(n){ return '<option value="'+esc(n)+'"'+(selectVal===n?' selected':'')+'>'+esc(n)+'</option>'; }).join("")
-      + '<option value="__other__"'+(selectVal==="__other__"?' selected':'')+'>Other\u2026</option>'
-      + '</select>'
-      + (showOther ? '<input type="text" id="editorNameOtherInput" placeholder="Type a name" value="'+esc(cur)+'" oninput="setEditorNameOther(this.value)" style="margin-top:8px">' : '')
-      + '<div class="field-err">Required</div></div>';
+    return '<div class="field" id="fld-editorName"><label class="field-label">Amended by</label>'
+      + '<div class="amended-fixed"><b>'+esc(S.session ? S.session.name : "")+'</b> <span class="note">&mdash; you\u2019re logged in as this person</span></div></div>';
   }
   function furtherOutputsField(f, hint){
     return '<div class="field"><label class="field-label">Further output(s)</label>'
@@ -1713,6 +1906,7 @@
     out += tickField("trimUse","Use of trim", checkGroupHTML(TRIM_OPTS, f.trimUse, true, "trimUse")
       + (f.trimUse==="repurpose" ? '<div style="margin-top:8px">'+fieldText("trimRepurposeNote","Repurposed into (Sage code(s))",f.trimRepurposeNote)+'</div>' : ''));
     out += fieldTextarea("cuttingNotes","Cutting notes",f.cuttingNotes);
+    out += altCutBlock(f);
     out += '</div>';
 
     out += '<div class="section-bar">2 - PACKING INSTRUCTIONS</div><div class="section-body">';
@@ -2082,8 +2276,7 @@
 
   async function handleImportFile(file){
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
-    var pwd = getPassword();
-    if(!pwd) return;
+    if(!can("edit")){ showToast("You have view-only access."); return; }
     S.importBusy = true; render();
     console.log("Import: starting, file type", file.type);
     try{
@@ -2123,14 +2316,14 @@
       var res = await withTimeout(fetch(EDGE_FUNCTION_URL, {
         method:"POST",
         headers:{"Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY},
-        body: JSON.stringify({pwd:pwd, mode:mode, content:content, mediaType:mediaType, schemaHint:TEMPLATE[ich].hint})
+        body: JSON.stringify({token:S.session.token, mode:mode, content:content, mediaType:mediaType, schemaHint:TEMPLATE[ich].hint})
       }), 45000);
       console.log("Import: AI responded, status", res.status);
       var data = await res.json();
       var photos = uploadP ? await uploadP : [];
       if(!res.ok || data.error){
         console.error("Import: AI call failed \u2014 full response:", data);
-        if(String(data.error||"").toLowerCase().indexOf("password")>=0) sessionStorage.removeItem("mmah_pwd");
+        if(res.status === 401){ sessionEnded(); }
         showToast("Import failed: " + (data.error || res.status) + ". You can still fill the form manually.");
         S.form = blankSpec(ich); S.formId=null; S.view="form"; markPristine();
         S.importBanner = "Automatic import didn't work \u2014 fill in the details manually below.";
@@ -2285,23 +2478,294 @@
     return out;
   }
 
+
+  // ---------- alternative cut (MMAH): remind the cutter to cut a bigger steak when it saves waste ----------
+  window.toggleAltCut = function(){
+    S.form.altCutOn = !S.form.altCutOn; render();
+  };
+  window.setAltCutSpec = function(id){ S.form.altCutSpecId = id; render(); };
+  function altCutBlock(f){
+    var on = !!f.altCutOn;
+    var out = '<div class="altcut"><div class="chk-group"><div class="chk-opt'+(on?' sel':'')+'" onclick="toggleAltCut()">'
+      + '<span class="box">'+(on?"\u2611":"\u2610")+'</span><span>Alternative cut available <span class="note">\u2014 remind the cutter when it would reduce waste</span></span></div></div>';
+    if(on){
+      out += '<div class="altcut-detail"><span>If the remaining piece makes at least</span>'
+        + '<input type="number" data-f="altCutMinG" aria-label="Minimum weight in grams" placeholder="350" value="'+esc(f.altCutMinG||"")+'"><span>g, cut</span>'
+        + '<select aria-label="Spec to cut instead" onchange="setAltCutSpec(this.value)">'+furtherOutputOptionsHtml({specId:f.altCutSpecId||""}, "mmah").replace("link to a spec (optional)","choose the steak spec")+'</select>'
+        + '<span>instead.</span>'
+        + '<input type="text" data-f="altCutNote" style="flex:1;min-width:220px" aria-label="Extra note" placeholder="Optional note, e.g. keep the end piece for the 250g" value="'+esc(f.altCutNote||"")+'"></div>';
+    }
+    return out + '</div>';
+  }
+  function altCutPrintRow(s){
+    if(!s.altCutOn) return "";
+    var linked = s.altCutSpecId ? S.specs.filter(function(x){ return x.id===s.altCutSpecId; })[0] : null;
+    var tgt = linked ? '<span class="ss-link" data-action="print" data-id="'+esc(linked.id)+'" title="Open this spec">'+esc(linked.productName||"the alternative cut")+'</span>' : '<b>the alternative cut</b>';
+    var min = String(s.altCutMinG||"").trim();
+    return '<tr><td class="lbl">Alternative cut</td><td>To reduce waste: if the remaining piece makes '
+      + (min ? '<b>'+esc(min)+' g</b> or more' : 'enough') + ', cut one ' + tgt + ' instead.'
+      + (s.altCutNote ? ' <i>'+esc(s.altCutNote)+'</i>' : '') + '</td></tr>';
+  }
+
+  // ---------- production history (MMAH specs; needs the "production data" right) ----------
+  var PROD_COLS = [
+    ["pn","PROCESSING NUMBER"],["inCode","INPUT STOCK CODE"],["inDesc","INPUT DESCRIPTION"],["date","PRODUCTION DATE"],["inShelf","INPUT SHELF LIFE"],
+    ["brand","BRAND"],["plant","PLANT NUMBER"],["inCost","INPUT COST PRICE"],["inWeight","INPUT WEIGHT"],["outCode","OUTPUT STOCK CODE"],
+    ["outDesc","OUTPUT DESCRIPTION"],["outShelf","OUTPUT SHELF LIFE"],["packs","PACKS PRODUCED"],["packWt","WEIGHT PER PACK"],["outWeight","OUTPUT WEIGHT"],
+    ["feeKg","PROCESSING FEE PER INPUT KG"],["notes","NOTES"],["costPack","OUTPUT COST PER PACK"],["totalCost","TOTAL COST OF PRODUCTION"],["costKg","OUTPUT COST PER KG"],
+    ["yieldLine","YIELD PER LINE"],["yieldRun","YIELD %"],["ratio","OUTPUT RATIO"],["wastage","WASTAGE %"],["lossQty","YIELD LOSS IN QTY"],
+    ["lossVal","YIELD LOSS IN VALUE"],["feeLine","PROCESSING FEE PER LINE ITEM"]
+  ];
+  var PROD_HEAD = {};
+  PROD_COLS.forEach(function(c){ PROD_HEAD[c[1]] = c[0]; });
+  var PROD_CARRY = ["inCode","inDesc","date","inShelf","brand","plant","inCost","inWeight","feeKg"];
+
+  function normCode(c){ return String(c||"").replace(/\s+/g,"").toUpperCase(); }
+  function pnum(v){
+    if(v==null) return null;
+    var t = String(v).replace(/[\u00a3,%\s]/g,"").replace(/kg$/i,"").replace(/^\+/,"");
+    if(t==="" ) return null;
+    var n = parseFloat(t);
+    return isNaN(n) ? null : n;
+  }
+  function parseUkDate(v){
+    var t = String(v||"").trim(), m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/.exec(t);
+    if(m){ var y = m[3].length===2 ? "20"+m[3] : m[3]; return y+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[1]).slice(-2); }
+    m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+    return m ? m[0] : "";
+  }
+  // Excel copy-paste is tab-separated (cells with line breaks are quoted); .csv files use commas.
+  function parseTable(text){
+    var delim = text.indexOf("\t")>=0 ? "\t" : ",";
+    var rows = [], row = [], cur = "", q = false;
+    for(var i=0;i<text.length;i++){
+      var c = text.charAt(i);
+      if(q){
+        if(c === '"'){ if(text.charAt(i+1) === '"'){ cur += '"'; i++; } else q = false; }
+        else cur += c;
+      } else if(c === '"' && cur === ""){ q = true; }
+      else if(c === delim){ row.push(cur); cur = ""; }
+      else if(c === "\n" || c === "\r"){
+        if(c === "\r" && text.charAt(i+1) === "\n") i++;
+        row.push(cur); cur = ""; rows.push(row); row = [];
+      } else cur += c;
+    }
+    if(cur !== "" || row.length){ row.push(cur); rows.push(row); }
+    return rows.filter(function(r){ return r.some(function(x){ return String(x).trim() !== ""; }); });
+  }
+  function buildProdRows(table){
+    var first = table[0] || [], map, start = 0;
+    var hdr = first.map(function(h){ return String(h).toUpperCase().replace(/\s+/g," ").trim(); });
+    if(hdr.filter(function(h){ return PROD_HEAD[h]; }).length >= 5){ map = hdr.map(function(h){ return PROD_HEAD[h] || null; }); start = 1; }
+    else map = PROD_COLS.map(function(c){ return c[0]; }).slice(0, first.length);
+    var carry = {}, seen = {}, out = [], skipped = 0, dups = 0, runs = {}, latest = "";
+    table.slice(start).forEach(function(r){
+      var d = {};
+      map.forEach(function(k, i){ if(k) d[k] = String(r[i]==null ? "" : r[i]).trim(); });
+      if(!d.pn || !d.outCode){ skipped++; return; }
+      var c = carry[d.pn] || (carry[d.pn] = {});
+      PROD_CARRY.forEach(function(k){ if(d[k]) c[k] = d[k]; else if(c[k]) d[k] = c[k]; });     // follow-on lines inherit the run's input details
+      var code = normCode(d.outCode), key = d.pn + "|" + code;
+      if(seen[key]){ dups++; return; }
+      seen[key] = 1;
+      var iso = parseUkDate(d.date);
+      if(iso && iso > latest) latest = iso;
+      runs[d.pn] = 1;
+      out.push({processing_number: d.pn, output_code: code, production_date: iso, data: d});
+    });
+    return {rows: out, skipped: skipped, dups: dups, runs: Object.keys(runs).length, latest: latest, usedHeader: start === 1};
+  }
+
+  window.goProductions = function(){
+    if(!can("admin")){ showToast("Only an admin can upload production data."); return; }
+    tryLeave(function(){
+      S.view = "productions"; S.prodPreview = null; S.prodMsg = ""; render(); window.scrollTo(0,0);
+      rpcA("app_production_stats").then(function(r){ if(!r.error){ S.prodStats = r.data; if(S.view==="productions") render(); } });
+    });
+  };
+  window.checkProd = function(){
+    var t = S.prodPaste || "";
+    if(!t.trim()){ showToast("Paste the rows from Excel first."); return; }
+    S.prodPreview = buildProdRows(parseTable(t)); S.prodMsg = ""; render();
+  };
+  window.handleProdFile = async function(file){
+    if(!file) return;
+    try{
+      var text;
+      if(/\.(xlsx|xls)$/i.test(file.name)){
+        await loadLib("xlsx");
+        var wb = XLSX.read(await file.arrayBuffer(), {type:"array"});
+        var name = wb.SheetNames.filter(function(n){ return /process|produc|log/i.test(n); })[0] || wb.SheetNames[0];
+        var arr = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:false, defval:""});
+        S.prodPaste = ""; S.prodPreview = buildProdRows(arr.filter(function(r){ return r.some(function(x){ return String(x).trim()!==""; }); }));
+        S.prodMsg = "Read sheet \u201c" + name + "\u201d.";
+      } else {
+        text = await file.text();
+        S.prodPaste = text; S.prodPreview = buildProdRows(parseTable(text)); S.prodMsg = "";
+      }
+      render();
+    }catch(e){ showToast("Couldn\u2019t read that file: " + (e.message||e)); }
+  };
+  window.doProdImport = async function(){
+    var pv = S.prodPreview;
+    if(!pv || !pv.rows.length || S.prodBusy) return;
+    S.prodBusy = true; S.prodMsg = "Importing\u2026"; render();
+    try{
+      var total = 0;
+      for(var i=0;i<pv.rows.length;i+=150){
+        var res = await rpcA("app_import_productions", {p_rows: pv.rows.slice(i, i+150)});
+        if(res.error) throw res.error;
+        total += (res.data && res.data.rows) || 0;
+        S.prodStats = {total: res.data.total, latest: res.data.latest};
+      }
+      S.prodCache = {};
+      S.prodMsg = "Done \u2014 " + total + " lines saved (" + pv.runs + " runs).";
+      S.prodPreview = null; S.prodPaste = "";
+    }catch(e){ S.prodMsg = "Import failed: " + (e.message||e); }
+    S.prodBusy = false; render();
+  };
+  function renderProductionsImport(){
+    var st = S.prodStats, pv = S.prodPreview;
+    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">Production data</h2>'
+      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button></div></div>';
+    out += '<div class="card"><p class="note" style="margin:0 0 10px">'
+      + (st ? '<b>'+esc(st.total)+'</b> lines stored' + (st.latest ? ' \u00b7 latest run ' + fmtDate(st.latest) : '') : 'Loading\u2026') + '</p>'
+      + '<p>In Excel, select the rows you want to add (include the header row if you like), copy, and paste below. Runs already stored are replaced, so you can re-paste a whole run to correct it.</p>'
+      + '<label class="field-label" for="prodPaste">Paste rows from Excel</label>'
+      + '<textarea id="prodPaste" rows="7" style="width:100%;font-family:monospace;font-size:12px" oninput="S.prodPaste=this.value" placeholder="Paste here\u2026">'+esc(S.prodPaste||"")+'</textarea>'
+      + '<div class="row" style="margin-top:10px;align-items:center;gap:10px;flex-wrap:wrap">'
+      + '<button class="btn-dark btn-sm" onclick="checkProd()">Check rows</button>'
+      + '<span class="note">or</span><label class="btn-sm" style="cursor:pointer">Upload .xlsx / .csv<input type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" style="display:none" onchange="handleProdFile(this.files[0]); this.value=\'\'"></label></div>';
+    if(S.prodMsg) out += '<p class="note" role="status" style="margin-top:12px">'+esc(S.prodMsg)+'</p>';
+    if(pv){
+      out += '<div class="banner" style="margin-top:14px"><b>'+pv.rows.length+' lines</b> from <b>'+pv.runs+' runs</b>'
+        + (pv.latest ? ' \u00b7 latest '+fmtDate(pv.latest) : '')
+        + (pv.usedHeader ? '' : ' \u00b7 no header row found, so the usual column order was assumed')
+        + (pv.skipped ? ' \u00b7 <b>'+pv.skipped+'</b> rows skipped (no processing number or output code)' : '')
+        + (pv.dups ? ' \u00b7 <b>'+pv.dups+'</b> repeated lines ignored' : '') + '</div>';
+      if(pv.rows.length){
+        out += '<div class="prod-wrap" style="margin-top:10px"><table class="prod-table"><thead><tr><th>Run</th><th>Date</th><th>Output code</th><th>Output description</th><th>Input kg</th><th>Packs</th><th>Output kg</th><th>Yield %</th></tr></thead><tbody>'
+          + pv.rows.slice(0,6).map(function(r){ var d = r.data;
+              return '<tr><td>'+esc(d.pn)+'</td><td>'+esc(d.date)+'</td><td>'+esc(r.output_code)+'</td><td>'+esc(d.outDesc)+'</td><td>'+esc(d.inWeight)+'</td><td>'+esc(d.packs)+'</td><td>'+esc(d.outWeight)+'</td><td>'+esc(d.yieldRun)+'</td></tr>'; }).join("")
+          + '</tbody></table></div>'
+          + (pv.rows.length>6 ? '<p class="note">\u2026and '+(pv.rows.length-6)+' more.</p>' : '')
+          + '<div style="margin-top:12px"><button class="btn-primary" onclick="doProdImport()"'+(S.prodBusy?' disabled':'')+'>Import '+pv.rows.length+' lines</button></div>';
+      }
+    }
+    return out + '</div>';
+  }
+
+  function specCodes(sp){
+    var seen = {}, out = [];
+    [sp.outputSku, sp.outputSku2].forEach(function(c){ var n = normCode(c); if(n && !seen[n]){ seen[n] = 1; out.push(n); } });
+    return out;
+  }
+  function pctTxt(n){ return n==null ? "\u2014" : (Math.round(n*10)/10) + "%"; }
+  function avg(a){ a = a.filter(function(x){ return x!=null; }); return a.length ? a.reduce(function(x,y){ return x+y; },0)/a.length : null; }
+  function ensureProd(sp){
+    var codes = specCodes(sp);
+    var c = S.prodCache[sp.id];
+    if(c && (c.loading || c.rows || c.err)) return c;
+    c = S.prodCache[sp.id] = {loading:true};
+    rpcA("app_get_productions", {p_codes: codes}).then(function(res){
+      S.prodCache[sp.id] = res.error ? {err: res.error.message || "Couldn\u2019t load production data."} : {rows: res.data || []};
+      if(S.view === "print" && S.printSpec && S.printSpec.id === sp.id) render();
+    });
+    return c;
+  }
+  function sparkline(vals){
+    if(vals.length < 2) return "";
+    var w = 170, h = 40, pad = 4, min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    if(max === min){ max += 1; min -= 1; }
+    var pts = vals.map(function(v,i){ return (pad + i*(w-2*pad)/(vals.length-1)).toFixed(1) + "," + (h-pad - (v-min)/(max-min)*(h-2*pad)).toFixed(1); }).join(" ");
+    return '<svg viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" role="img" aria-label="Run yield over time, oldest to newest" style="color:var(--red)"><polyline points="'+pts+'" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+  }
+  function renderProductionTab(sp){
+    var codes = specCodes(sp);
+    var head = '<div class="card">';
+    if(!codes.length) return head + '<p class="note">Add an output SKU to this spec to see its production history.</p></div>';
+    var c = ensureProd(sp);
+    if(c.loading) return head + '<p class="note" role="status"><span class="spinner"></span> Loading production history\u2026</p></div>';
+    if(c.err) return head + '<p class="note">'+esc(c.err)+'</p><button class="btn-sm" onclick="S.prodCache={}; render();">Try again</button></div>';
+    var rows = c.rows || [];
+    var mine = rows.filter(function(r){ return codes.indexOf(r.output_code) >= 0; });
+    if(!mine.length){
+      return head + '<p>No production runs found for <b>'+esc(codes.join(", "))+'</b> yet.</p><p class="note">Production data is added by an admin from the library (Production data). Output codes are matched to this spec\u2019s output SKU.</p></div>';
+    }
+    // group by processing number (server returns newest first)
+    var groups = [], idx = {};
+    rows.forEach(function(r){
+      var g = idx[r.processing_number];
+      if(!g){ g = idx[r.processing_number] = {pn:r.processing_number, date:r.production_date, lines:[]}; groups.push(g); }
+      g.lines.push(r);
+    });
+    var myRuns = groups.filter(function(g){ return g.lines.some(function(r){ return codes.indexOf(r.output_code) >= 0; }); });
+    var runYield = myRuns.map(function(g){ var m = g.lines.filter(function(r){ return codes.indexOf(r.output_code)>=0; })[0]; return pnum(m.data.yieldRun); });
+    var runWaste = myRuns.map(function(g){ var m = g.lines.filter(function(r){ return codes.indexOf(r.output_code)>=0; })[0]; return pnum(m.data.wastage); });
+    var lineYield = mine.map(function(r){ return pnum(r.data.yieldLine); });
+    var packs = 0, kg = 0;
+    mine.forEach(function(r){ var pk = pnum(r.data.packs), w = pnum(r.data.outWeight); if(pk && w){ packs += pk; kg += w; } });
+    var avgPackG = packs ? kg/packs*1000 : null;
+    var costKg = avg(mine.map(function(r){ return pnum(r.data.costKg); }));
+    var costPackNum = 0, costPackDen = 0;
+    mine.forEach(function(r){ var cp = pnum(r.data.costPack), pk = pnum(r.data.packs); if(cp!=null && pk){ costPackNum += cp*pk; costPackDen += pk; } });
+    var best = null, worst = null;
+    mine.forEach(function(r){ var y = pnum(r.data.yieldLine); if(y==null) return; if(!best || y > best.y) best = {y:y, pn:r.processing_number}; if(!worst || y < worst.y) worst = {y:y, pn:r.processing_number}; });
+    var chrono = runYield.slice().reverse().filter(function(v){ return v!=null; });
+    var target = pnum(sp.targetWeight);
+    function tile(k, v, d){ return '<div class="prod-tile"><div class="k">'+k+'</div><div class="v">'+v+'</div>'+(d?'<div class="d">'+d+'</div>':'')+'</div>'; }
+    var out = head + '<div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>Production history</b>'
+      + '<button class="btn-ghost btn-sm" onclick="S.prodCache={}; render();">\u21bb Refresh</button></div>'
+      + '<p class="note" style="margin:4px 0 0">Matched on '+esc(codes.join(", "))+'. Figures are exactly as entered in the processing sheet. Not for printing.</p>'
+      + '<div class="prod-tiles">'
+      + tile("Runs", myRuns.length, "last " + fmtDate(myRuns[0].date))
+      + tile("Avg run yield", pctTxt(avg(runYield)), "all outputs \u00f7 input")
+      + tile("Avg line yield", pctTxt(avg(lineYield)), best ? "best " + pctTxt(best.y) + " \u00b7 worst " + pctTxt(worst.y) : "")
+      + tile("Avg wastage", pctTxt(avg(runWaste)))
+      + tile("Avg pack weight", avgPackG==null ? "\u2014" : Math.round(avgPackG) + " g", target ? "target " + target + " g" : "")
+      + tile("Avg cost / kg", costKg==null ? "\u2014" : "\u00a3" + costKg.toFixed(2), costPackDen ? "\u00a3" + (costPackNum/costPackDen).toFixed(2) + " per pack" : "")
+      + (chrono.length > 1 ? '<div class="prod-tile"><div class="k">Run yield trend</div><div style="margin-top:4px">'+sparkline(chrono)+'</div><div class="d">oldest \u2192 newest</div></div>' : '')
+      + '</div>';
+    var limit = S.prodShowAll ? groups.length : 25;
+    out += '<div class="prod-wrap"><table class="prod-table"><thead><tr>' + PROD_COLS.map(function(col){ return '<th scope="col">'+esc(col[1])+'</th>'; }).join("") + '</tr></thead><tbody>';
+    groups.slice(0, limit).forEach(function(g){
+      var first = g.lines[0].data;
+      out += '<tr class="run-head"><td colspan="'+PROD_COLS.length+'">Run '+esc(g.pn)+' \u00b7 '+fmtDate(g.date)+' \u00b7 '+esc(first.inDesc||"")+' \u00b7 '+esc(first.inWeight||"")+'</td></tr>';
+      g.lines.forEach(function(r){
+        var isMine = codes.indexOf(r.output_code) >= 0;
+        out += '<tr class="'+(isMine?'mine':'other')+'">' + PROD_COLS.map(function(col, ci){
+          var v = r.data[col[0]] || "";
+          return '<td>'+(ci===0 && !isMine ? '<span class="note">also from this run \u00b7 </span>' : '')+esc(v)+'</td>';
+        }).join("") + '</tr>';
+      });
+    });
+    out += '</tbody></table></div>';
+    if(groups.length > limit) out += '<p style="margin-top:10px"><button class="btn-sm" onclick="S.prodShowAll=true; render();">Show all '+groups.length+' runs</button></p>';
+    return out + '</div>';
+  }
+
   function renderPrintChrome(){
     var sp = S.printSpec, hist = sp.editHistory || [];
     var tab = S.printTab || "sheet";
+    var showProd = specChannel(sp) === "mmah" && can("production");
+    if(tab === "production" && !showProd) tab = "sheet";
     var out = '<div class="topbar" style="margin-top:-8px;">'
       + '<h2 style="margin:0;font-size:17px;">'+esc(sp.productName||"")+'</h2>'
       + '<div class="nav">'
       + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button>'
-      + '<button class="btn-sm" data-action="edit" data-id="'+esc(sp.id)+'">Edit</button>'
+      + (can("edit") ? '<button class="btn-sm" data-action="edit" data-id="'+esc(sp.id)+'">Edit</button>' : '')
       + '<button class="btn-primary btn-sm" onclick="doPrint()">Print / Save as PDF</button>'
       + '</div></div>'
       + '<div class="tabs"><span class="chan-badge '+specChannel(sp)+'" style="margin-right:10px;align-self:center">'+esc(channelShort(specChannel(sp)))+'</span>'
       + '<button class="tab'+(tab==="sheet"?' active':'')+'" data-action="printTab" data-tab="sheet">Sheet</button>'
       + '<button class="tab'+(tab==="sage"?' active':'')+'" data-action="printTab" data-tab="sage">Copy Sage M-Lines</button>'
       + '<button class="tab'+(tab==="history"?' active':'')+'" data-action="printTab" data-tab="history">History'+(hist.length?' ('+hist.length+')':'')+'</button>'
+      + (showProd ? '<button class="tab'+(tab==="production"?' active':'')+'" data-action="printTab" data-tab="production">Production</button>' : '')
       + '</div>';
     if(tab==="history"){
       out += renderHistoryTab(sp);
+    } else if(tab==="production"){
+      out += renderProductionTab(sp);
     } else if(tab==="sage"){
       out += renderSageLinesTab(sp);
     } else {
@@ -2402,6 +2866,7 @@
         + (s.trimUse==="repurpose" && s.trimRepurposeNote ? ' &mdash; <i>'+esc(s.trimRepurposeNote)+'</i>' : '')
         + trimLinkHtml(!!s.trimRepurposeNote)+'</td></tr>'
       + '<tr><td class="lbl">Cutting notes</td><td>'+esc(s.cuttingNotes||"\u2014")+'</td></tr>'
+      + altCutPrintRow(s)
       + '</table>';
 
     out += '<div class="ss-bar">2 - PACKING INSTRUCTIONS</div>';
@@ -2561,7 +3026,6 @@
   window.startNew=startNew;
   window.cancelChooseChannel=function(){ S.chooseChannel=false; render(); };
   window.goManageGroups=function(){ tryLeave(goManageGroups); };
-  window.goManageNames=function(){ tryLeave(goManageNames); };
   window.goEdit=goEdit; window.goPrint=goPrint;
   window.saveSpec=saveSpec; window.doPrint=doPrint; window.loadSpecs=loadSpecs; window.S=S; window.render=render;
   window.performDelete=performDelete; window.cancelDelete=cancelDelete;
@@ -2589,9 +3053,7 @@
       if(document.visibilityState === "visible" && Date.now() - (S.lastUpdateCheck||0) > 60*1000) window.checkForUpdate();
     });
     render();
-    loadSpecs();
-    loadGroupOptions();
-    loadNameOptions();
+    restoreSession().then(function(ok){ if(ok && !S.mustChange) afterLogin(null); else render(); });
   })();
 })();
 </script>
