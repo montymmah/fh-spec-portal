@@ -117,6 +117,13 @@
   .ch-logo.mm img{height:104px;}     /* the emblem is narrower than the Freedown Food logo, so it is a little taller to match its visual size */
   .ch-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
   .ch-chips{display:flex;gap:8px;flex-wrap:wrap;}
+  .ch-count{display:flex;align-items:baseline;gap:8px;}
+  .ch-count b{font-family:var(--serif);font-weight:800;font-size:46px;line-height:1;letter-spacing:-.5px;}
+  .ch-count i{font-style:normal;font-size:14px;opacity:.7;}
+  .pw-wrap{position:relative;}
+  .pw-wrap input{padding-right:46px;}
+  .pw-eye{position:absolute;right:2px;top:50%;transform:translateY(-50%);background:transparent;border:0;padding:8px 10px;min-height:0;cursor:pointer;color:var(--grey1);line-height:0;}
+  .pw-eye:hover{color:var(--ink);}
   .ch-chip{background:var(--page-bg);border-radius:8px;padding:6px 11px;font-size:12.5px;color:var(--ink);}
   .ch-card.last .ch-chip{background:rgba(255,255,255,.13);color:#fff;}
   .ch-open{font-weight:800;color:var(--red);}
@@ -380,7 +387,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "5.0";
+  var APP_VERSION = "5.1";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -561,6 +568,11 @@
       var m = String(res.error.message||"");
       if(m.indexOf("SESSION_EXPIRED")>=0){ res.error.message = "Your session ended \\u2014 please log in again."; sessionEnded(); }
       else if(m.indexOf("MUST_CHANGE")>=0){ S.mustChange = true; render(); }
+      else if(m.indexOf("PROD_LOCKED")>=0){
+        res.error.message = "Production data is locked \u2014 enter your password to open it.";
+        S.prodUnlockUntil = 0; S.prodCache = {};
+        if(S.view === "print" || S.view === "productions") render();
+      }
       else if(m.indexOf("NO_PERMISSION")>=0){ res.error.message = "You don\\u2019t have permission to do that."; }
     }
     return res;
@@ -611,7 +623,7 @@
       if(tok){ try{ sb.rpc("app_logout", {p_token:tok}); }catch(e){} }
       S.session = null; storeSession(); S.sessionLost = false;
       S.specs = []; S.form = null; S.formId = null; S.printSpec = null; S.view = "home"; S.channel = null;
-      S.loginOpen = null; S.mustChange = false; S.changePw = false; S.prodCache = {}; S.users = null;
+      S.loginOpen = null; S.mustChange = false; S.changePw = false; S.prodCache = {}; S.users = null; S.prodUnlockUntil = 0; S.prodPaste = ""; S.prodPreview = null;
       render(); window.scrollTo(0,0);
     });
   };
@@ -1447,7 +1459,7 @@
         + (can("edit") ? '<button class="btn-sm" onclick="goImport()">Import Old Version</button>'
                        + '<button class="btn-primary btn-sm" onclick="goNew()">+ New Spec</button>' : '')
         + '<span class="who"><b>'+esc(S.session.name)+'</b>'
-        + '<button class="btn-ghost btn-sm" onclick="openChangePw()">Password</button>'
+        + '<button class="btn-ghost btn-sm" onclick="openChangePw()">Change password</button>'
         + '<button class="btn-ghost btn-sm" onclick="doLogout()">Log out</button></span>';
     }
     out += '</div></div>';
@@ -1455,6 +1467,20 @@
     return out;
   }
 
+  var EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var EYE_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.9 10.9 0 0 1 12 19C5 19 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M1 1l22 22"/></svg>';
+  function pwField(id, label, auto){
+    return '<label for="'+id+'">'+label+'</label><div class="pw-wrap"><input type="password" id="'+id+'" autocomplete="'+auto+'">'
+      + '<button type="button" class="pw-eye" aria-label="Show password" aria-pressed="false" onclick="togglePw(\''+id+'\',this)">'+EYE+'</button></div>';
+  }
+  window.togglePw = function(id, btn){
+    var i = document.getElementById(id); if(!i) return;
+    var show = i.type === "password";
+    i.type = show ? "text" : "password";
+    btn.setAttribute("aria-pressed", show ? "true" : "false");
+    btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    btn.innerHTML = show ? EYE_OFF : EYE;
+  };
   function loginOverlays(){
     var h = "";
     if(S.loginOpen && !S.session){
@@ -1462,7 +1488,7 @@
         + '<form class="confirm-box login-box" onclick="event.stopPropagation()" onsubmit="event.preventDefault();doLogin();return false" aria-labelledby="loginTitle">'
         + '<p id="loginTitle"><b>Log in</b></p>'
         + '<label for="loginName">Your initials</label><input type="text" id="loginName" autocomplete="username" autocapitalize="characters" value="'+esc(S.loginName||"")+'">'
-        + '<label for="loginPwd">Password</label><input type="password" id="loginPwd" autocomplete="current-password">'
+        + '' + pwField("loginPwd", "Password", "current-password")
         + (S.loginErr ? '<div class="login-err" role="alert">'+esc(S.loginErr)+'</div>' : '')
         + '<div class="row" style="margin-top:14px">'
         + (S.sessionLost ? '' : '<button type="button" class="btn-ghost btn-sm" onclick="cancelLogin()">Cancel</button>')
@@ -1476,9 +1502,9 @@
         + '<form class="confirm-box login-box" onclick="event.stopPropagation()" onsubmit="event.preventDefault();doChangePw();return false" aria-labelledby="pwTitle">'
         + '<p id="pwTitle"><b>'+(forced ? 'Choose your own password' : 'Change password')+'</b>'
         + (forced ? '<br><span class="note">You\u2019re using a temporary password. Pick one only you know (8+ characters).</span>' : '') + '</p>'
-        + (forced ? '' : '<label for="pwOld">Current password</label><input type="password" id="pwOld" autocomplete="current-password">')
-        + '<label for="pwNew">New password</label><input type="password" id="pwNew" autocomplete="new-password">'
-        + '<label for="pwNew2">New password again</label><input type="password" id="pwNew2" autocomplete="new-password">'
+        + (forced ? '' : pwField("pwOld", "Current password", "current-password"))
+        + pwField("pwNew", "New password", "new-password")
+        + pwField("pwNew2", "New password again", "new-password")
         + (S.pwErr ? '<div class="login-err" role="alert">'+esc(S.pwErr)+'</div>' : '')
         + '<div class="row" style="margin-top:14px">'
         + (forced ? '<button type="button" class="btn-ghost btn-sm" onclick="doLogout()">Log out</button>' : '<button type="button" class="btn-ghost btn-sm" onclick="cancelChangePw()">Cancel</button>')
@@ -1597,7 +1623,7 @@
       html += '<div class="confirm-overlay" onclick="cancelDelete()">'
         + '<form class="confirm-box login-box" onclick="event.stopPropagation()" onsubmit="event.preventDefault();performDelete(\''+esc(S.confirmDelete)+'\');return false">'
         + '<p><b>Delete this spec sheet permanently?</b><br>This can\'t be undone. Enter your password to confirm.</p>'
-        + '<label for="delPwd">Your password</label><input type="password" id="delPwd" autocomplete="current-password">'
+        + '' + pwField("delPwd", "Your password", "current-password")
         + (S.reauthErr ? '<div class="login-err" role="alert">'+esc(S.reauthErr)+'</div>' : '')
         + '<div class="row" style="margin-top:14px"><button type="button" class="btn-ghost btn-sm" onclick="cancelDelete()">Cancel</button>'
         + '<button type="submit" class="btn-primary btn-sm">Delete</button></div>'
@@ -1706,10 +1732,8 @@
         + '<div class="ch-name">'+esc(c.name)+'</div>'
         + '<p class="ch-desc">'+esc(c.desc)+'</p>'
         + logo
-        + '<div class="ch-foot"><div class="ch-chips">'
-        +   '<span class="ch-chip">'+(S.loadingSpecs && !S.specs.length ? '\u2026' : st.count+' spec'+(st.count===1?'':'s'))+'</span>'
-        +   (st.groups.length ? '<span class="ch-chip">'+esc(st.groups.slice(0,4).join(" \u00b7 "))+'</span>' : '')
-        + '</div><span class="ch-open">Open \u2192</span></div></div>';
+        + '<div class="ch-foot"><div class="ch-count"><b>'+(S.loadingSpecs && !S.specs.length ? '\u2026' : st.count)+'</b><i>spec'+(st.count===1?'':'s')+'</i></div>'
+        + '<span class="ch-open">Open \u2192</span></div></div>';
     });
     out += '</div>';
 
@@ -2558,29 +2582,62 @@
     var hdr = first.map(function(h){ return String(h).toUpperCase().replace(/\s+/g," ").trim(); });
     if(hdr.filter(function(h){ return PROD_HEAD[h]; }).length >= 5){ map = hdr.map(function(h){ return PROD_HEAD[h] || null; }); start = 1; }
     else map = PROD_COLS.map(function(c){ return c[0]; }).slice(0, first.length);
-    var carry = {}, seen = {}, out = [], skipped = 0, dups = 0, runs = {}, latest = "";
-    table.slice(start).forEach(function(r){
+    var carry = {}, seen = {}, out = [], skipped = 0, repeats = 0, runs = {}, latest = "", skippedAt = [];
+    table.slice(start).forEach(function(r, ri){
       var d = {};
       map.forEach(function(k, i){ if(k) d[k] = String(r[i]==null ? "" : r[i]).trim(); });
-      if(!d.pn || !d.outCode){ skipped++; return; }
+      if(!d.pn || !d.outCode){ skipped++; if(skippedAt.length < 8) skippedAt.push(ri + 1 + start); return; }
       var c = carry[d.pn] || (carry[d.pn] = {});
       PROD_CARRY.forEach(function(k){ if(d[k]) c[k] = d[k]; else if(c[k]) d[k] = c[k]; });     // follow-on lines inherit the run's input details
       var code = normCode(d.outCode), key = d.pn + "|" + code;
-      if(seen[key]){ dups++; return; }
-      seen[key] = 1;
+      seen[key] = (seen[key] || 0) + 1;                       // same product twice in one processing: keep both lines
+      if(seen[key] > 1) repeats++;
       var iso = parseUkDate(d.date);
       if(iso && iso > latest) latest = iso;
       runs[d.pn] = 1;
-      out.push({processing_number: d.pn, output_code: code, production_date: iso, data: d});
+      out.push({processing_number: d.pn, output_code: code, line_no: seen[key], production_date: iso, data: d});
     });
-    return {rows: out, skipped: skipped, dups: dups, runs: Object.keys(runs).length, latest: latest, usedHeader: start === 1};
+    return {rows: out, skipped: skipped, skippedAt: skippedAt, repeats: repeats, total: table.length - start, processings: Object.keys(runs).length, latest: latest, usedHeader: start === 1};
   }
 
+  // ---- extra password check before production data opens (15 minutes, then it locks again) ----
+  function prodUnlocked(){ return Date.now() < (S.prodUnlockUntil || 0); }
+  async function prodCall(fn, args){
+    var r = await rpcA(fn, args);
+    if(!r.error) S.prodUnlockUntil = Date.now() + 15*60*1000;
+    return r;
+  }
+  function loadProdStats(){
+    return prodCall("app_production_stats").then(function(r){ if(!r.error){ S.prodStats = r.data; if(S.view==="productions") render(); } });
+  }
+  window.doProdUnlock = async function(){
+    var pw = (document.getElementById("prodPwd")||{}).value || "";
+    if(!pw){ S.prodErr = "Enter your password."; render(); return; }
+    var res = await rpcA("app_unlock_production", {p_pwd: pw});
+    if(res.error){ S.prodErr = res.error.message || "Couldn\u2019t unlock."; render(); return; }
+    if(!res.data || !res.data.ok){ S.prodErr = (res.data && res.data.error) || "That password isn\u2019t right."; render(); return; }
+    S.prodErr = ""; S.prodUnlockUntil = Date.now() + 15*60*1000; S.prodCache = {};
+    render();
+    if(S.view === "productions") loadProdStats();
+  };
+  window.lockProduction = async function(){
+    S.prodUnlockUntil = 0; S.prodCache = {}; S.prodPreview = null; S.prodPaste = ""; S.prodStats = null;
+    render();
+    try{ await rpcA("app_lock_production"); }catch(e){}
+  };
+  function renderProdLock(what){
+    return '<div class="card"><form class="login-box" style="max-width:340px" onsubmit="event.preventDefault();doProdUnlock();return false" aria-labelledby="plTitle">'
+      + '<p id="plTitle" style="margin:0 0 4px"><b>\ud83d\udd12 '+esc(what)+' is locked</b></p>'
+      + '<p class="note" style="margin:0 0 8px">Enter your password again to open it for 15 minutes.</p>'
+      + pwField("prodPwd", "Your password", "current-password")
+      + (S.prodErr ? '<div class="login-err" role="alert">'+esc(S.prodErr)+'</div>' : '')
+      + '<div style="margin-top:12px"><button type="submit" class="btn-dark btn-sm">Unlock</button></div></form></div>';
+  }
   window.goProductions = function(){
     if(!can("admin")){ showToast("Only an admin can upload production data."); return; }
     tryLeave(function(){
-      S.view = "productions"; S.prodPreview = null; S.prodMsg = ""; render(); window.scrollTo(0,0);
-      rpcA("app_production_stats").then(function(r){ if(!r.error){ S.prodStats = r.data; if(S.view==="productions") render(); } });
+      S.view = "productions"; S.prodPreview = null; S.prodMsg = ""; S.prodErr = ""; render(); window.scrollTo(0,0);
+      if(prodUnlocked()) loadProdStats();
     });
   };
   window.checkProd = function(){
@@ -2613,38 +2670,54 @@
     try{
       var total = 0;
       for(var i=0;i<pv.rows.length;i+=150){
-        var res = await rpcA("app_import_productions", {p_rows: pv.rows.slice(i, i+150)});
+        var res = await prodCall("app_import_productions", {p_rows: pv.rows.slice(i, i+150)});
         if(res.error) throw res.error;
         total += (res.data && res.data.rows) || 0;
-        S.prodStats = {total: res.data.total, latest: res.data.latest};
       }
+      // check every line really is in the database
+      var keys = pv.rows.map(function(r){ return r.processing_number + "|" + r.output_code + "|" + r.line_no; });
+      var vr = await prodCall("app_verify_productions", {p_keys: keys});
+      if(vr.error) throw vr.error;
+      var v = vr.data || {};
+      S.prodStats = {total: v.total, latest: pv.latest, processings: null};
       S.prodCache = {};
-      S.prodMsg = "Done \u2014 " + total + " lines saved (" + pv.runs + " runs).";
+      if(v.found === keys.length){
+        S.prodMsg = "\u2714 All " + keys.length + " lines confirmed in the database (" + pv.processings + " processings). Total stored: " + v.total + " lines.";
+      } else {
+        S.prodMsg = "\u26a0 Only " + v.found + " of " + keys.length + " lines were found in the database. First missing: " + (v.missing||[]).slice(0,5).join(", ") + ". Try the import again.";
+      }
       S.prodPreview = null; S.prodPaste = "";
+      loadProdStats();
     }catch(e){ S.prodMsg = "Import failed: " + (e.message||e); }
     S.prodBusy = false; render();
   };
   function renderProductionsImport(){
     var st = S.prodStats, pv = S.prodPreview;
     var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">Production data</h2>'
-      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button></div></div>';
+      + '<div class="nav">' + (prodUnlocked() ? '<button class="btn-ghost btn-sm" onclick="lockProduction()">\ud83d\udd12 Lock</button>' : '')
+      + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button></div></div>';
+    if(!prodUnlocked()) return out + renderProdLock("Production data");
     out += '<div class="card"><p class="note" style="margin:0 0 10px">'
-      + (st ? '<b>'+esc(st.total)+'</b> lines stored' + (st.latest ? ' \u00b7 latest run ' + fmtDate(st.latest) : '') : 'Loading\u2026') + '</p>'
-      + '<p>In Excel, select the rows you want to add (include the header row if you like), copy, and paste below. Runs already stored are replaced, so you can re-paste a whole run to correct it.</p>'
+      + (st ? '<b>'+esc(st.total)+'</b> lines stored'
+          + (st.processings ? ' \u00b7 <b>'+esc(st.processings)+'</b> processings' : '')
+          + (st.earliest && st.latest ? ' \u00b7 ' + fmtDate(st.earliest) + ' to ' + fmtDate(st.latest) : (st.latest ? ' \u00b7 latest ' + fmtDate(st.latest) : ''))
+        : 'Loading\u2026') + '</p>'
+      + '<p>In Excel, select the rows you want to add (include the header row if you like), copy, and paste below. Processings already stored are replaced line by line, so you can safely paste the whole sheet again.</p>'
+      + '<p class="note">Tip: the \u201cCount\u201d in Excel\u2019s bottom bar counts <b>cells</b>, not rows \u2014 each row here has about 27 cells. The check below shows the exact number of lines.</p>'
       + '<label class="field-label" for="prodPaste">Paste rows from Excel</label>'
       + '<textarea id="prodPaste" rows="7" style="width:100%;font-family:monospace;font-size:12px" oninput="S.prodPaste=this.value" placeholder="Paste here\u2026">'+esc(S.prodPaste||"")+'</textarea>'
       + '<div class="row" style="margin-top:10px;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<button class="btn-dark btn-sm" onclick="checkProd()">Check rows</button>'
       + '<span class="note">or</span><label class="btn-sm" style="cursor:pointer">Upload .xlsx / .csv<input type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" style="display:none" onchange="handleProdFile(this.files[0]); this.value=\'\'"></label></div>';
-    if(S.prodMsg) out += '<p class="note" role="status" style="margin-top:12px">'+esc(S.prodMsg)+'</p>';
+    if(S.prodMsg) out += '<p class="note" role="status" style="margin-top:12px;font-size:13.5px">'+esc(S.prodMsg)+'</p>';
     if(pv){
-      out += '<div class="banner" style="margin-top:14px"><b>'+pv.rows.length+' lines</b> from <b>'+pv.runs+' runs</b>'
+      out += '<div class="banner" style="margin-top:14px"><b>'+pv.total+' rows</b> pasted \u2192 <b>'+pv.rows.length+' lines</b> ready, from <b>'+pv.processings+' processings</b>'
         + (pv.latest ? ' \u00b7 latest '+fmtDate(pv.latest) : '')
         + (pv.usedHeader ? '' : ' \u00b7 no header row found, so the usual column order was assumed')
-        + (pv.skipped ? ' \u00b7 <b>'+pv.skipped+'</b> rows skipped (no processing number or output code)' : '')
-        + (pv.dups ? ' \u00b7 <b>'+pv.dups+'</b> repeated lines ignored' : '') + '</div>';
+        + (pv.repeats ? ' \u00b7 '+pv.repeats+' repeated product lines kept (same product twice in one processing)' : '')
+        + (pv.skipped ? ' \u00b7 <b>'+pv.skipped+'</b> rows skipped (no processing number or output code; row'+(pv.skippedAt.length>1?'s':'')+' '+pv.skippedAt.join(", ")+(pv.skipped>pv.skippedAt.length?'\u2026':'')+')' : '') + '</div>';
       if(pv.rows.length){
-        out += '<div class="prod-wrap" style="margin-top:10px"><table class="prod-table"><thead><tr><th>Run</th><th>Date</th><th>Output code</th><th>Output description</th><th>Input kg</th><th>Packs</th><th>Output kg</th><th>Yield %</th></tr></thead><tbody>'
+        out += '<div class="prod-wrap" style="margin-top:10px"><table class="prod-table"><thead><tr><th>Processing</th><th>Date</th><th>Output code</th><th>Output description</th><th>Input kg</th><th>Packs</th><th>Output kg</th><th>Yield %</th></tr></thead><tbody>'
           + pv.rows.slice(0,6).map(function(r){ var d = r.data;
               return '<tr><td>'+esc(d.pn)+'</td><td>'+esc(d.date)+'</td><td>'+esc(r.output_code)+'</td><td>'+esc(d.outDesc)+'</td><td>'+esc(d.inWeight)+'</td><td>'+esc(d.packs)+'</td><td>'+esc(d.outWeight)+'</td><td>'+esc(d.yieldRun)+'</td></tr>'; }).join("")
           + '</tbody></table></div>'
@@ -2667,30 +2740,24 @@
     var c = S.prodCache[sp.id];
     if(c && (c.loading || c.rows || c.err)) return c;
     c = S.prodCache[sp.id] = {loading:true};
-    rpcA("app_get_productions", {p_codes: codes}).then(function(res){
+    prodCall("app_get_productions", {p_codes: codes}).then(function(res){
       S.prodCache[sp.id] = res.error ? {err: res.error.message || "Couldn\u2019t load production data."} : {rows: res.data || []};
       if(S.view === "print" && S.printSpec && S.printSpec.id === sp.id) render();
     });
     return c;
   }
-  function sparkline(vals){
-    if(vals.length < 2) return "";
-    var w = 170, h = 40, pad = 4, min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
-    if(max === min){ max += 1; min -= 1; }
-    var pts = vals.map(function(v,i){ return (pad + i*(w-2*pad)/(vals.length-1)).toFixed(1) + "," + (h-pad - (v-min)/(max-min)*(h-2*pad)).toFixed(1); }).join(" ");
-    return '<svg viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" role="img" aria-label="Run yield over time, oldest to newest" style="color:var(--red)"><polyline points="'+pts+'" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>';
-  }
   function renderProductionTab(sp){
     var codes = specCodes(sp);
     var head = '<div class="card">';
     if(!codes.length) return head + '<p class="note">Add an output SKU to this spec to see its production history.</p></div>';
+    if(!prodUnlocked()) return renderProdLock("Production history");
     var c = ensureProd(sp);
     if(c.loading) return head + '<p class="note" role="status"><span class="spinner"></span> Loading production history\u2026</p></div>';
     if(c.err) return head + '<p class="note">'+esc(c.err)+'</p><button class="btn-sm" onclick="S.prodCache={}; render();">Try again</button></div>';
     var rows = c.rows || [];
     var mine = rows.filter(function(r){ return codes.indexOf(r.output_code) >= 0; });
     if(!mine.length){
-      return head + '<p>No production runs found for <b>'+esc(codes.join(", "))+'</b> yet.</p><p class="note">Production data is added by an admin from the library (Production data). Output codes are matched to this spec\u2019s output SKU.</p></div>';
+      return head + '<p>No processings found for <b>'+esc(codes.join(", "))+'</b> yet.</p><p class="note">Production data is added by an admin from the library (Production data). Output codes are matched to this spec\u2019s output SKU.</p></div>';
     }
     // group by processing number (server returns newest first)
     var groups = [], idx = {};
@@ -2711,36 +2778,34 @@
     mine.forEach(function(r){ var cp = pnum(r.data.costPack), pk = pnum(r.data.packs); if(cp!=null && pk){ costPackNum += cp*pk; costPackDen += pk; } });
     var best = null, worst = null;
     mine.forEach(function(r){ var y = pnum(r.data.yieldLine); if(y==null) return; if(!best || y > best.y) best = {y:y, pn:r.processing_number}; if(!worst || y < worst.y) worst = {y:y, pn:r.processing_number}; });
-    var chrono = runYield.slice().reverse().filter(function(v){ return v!=null; });
     var target = pnum(sp.targetWeight);
     function tile(k, v, d){ return '<div class="prod-tile"><div class="k">'+k+'</div><div class="v">'+v+'</div>'+(d?'<div class="d">'+d+'</div>':'')+'</div>'; }
     var out = head + '<div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>Production history</b>'
-      + '<button class="btn-ghost btn-sm" onclick="S.prodCache={}; render();">\u21bb Refresh</button></div>'
+      + '<span><button class="btn-ghost btn-sm" onclick="S.prodCache={}; render();">\u21bb Refresh</button> <button class="btn-ghost btn-sm" onclick="lockProduction()">\ud83d\udd12 Lock</button></span></div>'
       + '<p class="note" style="margin:4px 0 0">Matched on '+esc(codes.join(", "))+'. Figures are exactly as entered in the processing sheet. Not for printing.</p>'
       + '<div class="prod-tiles">'
-      + tile("Runs", myRuns.length, "last " + fmtDate(myRuns[0].date))
-      + tile("Avg run yield", pctTxt(avg(runYield)), "all outputs \u00f7 input")
+      + tile("Processings", myRuns.length, "last " + fmtDate(myRuns[0].date))
+      + tile("Avg processing yield", pctTxt(avg(runYield)), "all outputs \u00f7 input")
       + tile("Avg line yield", pctTxt(avg(lineYield)), best ? "best " + pctTxt(best.y) + " \u00b7 worst " + pctTxt(worst.y) : "")
       + tile("Avg wastage", pctTxt(avg(runWaste)))
       + tile("Avg pack weight", avgPackG==null ? "\u2014" : Math.round(avgPackG) + " g", target ? "target " + target + " g" : "")
       + tile("Avg cost / kg", costKg==null ? "\u2014" : "\u00a3" + costKg.toFixed(2), costPackDen ? "\u00a3" + (costPackNum/costPackDen).toFixed(2) + " per pack" : "")
-      + (chrono.length > 1 ? '<div class="prod-tile"><div class="k">Run yield trend</div><div style="margin-top:4px">'+sparkline(chrono)+'</div><div class="d">oldest \u2192 newest</div></div>' : '')
       + '</div>';
     var limit = S.prodShowAll ? groups.length : 25;
     out += '<div class="prod-wrap"><table class="prod-table"><thead><tr>' + PROD_COLS.map(function(col){ return '<th scope="col">'+esc(col[1])+'</th>'; }).join("") + '</tr></thead><tbody>';
     groups.slice(0, limit).forEach(function(g){
       var first = g.lines[0].data;
-      out += '<tr class="run-head"><td colspan="'+PROD_COLS.length+'">Run '+esc(g.pn)+' \u00b7 '+fmtDate(g.date)+' \u00b7 '+esc(first.inDesc||"")+' \u00b7 '+esc(first.inWeight||"")+'</td></tr>';
+      out += '<tr class="run-head"><td colspan="'+PROD_COLS.length+'">Processing '+esc(g.pn)+' \u00b7 '+fmtDate(g.date)+' \u00b7 '+esc(first.inDesc||"")+' \u00b7 '+esc(first.inWeight||"")+'</td></tr>';
       g.lines.forEach(function(r){
         var isMine = codes.indexOf(r.output_code) >= 0;
         out += '<tr class="'+(isMine?'mine':'other')+'">' + PROD_COLS.map(function(col, ci){
           var v = r.data[col[0]] || "";
-          return '<td>'+(ci===0 && !isMine ? '<span class="note">also from this run \u00b7 </span>' : '')+esc(v)+'</td>';
+          return '<td>'+(ci===0 && !isMine ? '<span class="note">also from this processing \u00b7 </span>' : '')+esc(v)+'</td>';
         }).join("") + '</tr>';
       });
     });
     out += '</tbody></table></div>';
-    if(groups.length > limit) out += '<p style="margin-top:10px"><button class="btn-sm" onclick="S.prodShowAll=true; render();">Show all '+groups.length+' runs</button></p>';
+    if(groups.length > limit) out += '<p style="margin-top:10px"><button class="btn-sm" onclick="S.prodShowAll=true; render();">Show all '+groups.length+' processings</button></p>';
     return out + '</div>';
   }
 
