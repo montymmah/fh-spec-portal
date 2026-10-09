@@ -78,7 +78,7 @@
   .btn-dark{background:var(--ink);border-color:var(--ink);color:#fff;}
   .btn-ghost{background:transparent;border-color:transparent;color:var(--grey1);}
   .btn-sm{padding:6px 10px;font-size:12.5px;}
-  input[type=text],input[type=number],input[type=date],textarea,select{
+  input[type=text],input[type=number],input[type=date],input[type=password],textarea,select{
     width:100%; font-family:inherit; font-size:14px; padding:9px 10px; border:1px solid var(--line);
     border-radius:6px; background:var(--bg); color:var(--ink);
   }
@@ -178,7 +178,8 @@
   .chk-group{display:flex;gap:16px;flex-wrap:wrap;}
   :focus-visible{outline:2px solid #1d4ed8;outline-offset:2px;}
   .chk-opt:focus-visible{background:rgba(29,78,216,.08);}
-  @media screen and ((pointer:coarse), (max-width:720px)){
+  @media screen and (pointer:coarse), screen and (max-width:720px){
+    input,select,textarea,.home-search input,.img-box .cap input{font-size:16px !important;}
     button, .btn, .btn-sm, .tab{min-height:44px;}
     input[type=text], input[type=number], input[type=date], select{min-height:44px;}
     .chk-opt{min-height:44px;padding:8px 6px;}
@@ -387,7 +388,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "5.1";
+  var APP_VERSION = "5.2";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -551,7 +552,7 @@
   // ---------- login / session ----------
   var SESSION_KEY = "ff_session";
   function storeSession(){
-    try{ if(S.session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(S.session)); else sessionStorage.removeItem(SESSION_KEY); }catch(e){}
+    try{ if(S.session){ localStorage.setItem(SESSION_KEY, JSON.stringify(S.session)); } else { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); } }catch(e){}
   }
   function can(p){ return !!(S.session && S.session.perms && S.session.perms[p]); }
   function sessionEnded(){
@@ -648,7 +649,7 @@
   };
   async function restoreSession(){
     var st = null;
-    try{ st = JSON.parse(sessionStorage.getItem(SESSION_KEY)||"null"); }catch(e){}
+    try{ st = JSON.parse(localStorage.getItem(SESSION_KEY)||sessionStorage.getItem(SESSION_KEY)||"null"); }catch(e){}
     if(!st || !st.token || !SETUP_OK) return false;
     try{
       var res = await sb.rpc("app_whoami", {p_token:st.token});
@@ -2738,14 +2739,21 @@
   function ensureProd(sp){
     var codes = specCodes(sp);
     var c = S.prodCache[sp.id];
+    if(c && c.codes !== codes.join(",")) c = null;
     if(c && (c.loading || c.rows || c.err)) return c;
-    c = S.prodCache[sp.id] = {loading:true};
+    var ck = codes.join(",");
+    c = S.prodCache[sp.id] = {loading:true, codes:ck};
     prodCall("app_get_productions", {p_codes: codes}).then(function(res){
-      S.prodCache[sp.id] = res.error ? {err: res.error.message || "Couldn\u2019t load production data."} : {rows: res.data || []};
+      if(!S.prodCache[sp.id] || S.prodCache[sp.id].codes !== ck) return;
+      S.prodCache[sp.id] = res.error ? {err: res.error.message || "Couldn\u2019t load production data.", codes:ck} : {rows: res.data || [], codes:ck};
       if(S.view === "print" && S.printSpec && S.printSpec.id === sp.id) render();
     });
     return c;
   }
+  window.setProdRange = function(v){ S.prodRange = v; S.prodShowAll = false; render(); };
+  window.setProdLastN = function(n){ S.prodLastN = Math.max(1, parseInt(n,10) || 10); render(); };
+  window.setProdDates = function(f, t){ if(f!==null) S.prodFrom = f; if(t!==null) S.prodTo = t; render(); };
+  window.setProdInput = function(k){ S.prodInput = (S.prodInput === k) ? "" : k; S.prodShowAll = false; render(); };
   function renderProductionTab(sp){
     var codes = specCodes(sp);
     var head = '<div class="card">';
@@ -2760,15 +2768,65 @@
       return head + '<p>No processings found for <b>'+esc(codes.join(", "))+'</b> yet.</p><p class="note">Production data is added by an admin from the library (Production data). Output codes are matched to this spec\u2019s output SKU.</p></div>';
     }
     // group by processing number (server returns newest first)
-    var groups = [], idx = {};
+    var allGroups = [], idx = {};
     rows.forEach(function(r){
       var g = idx[r.processing_number];
-      if(!g){ g = idx[r.processing_number] = {pn:r.processing_number, date:r.production_date, lines:[]}; groups.push(g); }
+      if(!g){ g = idx[r.processing_number] = {pn:r.processing_number, date:r.production_date, lines:[]}; allGroups.push(g); }
       g.lines.push(r);
     });
-    var myRuns = groups.filter(function(g){ return g.lines.some(function(r){ return codes.indexOf(r.output_code) >= 0; }); });
-    var runYield = myRuns.map(function(g){ var m = g.lines.filter(function(r){ return codes.indexOf(r.output_code)>=0; })[0]; return pnum(m.data.yieldRun); });
-    var runWaste = myRuns.map(function(g){ var m = g.lines.filter(function(r){ return codes.indexOf(r.output_code)>=0; })[0]; return pnum(m.data.wastage); });
+    function mineIn(g){ return g.lines.filter(function(r){ return codes.indexOf(r.output_code)>=0; }); }
+    allGroups = allGroups.filter(function(g){ return mineIn(g).length; });
+    // ---- inputs used (across all processings, before filtering) ----
+    var inputs = {}, inputList = [];
+    allGroups.forEach(function(g){
+      var d = g.lines[0].data, k = (d.inCode||"").trim() || (d.inDesc||"").trim() || "?";
+      var o = inputs[k]; if(!o){ o = inputs[k] = {key:k, desc:d.inDesc||"", n:0, ys:[], cs:[], last:g.date}; inputList.push(o); }
+      o.n++; o.ys.push(pnum(mineIn(g)[0].data.yieldRun));
+      mineIn(g).forEach(function(r){ o.cs.push(pnum(r.data.costKg)); });
+      if(g.date && (!o.last || g.date > o.last)) o.last = g.date;
+    });
+    inputList.sort(function(x,y){ return y.n - x.n; });
+    // ---- filters ----
+    var rng = S.prodRange || "all";
+    var groups = allGroups.filter(function(g){
+      if(S.prodInput){ var d0 = g.lines[0].data, k0 = (d0.inCode||"").trim() || (d0.inDesc||"").trim() || "?"; if(k0 !== S.prodInput) return false; }
+      var dt = g.date || "";
+      if(rng==="3m"||rng==="6m"||rng==="12m"){
+        var m = rng==="3m"?3:rng==="6m"?6:12, cut = new Date(); cut.setMonth(cut.getMonth()-m);
+        return dt >= cut.toISOString().slice(0,10);
+      }
+      if(rng==="custom"){ if(S.prodFrom && dt < S.prodFrom) return false; if(S.prodTo && dt > S.prodTo) return false; }
+      return true;
+    });
+    if(rng==="last"){ groups = groups.slice(0, Math.max(1, parseInt(S.prodLastN,10) || 10)); }
+    var mine = [];
+    groups.forEach(function(g){ mine = mine.concat(mineIn(g)); });
+    function chip(v, label){ return '<button class="btn-sm'+(rng===v?' btn-dark':' btn-ghost')+'" aria-pressed="'+(rng===v)+'" onclick="setProdRange(\''+v+'\')">'+label+'</button>'; }
+    var bar = '<div class="prod-filter" role="group" aria-label="Show processings from" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:12px 0 4px">'
+      + chip("3m","Last 3 months") + chip("6m","Last 6 months") + chip("12m","Last year") + chip("all","All time") + chip("last","Last…") + chip("custom","Dates…")
+      + (rng==="last" ? '<label class="note" style="display:flex;gap:6px;align-items:center">last <input type="number" min="1" style="width:70px" value="'+esc(String(S.prodLastN||10))+'" onchange="setProdLastN(this.value)" aria-label="Number of processings"> processings</label>' : '')
+      + (rng==="custom" ? '<label class="note" style="display:flex;gap:6px;align-items:center">from <input type="date" style="width:150px" value="'+esc(S.prodFrom||"")+'" onchange="setProdDates(this.value,null)"></label><label class="note" style="display:flex;gap:6px;align-items:center">to <input type="date" style="width:150px" value="'+esc(S.prodTo||"")+'" onchange="setProdDates(null,this.value)"></label>' : '')
+      + '</div>';
+    var inBox = '';
+    if(inputList.length > 1){
+      inBox = '<div class="prod-inputs" style="margin:8px 0"><div class="note" style="margin-bottom:4px"><b>Inputs used</b> — this product has been made from '+inputList.length+' different inputs. Tap one to filter.</div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+        + inputList.map(function(o){
+            var on = S.prodInput === o.key;
+            return '<button class="btn-sm '+(on?'btn-dark':'btn-ghost')+'" aria-pressed="'+on+'" style="text-align:left;line-height:1.3" data-pin="'+esc(o.key)+'" onclick="setProdInput(this.getAttribute(\'data-pin\'))">'
+              + esc(o.key) + (o.desc ? ' · '+esc(o.desc) : '') + '<br><span class="note">'+o.n+' processing'+(o.n===1?'':'s')+' · avg yield '+pctTxt(avg(o.ys))+(avg(o.cs)!=null ? ' · £'+avg(o.cs).toFixed(2)+'/kg' : '')+' · last '+fmtDate(o.last)+'</span></button>';
+          }).join("") + '</div></div>';
+    } else if(inputList.length === 1){
+      inBox = '<p class="note" style="margin:6px 0">Input used: <b>'+esc(inputList[0].key)+'</b>'+(inputList[0].desc ? ' · '+esc(inputList[0].desc) : '')+' (all '+inputList[0].n+' processings)</p>';
+    }
+    var head2 = '<div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>Production history</b>'
+      + '<span><button class="btn-ghost btn-sm" onclick="S.prodCache={}; render();">↻ Refresh</button> <button class="btn-ghost btn-sm" onclick="lockProduction()">🔒 Lock</button></span></div>'
+      + '<p class="note" style="margin:4px 0 0">Matched on '+esc(codes.join(", "))+'. Figures are exactly as entered in the processing sheet. Not for printing.</p>' + bar + inBox;
+    if(!groups.length){
+      return head + head2 + '<p>No processings match this filter.</p><button class="btn-sm" onclick="S.prodInput=\'\'; S.prodRange=\'all\'; render();">Clear filters</button></div>';
+    }
+    var runYield = groups.map(function(g){ return pnum(mineIn(g)[0].data.yieldRun); });
+    var runWaste = groups.map(function(g){ return pnum(mineIn(g)[0].data.wastage); });
     var lineYield = mine.map(function(r){ return pnum(r.data.yieldLine); });
     var packs = 0, kg = 0;
     mine.forEach(function(r){ var pk = pnum(r.data.packs), w = pnum(r.data.outWeight); if(pk && w){ packs += pk; kg += w; } });
@@ -2777,19 +2835,20 @@
     var costPackNum = 0, costPackDen = 0;
     mine.forEach(function(r){ var cp = pnum(r.data.costPack), pk = pnum(r.data.packs); if(cp!=null && pk){ costPackNum += cp*pk; costPackDen += pk; } });
     var best = null, worst = null;
-    mine.forEach(function(r){ var y = pnum(r.data.yieldLine); if(y==null) return; if(!best || y > best.y) best = {y:y, pn:r.processing_number}; if(!worst || y < worst.y) worst = {y:y, pn:r.processing_number}; });
+    groups.forEach(function(g){ var y = pnum(mineIn(g)[0].data.yieldRun); if(y==null) return; if(!best || y > best.y) best = {y:y, pn:g.pn}; if(!worst || y < worst.y) worst = {y:y, pn:g.pn}; });
+    var inKg = 0; groups.forEach(function(g){ var w = pnum(g.lines[0].data.inWeight); if(w) inKg += w; });
     var target = pnum(sp.targetWeight);
     function tile(k, v, d){ return '<div class="prod-tile"><div class="k">'+k+'</div><div class="v">'+v+'</div>'+(d?'<div class="d">'+d+'</div>':'')+'</div>'; }
-    var out = head + '<div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>Production history</b>'
-      + '<span><button class="btn-ghost btn-sm" onclick="S.prodCache={}; render();">\u21bb Refresh</button> <button class="btn-ghost btn-sm" onclick="lockProduction()">\ud83d\udd12 Lock</button></span></div>'
-      + '<p class="note" style="margin:4px 0 0">Matched on '+esc(codes.join(", "))+'. Figures are exactly as entered in the processing sheet. Not for printing.</p>'
+    var out = head + head2
       + '<div class="prod-tiles">'
-      + tile("Processings", myRuns.length, "last " + fmtDate(myRuns[0].date))
-      + tile("Avg processing yield", pctTxt(avg(runYield)), "all outputs \u00f7 input")
-      + tile("Avg line yield", pctTxt(avg(lineYield)), best ? "best " + pctTxt(best.y) + " \u00b7 worst " + pctTxt(worst.y) : "")
+      + tile("Processings", groups.length, "latest " + fmtDate(groups[0].date))
+      + tile("Avg processing yield", pctTxt(avg(runYield)), best ? "best " + pctTxt(best.y) + " (" + esc(best.pn) + ") · worst " + pctTxt(worst.y) + " (" + esc(worst.pn) + ")" : "all outputs ÷ input")
+      + tile("Avg line yield", pctTxt(avg(lineYield)), "this product only")
       + tile("Avg wastage", pctTxt(avg(runWaste)))
-      + tile("Avg pack weight", avgPackG==null ? "\u2014" : Math.round(avgPackG) + " g", target ? "target " + target + " g" : "")
-      + tile("Avg cost / kg", costKg==null ? "\u2014" : "\u00a3" + costKg.toFixed(2), costPackDen ? "\u00a3" + (costPackNum/costPackDen).toFixed(2) + " per pack" : "")
+      + tile("Total made", kg ? kg.toFixed(1) + " kg" : "—", packs ? Math.round(packs) + " packs" : "")
+      + tile("Total input", inKg ? inKg.toFixed(1) + " kg" : "—", "across these processings")
+      + tile("Avg pack weight", avgPackG==null ? "—" : Math.round(avgPackG) + " g", target ? "target " + target + " g" : "")
+      + tile("Avg cost / kg", costKg==null ? "—" : "£" + costKg.toFixed(2), costPackDen ? "£" + (costPackNum/costPackDen).toFixed(2) + " per pack" : "")
       + '</div>';
     var limit = S.prodShowAll ? groups.length : 25;
     out += '<div class="prod-wrap"><table class="prod-table"><thead><tr>' + PROD_COLS.map(function(col){ return '<th scope="col">'+esc(col[1])+'</th>'; }).join("") + '</tr></thead><tbody>';
