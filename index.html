@@ -6,6 +6,7 @@
 <title>FF Cutting Spec Portal</title>
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://hmmqpjzvldqzdxukrjrd.supabase.co https://cdn.jsdelivr.net; worker-src blob: https://cdn.jsdelivr.net; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&display=swap" rel="stylesheet">
@@ -299,20 +300,24 @@
 <div id="printArea"></div>
 <div id="toastHost"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js" integrity="sha384-BWcjm9OdFth9TbhCxZPdm+gAOUMAzQy9nmTs12ioXdCcbVnJaPMn+fMUoQCLt60R" crossorigin="anonymous"></script>
 <script>
   // Import helpers (PDF reader, Word reader) load only when the Import screen needs them.
   var _libP = {};
   function loadLib(name){
     if(_libP[name]) return _libP[name];
-    var url = name === "pdf" ? "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
-            : name === "xlsx" ? "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
-                              : "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
+    // exact versions + integrity hashes: if the file on the CDN ever changed, the browser refuses to run it
+    var LIBS = {
+      pdf:  ["https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js", "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"],
+      xlsx: ["https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js", "sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"],
+      zip:  ["https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js", "sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG"]
+    };
+    var url = LIBS[name][0];
     _libP[name] = new Promise(function(resolve, reject){
       var t = document.createElement("script");
-      t.src = url;
+      t.src = url; t.integrity = LIBS[name][1]; t.crossOrigin = "anonymous";
       t.onload = function(){
-        if(name === "pdf"){ try{ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }catch(e){} }
+        if(name === "pdf"){ try{ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; }catch(e){} }
         resolve();
       };
       t.onerror = function(){ delete _libP[name]; reject(new Error("Couldn't load the import tools \u2014 check your connection and try again.")); };
@@ -437,7 +442,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "5.3";
+  var APP_VERSION = "5.4";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -685,7 +690,7 @@
     var oldPw = forced ? (S.tmpPwd||"") : ((oldEl||{}).value||"");
     var n1 = (document.getElementById("pwNew")||{}).value||"", n2 = (document.getElementById("pwNew2")||{}).value||"";
     if(!oldPw){ S.pwErr = "Enter your current password."; render(); return; }
-    if(n1.length < 8){ S.pwErr = "Use at least 8 characters."; render(); return; }
+    if(n1.length < 12){ S.pwErr = "Use at least 12 characters \u2014 three or four random words strung together works well."; render(); return; }
     if(n1 !== n2){ S.pwErr = "The two new passwords don\\u2019t match."; render(); return; }
     try{
       var res = await sb.rpc("app_change_password", {p_token:S.session.token, p_old:oldPw, p_new:n1});
@@ -1551,7 +1556,7 @@
         + '<p id="pwTitle"><b>'+(forced ? 'Choose your own password' : 'Change password')+'</b>'
         + (forced ? '<br><span class="note">You\u2019re using a temporary password. Pick one only you know (8+ characters).</span>' : '') + '</p>'
         + (forced ? '' : pwField("pwOld", "Current password", "current-password"))
-        + pwField("pwNew", "New password", "new-password")
+        + pwField("pwNew", "New password (12+ characters)", "new-password")
         + pwField("pwNew2", "New password again", "new-password")
         + (S.pwErr ? '<div class="login-err" role="alert">'+esc(S.pwErr)+'</div>' : '')
         + '<div class="row" style="margin-top:14px">'
@@ -1624,6 +1629,60 @@
     S.pwModal = null; showToast(done + " \u2014 give them the temporary password privately.");
     await loadUsers();
   };
+  // ---- login log (admins) ----
+  window.goLoginLog = function(){
+    if(!can("admin")){ showToast("Only an admin can see the login log."); return; }
+    tryLeave(async function(){
+      S.view = "loginlog"; S.logRows = null; S.logErr = ""; render(); window.scrollTo(0,0);
+      var res = await rpcA("app_get_login_log", {p_limit:300});
+      if(res.error){ S.logErr = res.error.message || "Couldn’t load the log."; S.logRows = []; } else S.logRows = res.data || [];
+      if(S.view === "loginlog") render();
+    });
+  };
+  function renderLoginLog(){
+    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">Login log</h2>'
+      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button></div></div>';
+    if(S.logRows === null) return out + '<div class="empty"><span class="spinner"></span> Loading…</div>';
+    if(S.logErr) out += '<div class="banner">'+esc(S.logErr)+'</div>';
+    var day = Date.now() - 24*3600*1000, bad = S.logRows.filter(function(r){ return !r.ok && new Date(r.at).getTime() > day; }).length;
+    out += '<p class="note">'+(bad ? '<b style="color:var(--red)">'+bad+' failed attempt'+(bad===1?'':'s')+' in the last 24 hours.</b> ' : 'No failed attempts in the last 24 hours. ')
+      + 'Showing the latest '+S.logRows.length+' (kept for 90 days). Several failures on one name, or on names that don’t exist, means someone is guessing.</p>'
+      + '<div class="card" style="overflow-x:auto"><table class="people-table"><thead><tr><th scope="col">When</th><th scope="col">Name typed</th><th scope="col">Result</th><th scope="col">Note</th></tr></thead><tbody>';
+    S.logRows.forEach(function(r){
+      out += '<tr'+(r.ok?'':' style="background:#fdf1f0"')+'><td>'+esc(new Date(r.at).toLocaleString("en-GB"))+'</td><td><b>'+esc(r.name||"")+'</b></td><td>'+(r.ok?'Logged in':'<b>Failed</b>')+'</td><td class="note">'+esc(r.note||"")+'</td></tr>';
+    });
+    return out + '</tbody></table></div>';
+  }
+  // ---- recently deleted (people with delete right, and admins) ----
+  window.goBin = function(){
+    if(!(can("delete") || can("admin"))){ showToast("You don’t have permission to see deleted specs."); return; }
+    tryLeave(function(){ S.view = "bin"; S.binRows = null; S.binErr = ""; render(); window.scrollTo(0,0); loadBin(); });
+  };
+  async function loadBin(){
+    var res = await rpcA("app_list_deleted");
+    if(res.error){ S.binErr = res.error.message || "Couldn’t load."; S.binRows = []; } else S.binRows = res.data || [];
+    if(S.view === "bin") render();
+  }
+  window.restoreDeleted = async function(id){
+    var res = await rpcA("app_restore_spec", {p_id:id});
+    if(res.error || !res.data || !res.data.ok){ showToast((res.data && res.data.error) || (res.error && res.error.message) || "Couldn’t restore."); return; }
+    showToast("Restored."); await loadSpecs(); S.view = "bin"; render(); loadBin();
+  };
+  function renderBin(){
+    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">Recently deleted</h2>'
+      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button></div></div>';
+    if(S.binRows === null) return out + '<div class="empty"><span class="spinner"></span> Loading…</div>';
+    if(S.binErr) out += '<div class="banner">'+esc(S.binErr)+'</div>';
+    out += '<p class="note">Deleted specs are kept for 30 days and can be restored here.</p>';
+    if(!S.binRows.length) return out + '<div class="empty">Nothing deleted recently.</div>';
+    out += '<div class="card"><table class="people-table"><thead><tr><th scope="col">Spec</th><th scope="col">Sheet</th><th scope="col">Deleted</th><th scope="col">By</th><th scope="col"></th></tr></thead><tbody>';
+    S.binRows.forEach(function(r){
+      out += '<tr><td><b>'+esc(r.name)+'</b></td><td>'+esc(channelShort(r.channel))+'</td><td>'+esc(new Date(r.deleted_at).toLocaleString("en-GB"))+'</td><td>'+esc(r.deleted_by||"")+'</td>'
+        + '<td><button class="btn-sm" data-rid="'+esc(r.id)+'" onclick="restoreDeleted(this.getAttribute(\'data-rid\'))">Restore</button></td></tr>';
+    });
+    return out + '</tbody></table></div>';
+  }
+
   function renderPeople(){
     var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">People &amp; permissions</h2>'
       + '<div class="nav"><button class="btn-sm" onclick="openPwModal(\'add\')">+ Add person</button>'
@@ -1661,6 +1720,8 @@
     else if(S.view==="manageGroups") html += renderManageGroups();
     else if(S.view==="people") html += renderPeople();
     else if(S.view==="productions") html += renderProductionsImport();
+    else if(S.view==="loginlog") html += renderLoginLog();
+    else if(S.view==="bin") html += renderBin();
     if(S.lightbox){
       html += '<div class="lightbox-overlay" data-action="closeLightbox">'
         + '<button class="lightbox-close" data-action="closeLightbox">\u00d7</button>'
@@ -1835,9 +1896,11 @@
       + '<div class="chk-opt'+(showArchived?' sel':'')+'" onclick="S.libraryFilter=\'archived\'; render();"><span>Archived</span></div>'
       + '</div>'
       + '<div style="margin-bottom:14px">'
+      + ((can("delete") || can("admin")) ? '<button class="btn-ghost btn-sm" onclick="goBin()">\ud83d\uddd1 Recently deleted</button> ' : '')
       + (can("edit") ? '<button class="btn-ghost btn-sm" onclick="goManageGroups()">⚙ Manage groups</button> ' : '')
       + (can("admin") ? '<button class="btn-ghost btn-sm" onclick="goPeople()">👥 People &amp; permissions</button> '
                       + '<button class="btn-ghost btn-sm" onclick="goProductions()">📈 Production data</button> '
+                      + '<button class="btn-ghost btn-sm" onclick="goLoginLog()">\ud83d\udee1 Login log</button> '
                       + '<button class="btn-ghost btn-sm" onclick="exportBackup()">⬇ Export backup</button>' : '')
       + '</div>';
     if(S.loadingSpecs) out += '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>';
