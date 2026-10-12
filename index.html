@@ -442,7 +442,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "5.4";
+  var APP_VERSION = "5.4.1";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -2895,6 +2895,7 @@
     });
     inputList.sort(function(x,y){ return y.n - x.n; });
     // ---- filters ----
+    if(S.prodFilterFor !== sp.id){ S.prodFilterFor = sp.id; S.prodRange = "all"; S.prodInput = ""; S.prodShowAll = false; }   // filters never carry over from another product
     var rng = S.prodRange || "all";
     var groups = allGroups.filter(function(g){
       if(S.prodInput){ var d0 = g.lines[0].data, k0 = (d0.inCode||"").trim() || (d0.inDesc||"").trim() || "?"; if(k0 !== S.prodInput) return false; }
@@ -2914,6 +2915,7 @@
       + chip("3m","Last 3 months") + chip("6m","Last 6 months") + chip("12m","Last year") + chip("all","All time") + chip("last","Last…") + chip("custom","Dates…")
       + (rng==="last" ? '<label class="note" style="display:flex;gap:6px;align-items:center">last <input type="number" min="1" style="width:70px" value="'+esc(String(S.prodLastN||10))+'" onchange="setProdLastN(this.value)" aria-label="Number of processings"> processings</label>' : '')
       + (rng==="custom" ? '<label class="note" style="display:flex;gap:6px;align-items:center">from <input type="date" style="width:150px" value="'+esc(S.prodFrom||"")+'" onchange="setProdDates(this.value,null)"></label><label class="note" style="display:flex;gap:6px;align-items:center">to <input type="date" style="width:150px" value="'+esc(S.prodTo||"")+'" onchange="setProdDates(null,this.value)"></label>' : '')
+      + (groups.length < allGroups.length ? '<span class="note">Showing '+groups.length+' of '+allGroups.length+' processings \u2014 <a href="#" onclick="S.prodRange=\'all\'; S.prodInput=\'\'; render(); return false">show all</a></span>' : '')
       + '</div>';
     var inBox = '';
     if(inputList.length > 1){
