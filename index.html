@@ -338,6 +338,55 @@
   var SETUP_OK = SUPABASE_URL.indexOf("PASTE_")!==0 && SUPABASE_ANON_KEY.indexOf("PASTE_")!==0;
   if(SETUP_OK){ try{ sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ SETUP_OK=false; } }
   var EDGE_FUNCTION_URL = SUPABASE_URL.replace(/\/$/,"") + "/functions/v1/import-spec";
+  var IMG_FN_URL = SUPABASE_URL.replace(/\/$/,"") + "/functions/v1/spec-image";
+  // ---- private photos: every picture is fetched through a short-lived signed link, only for logged-in people ----
+  var BLANK_IMG = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+  var imgCache = {}, imgQueue = {}, imgTimer = null;
+  function imgPath(img){
+    if(!img) return "";
+    if(img.id && !/^https?:/i.test(img.id)) return String(img.id);
+    var u = String(img.url||""), k = "/spec-images/", i = u.indexOf(k);
+    return i >= 0 ? decodeURIComponent(u.slice(i+k.length).split("?")[0]) : "";
+  }
+  function imgSrc(img){
+    var path = imgPath(img);
+    if(!path) return (img && img.url) || BLANK_IMG;
+    var c = imgCache[path];
+    if(c && c.exp > Date.now()) return c.url;
+    if(S.session){ imgQueue[path] = 1; if(!imgTimer) imgTimer = setTimeout(flushImgQueue, 40); }
+    return BLANK_IMG;
+  }
+  async function flushImgQueue(){
+    imgTimer = null;
+    var paths = Object.keys(imgQueue); imgQueue = {};
+    if(!paths.length || !S.session) return;
+    for(var i = 0; i < paths.length; i += 100){
+      var chunk = paths.slice(i, i+100);
+      try{
+        var r = await fetch(IMG_FN_URL, {method:"POST", headers:{"Content-Type":"application/json","apikey":SUPABASE_ANON_KEY},
+          body: JSON.stringify({action:"sign", token:S.session.token, paths:chunk})});
+        if(r.status === 401){ sessionEnded(); return; }
+        var d = await r.json();
+        if(!r.ok || !d.urls) continue;
+        Object.keys(d.urls).forEach(function(k){ if(d.urls[k]) imgCache[k] = {url:d.urls[k], exp:Date.now()+5*3600*1000}; });
+      }catch(e){}
+    }
+    document.querySelectorAll("img[data-ip]").forEach(function(el){
+      var c = imgCache[el.getAttribute("data-ip")];
+      if(c && el.getAttribute("src") !== c.url) el.setAttribute("src", c.url);
+    });
+  }
+  async function putImage(name, blob, type){
+    var r = await fetch(IMG_FN_URL, {method:"POST", headers:{"Content-Type":"application/json","apikey":SUPABASE_ANON_KEY},
+      body: JSON.stringify({action:"upload", token:S.session.token, name:name, contentType:type})});
+    var d = await r.json();
+    if(r.status === 401){ sessionEnded(); throw new Error("Please log in again."); }
+    if(!r.ok || d.error) throw new Error(d.error || "Upload refused");
+    var up = await sb.storage.from("spec-images").uploadToSignedUrl(d.path, d.token, blob, {contentType:type});
+    if(up.error) throw up.error;
+    try{ imgCache[d.path] = {url:URL.createObjectURL(blob), exp:Date.now()+5*3600*1000}; }catch(e){}
+    return d.path;
+  }
 
   // ---------- schema / options ----------
   var CONDITION_OPTS = [["chilled","Chilled"],["tempered","Tempered"],["frozen","Solid frozen"]];
@@ -388,7 +437,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "5.2";
+  var APP_VERSION = "5.3";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -624,7 +673,7 @@
       if(tok){ try{ sb.rpc("app_logout", {p_token:tok}); }catch(e){} }
       S.session = null; storeSession(); S.sessionLost = false;
       S.specs = []; S.form = null; S.formId = null; S.printSpec = null; S.view = "home"; S.channel = null;
-      S.loginOpen = null; S.mustChange = false; S.changePw = false; S.prodCache = {}; S.users = null; S.prodUnlockUntil = 0; S.prodPaste = ""; S.prodPreview = null;
+      S.loginOpen = null; S.mustChange = false; S.changePw = false; S.prodCache = {}; S.users = null; S.prodUnlockUntil = 0; S.prodPaste = ""; S.prodPreview = null; imgCache = {};
       render(); window.scrollTo(0,0);
     });
   };
@@ -1079,7 +1128,7 @@
       else if(action==="removeImg") removeImg(parseInt(el.getAttribute("data-idx"),10));
       else if(action==="rotateImg") rotateImg(parseInt(el.getAttribute("data-idx"),10));
       else if(action==="moveImg") moveImg(parseInt(el.getAttribute("data-idx"),10), parseInt(el.getAttribute("data-dir"),10));
-      else if(action==="lightbox") openLightbox(el.getAttribute("data-url"), parseInt(el.getAttribute("data-rot")||"0",10));
+      else if(action==="lightbox") openLightbox(el.getAttribute("src"), parseInt(el.getAttribute("data-rot")||"0",10));
       else if(action==="closeLightbox") closeLightbox();
     }catch(err){
       console.error("Portal action error:", err);
@@ -1174,10 +1223,8 @@
       file = small;
       var path = Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+file.name.replace(/[^a-zA-Z0-9.\-_]/g,"_");
       try{
-        var up = await sb.storage.from("spec-images").upload(path, file, {upsert:false, contentType:file.type});
-        if(up.error) throw up.error;
-        var pub = sb.storage.from("spec-images").getPublicUrl(path);
-        S.form.referenceImages.push({id:path, url:pub.data.publicUrl, caption:"", rotation:0});
+        var newPath = await putImage(path, file, file.type);
+        S.form.referenceImages.push({id:newPath, url:"", caption:"", rotation:0});
         render();
       }catch(e){ showToast("Image upload failed: " + (e.message||"error")); }
     }
@@ -1801,7 +1848,7 @@
         var thumb = (s.referenceImages||[])[0];
         out += '<div class="catalog-card">';
         if(thumb){
-          out += '<img class="catalog-thumb" src="'+esc(thumb.url)+'" style="transform:rotate('+(thumb.rotation||0)+'deg);cursor:pointer" data-action="print" data-id="'+esc(s.id)+'" title="Open this spec">';
+          out += '<img class="catalog-thumb" data-ip="'+esc(imgPath(thumb))+'" src="'+esc(imgSrc(thumb))+'" style="transform:rotate('+(thumb.rotation||0)+'deg);cursor:pointer" data-action="print" data-id="'+esc(s.id)+'" title="Open this spec">';
         } else {
           out += '<div class="catalog-thumb-ph">\ud83e\udd69</div>';
         }
@@ -1874,7 +1921,7 @@
     }
     if(imgCount>1) out += '<p class="note" style="margin-top:10px">Drag a photo to reorder it, or use the \u2190 \u2192 buttons.</p>';
     out += '<div class="imgs-grid">' + (f.referenceImages||[]).map(function(img,idx){
-      return '<div class="img-box" draggable="true" data-img-idx="'+idx+'"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'">'
+      return '<div class="img-box" draggable="true" data-img-idx="'+idx+'"><img data-ip="'+esc(imgPath(img))+'" src="'+esc(imgSrc(img))+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-rot="'+(img.rotation||0)+'">'
         + '<div class="cap"><input type="text" placeholder="Caption" value="'+esc(img.caption||"")+'" oninput="setImgCaption('+idx+', this.value)"></div>'
         + (imgCount>1 ? '<div style="display:flex">'
           + '<button class="img-move" data-action="moveImg" data-idx="'+idx+'" data-dir="-1"'+(idx===0?' disabled':'')+'>\u2190</button>'
@@ -1890,7 +1937,7 @@
       var pFeatured = pCols===3 && f.imageLayout3==="featured";
       out += '<div style="margin-top:18px"><label class="field-label">Preview on printed sheet</label>'
         + '<div class="ss-imgs cols-'+pCols+(pFeatured?' featured':'')+' size-'+(f.imageDisplaySize||"large")+'" style="max-width:520px">' + f.referenceImages.map(function(img){
-            return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg)"><div class="cap">'+esc(img.caption||"")+'</div></div>';
+            return '<div class="im"><img data-ip="'+esc(imgPath(img))+'" src="'+esc(imgSrc(img))+'" style="transform:rotate('+(img.rotation||0)+'deg)"><div class="cap">'+esc(img.caption||"")+'</div></div>';
           }).join("") + '</div></div>';
     }
     out += '</div>';
@@ -2290,10 +2337,8 @@
         var blob = await shrinkIfHuge(new Blob([list[i].bytes], {type:list[i].info.type}));
         var ext = blob.type === "image/jpeg" ? "jpg" : list[i].info.ext;
         var path = Date.now() + "_" + Math.random().toString(36).slice(2) + "." + ext;
-        var up = await withTimeout(sb.storage.from("spec-images").upload(path, blob, {upsert:false, contentType:blob.type || list[i].info.type}), 60000);
-        if(up && up.error) throw up.error;
-        var pub = sb.storage.from("spec-images").getPublicUrl(path);
-        done.push({id:path, url:pub.data.publicUrl, caption:list[i].caption || "", rotation:0});
+        var newPath = await withTimeout(putImage(path, blob, blob.type || list[i].info.type), 60000);
+        done.push({id:newPath, url:"", caption:list[i].caption || "", rotation:0});
       }catch(e){ console.error("Photo upload failed:", e); }
     }
     return done;
@@ -3031,7 +3076,7 @@
     // kept as one block so the "4 - REFERENCE IMAGES" heading never prints alone with the photos pushed to the next page
     return '<div class="ss-img-section"><div class="ss-bar">4 - REFERENCE IMAGES</div><div class="ss-imgs cols-'+cols+(featured?' featured':'')+' size-'+(s.imageDisplaySize||"large")+'">'
       + imgs.map(function(img){
-          return '<div class="im"><img src="'+esc(img.url)+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-url="'+esc(img.url)+'" data-rot="'+(img.rotation||0)+'"><div class="cap">'+esc(img.caption||"")+'</div></div>';
+          return '<div class="im"><img data-ip="'+esc(imgPath(img))+'" src="'+esc(imgSrc(img))+'" style="transform:rotate('+(img.rotation||0)+'deg);cursor:zoom-in" data-action="lightbox" data-rot="'+(img.rotation||0)+'"><div class="cap">'+esc(img.caption||"")+'</div></div>';
         }).join("") + '</div></div>';
   }
   function sheetFooterHtml(s){
