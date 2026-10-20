@@ -170,6 +170,8 @@
   .app-footer{margin-top:40px;text-align:center;font-size:11px;color:var(--grey3);}
   .spec-sheet .ss-link{color:#821E20;text-decoration:underline;cursor:pointer;}
   .spec-sheet .ss-link::after{content:" \2197";font-size:11px;}
+  .draft-flag{font-size:10px;font-weight:700;color:#7a1f1f;background:#f6dede;padding:2px 6px;border-radius:4px;vertical-align:middle;}
+  .draft-banner{background:#f6dede;color:#7a1f1f;border:1px solid #e3b5b5;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:14px;}
   .stale-flag{font-size:10px;font-weight:700;color:#946200;background:#fbe9c6;padding:2px 6px;border-radius:4px;vertical-align:middle;}
   .groups-dropdown{position:absolute;top:100%;right:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);z-index:60;min-width:190px;display:flex;flex-direction:column;gap:2px;margin-top:4px;}
   .catalog-actions{display:flex;gap:6px;margin-top:auto;flex-wrap:wrap;}
@@ -442,7 +444,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "5.4.1";
+  var APP_VERSION = "5.5.1";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -490,7 +492,7 @@
       labelCuttingPlant:"", secondaryPack:"", secondaryPackNote:"", labelWarehouse:"", scalesLabelExists:false, unitOfSale:"unit",
       finishedState:"",
       referenceImages:[], imageDisplaySize:"large", imageLayout3:"row",
-      groups:[], archived:false
+      groups:[], archived:false, draft:false
     };
   }
 
@@ -508,7 +510,7 @@
       labelCuttingPlant:"smallWhite", labelWarehouse:"bottom", scalesLabelExists:false, unitOfSale:"unit",
       finishedState:"", frozenBestBefore:"Production date + X months", thawedProduct:"", customNotes:"",
       referenceImages:[], imageDisplaySize:"large", imageLayout3:"row", issuedDate:todayISO(), issuedByInitials:"",
-      groups:[], archived:false
+      groups:[], archived:false, draft:false
     };
   }
 
@@ -1294,6 +1296,7 @@
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     var payload = JSON.parse(JSON.stringify(S.form));
     payload.issuedByInitials = name;
+    payload.draft = false;
     delete payload.id;
     delete payload._histFull; delete payload._histLoading; delete payload._histFailed;
     if(S.formId && S.lightList){
@@ -1668,6 +1671,90 @@
     if(res.error || !res.data || !res.data.ok){ showToast((res.data && res.data.error) || (res.error && res.error.message) || "Couldn’t restore."); return; }
     showToast("Restored."); await loadSpecs(); S.view = "bin"; render(); loadBin();
   };
+
+  // ---- bulk draft import (v5.5) ----
+  function parseCSV(txt){
+    var rows = [], row = [], cur = "", q = false, i, c;
+    txt = String(txt||"").replace(/^﻿/,"");
+    for(i=0;i<txt.length;i++){
+      c = txt[i];
+      if(q){ if(c==='"'){ if(txt[i+1]==='"'){ cur+='"'; i++; } else q=false; } else cur+=c; }
+      else if(c==='"') q = true;
+      else if(c===','||c==='\t'){ row.push(cur); cur=""; }
+      else if(c==='\n'||c==='\r'){ if(c==='\r'&&txt[i+1]==='\n') i++; row.push(cur); cur=""; if(row.some(function(x){return x.trim();})) rows.push(row); row=[]; }
+      else cur+=c;
+    }
+    row.push(cur); if(row.some(function(x){return x.trim();})) rows.push(row);
+    return rows;
+  }
+  function draftRows(){
+    var rows = parseCSV(S.draftText||"");
+    if(!rows.length) return [];
+    var h = rows[0].map(function(x){ return x.trim().toLowerCase(); });
+    var iN = h.findIndex(function(x){return /name|product/.test(x);}), iS = h.findIndex(function(x){return /sku/.test(x);}),
+        iW = h.findIndex(function(x){return /weight/.test(x);}), iT = h.findIndex(function(x){return /note/.test(x);}),
+        iMn = h.findIndex(function(x){return /min/.test(x);}), iMx = h.findIndex(function(x){return /max/.test(x);});
+    if(iN < 0) return [];
+    var have = {}; S.specs.forEach(function(sp){ [sp.outputSku, sp.outputSku2].forEach(function(k){ k = normCode(k||""); if(k) have[k] = true; }); });
+    var seen = {}, out = [];
+    rows.slice(1).forEach(function(r){
+      var name = (r[iN]||"").trim(); if(!name) return;
+      var sku = iS>=0 ? stripSpaces(r[iS]||"") : "", k = normCode(sku), st = "new";
+      if(k && have[k]) st = "exists"; else if(k && seen[k]) st = "dup";
+      if(k) seen[k] = true;
+      var w = iW>=0 ? String(r[iW]||"").replace(/[^0-9.]/g,"") : "";
+      out.push({name:name, sku:sku, weight:w, min: iMn>=0 ? String(r[iMn]||"").replace(/[^0-9.]/g,"") : "", max: iMx>=0 ? String(r[iMx]||"").replace(/[^0-9.]/g,"") : "", note: iT>=0 ? (r[iT]||"").trim() : "", status:st});
+    });
+    return out;
+  }
+  window.goDraftImport = function(){
+    if(!can("edit")){ showToast("You don’t have permission to import."); return; }
+    tryLeave(function(){ S.view = "draftimport"; S.draftText = ""; S.draftBusy = false; render(); window.scrollTo(0,0); });
+  };
+  window.draftFile = function(inp){
+    var f = inp.files && inp.files[0]; if(!f) return;
+    var r = new FileReader(); r.onload = function(){ S.draftText = String(r.result); render(); }; r.readAsText(f);
+  };
+  window.draftPreview = function(){ S.draftText = (document.getElementById("draftTxt")||{}).value || ""; render(); };
+  window.draftCreate = async function(){
+    var rows = draftRows().filter(function(r){ return r.status === "new"; });
+    if(!rows.length || S.draftBusy) return;
+    S.draftBusy = true; S.draftDone = 0; S.draftFail = 0; render();
+    for(var i=0;i<rows.length;i++){
+      var r = rows[i], f = blankMmah();
+      f.productName = r.name; f.outputSku = r.sku; f.targetWeight = r.weight; f.minWeight = r.min; f.maxWeight = r.max; f.draft = true;
+      f.customNotes = "DRAFT. " + r.note + (r.min||r.max ? " Min/max weights are estimates \u2014 check." : "");
+      f.issuedByInitials = S.session.name;
+      f.editHistory = [{by:S.session.name, at:new Date().toISOString(), action:"created (draft import)"}];
+      var res = await rpcA("app_create_spec", {p_payload:f});
+      if(res.error){ if((res.error.message||"").indexOf("session ended")>=0){ S.draftBusy = false; return; } S.draftFail++; } else S.draftDone++;
+      if(i%5===4) render();
+    }
+    S.draftBusy = false; S.draftText = "";
+    showToast(S.draftDone+" draft spec"+(S.draftDone===1?"":"s")+" created"+(S.draftFail?", "+S.draftFail+" failed":"")+".");
+    await loadSpecs(); S.libraryFilter = "drafts"; S.channel = "mmah"; S.view = "library"; render();
+  };
+  function renderDraftImport(){
+    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">Import draft specs</h2>'
+      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button></div></div>';
+    out += '<div class="card"><p style="margin-top:0">Creates unfinished <b>MMAH</b> specs from a list (CSV with columns <i>Product name, Output SKU, Target weight (g), Min weight (g), Max weight (g), Note</i>). Each one is marked <b>DRAFT</b> until someone edits and saves it. Products whose output SKU already has a spec are skipped.</p>'
+      + '<input type="file" accept=".csv,.txt,text/csv" onchange="draftFile(this)" style="margin-bottom:8px"><br>'
+      + '<textarea id="draftTxt" rows="5" style="width:100%" placeholder="…or paste the CSV here">'+esc(S.draftText||"")+'</textarea>'
+      + '<div style="margin-top:8px"><button class="btn-sm" onclick="draftPreview()">Preview</button></div></div>';
+    var rows = draftRows();
+    if(S.draftText && !rows.length) out += '<div class="banner">Couldn’t find a “Product name” column or any rows.</div>';
+    if(rows.length){
+      var nNew = rows.filter(function(r){return r.status==="new";}).length;
+      out += '<div class="card" style="overflow-x:auto"><p style="margin-top:0"><b>'+nNew+'</b> will be created, '+(rows.length-nNew)+' skipped.</p>'
+        + '<table class="people-table"><thead><tr><th scope="col">Product</th><th scope="col">Output SKU</th><th scope="col">Target / min / max (g)</th><th scope="col">Result</th></tr></thead><tbody>'
+        + rows.map(function(r){ return '<tr'+(r.status==="new"?'':' class="off"')+'><td>'+esc(r.name)+'</td><td>'+esc(r.sku)+'</td><td>'+esc(r.weight)+(r.min||r.max ? ' / '+esc(r.min)+' / '+esc(r.max) : '')+'</td><td>'
+            +(r.status==="new"?"Create draft":r.status==="exists"?"Skip – a spec already has this SKU":"Skip – repeated in this list")+'</td></tr>'; }).join("")
+        + '</tbody></table><div style="margin-top:12px"><button class="btn-dark" onclick="draftCreate()"'+((S.draftBusy||!nNew)?' disabled':'')+'>'
+        + (S.draftBusy ? 'Creating… '+(S.draftDone||0)+' of '+nNew : 'Create '+nNew+' draft specs')+'</button></div></div>';
+    }
+    return out;
+  }
+
   function renderBin(){
     var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">Recently deleted</h2>'
       + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button></div></div>';
@@ -1722,6 +1809,7 @@
     else if(S.view==="productions") html += renderProductionsImport();
     else if(S.view==="loginlog") html += renderLoginLog();
     else if(S.view==="bin") html += renderBin();
+    else if(S.view==="draftimport") html += renderDraftImport();
     if(S.lightbox){
       html += '<div class="lightbox-overlay" data-action="closeLightbox">'
         + '<button class="lightbox-close" data-action="closeLightbox">\u00d7</button>'
@@ -1872,9 +1960,12 @@
   function renderLibrary(){
     var q = S.search.trim().toLowerCase();
     var showArchived = S.libraryFilter === "archived";
-    var groupFilter = (S.libraryFilter && S.libraryFilter !== "archived") ? S.libraryFilter : null;
+    var showDrafts = S.libraryFilter === "drafts";
+    var groupFilter = (S.libraryFilter && S.libraryFilter !== "archived" && S.libraryFilter !== "drafts") ? S.libraryFilter : null;
+    var draftCount = S.specs.filter(function(s){ return s.draft && !s.archived; }).length;
     var list = S.specs.filter(function(s){
       if(!!s.archived !== showArchived) return false;
+      if(showDrafts && !s.draft) return false;
       if(S.channel && S.channel !== "all" && specChannel(s) !== S.channel) return false;
       if(groupFilter && effectiveGroups(s).indexOf(groupFilter)<0) return false;
       if(!q) return true;
@@ -1893,10 +1984,12 @@
       + groupsForView().map(function(o){
           return '<div class="chk-opt'+(S.libraryFilter===o.key?' sel':'')+'" onclick="S.libraryFilter=\''+o.key+'\'; render();"><span>'+esc(o.label)+'</span></div>';
         }).join("")
+      + (draftCount ? '<div class="chk-opt'+(showDrafts?' sel':'')+'" onclick="S.libraryFilter=\'drafts\'; render();"><span>Drafts ('+draftCount+')</span></div>' : '')
       + '<div class="chk-opt'+(showArchived?' sel':'')+'" onclick="S.libraryFilter=\'archived\'; render();"><span>Archived</span></div>'
       + '</div>'
       + '<div style="margin-bottom:14px">'
       + ((can("delete") || can("admin")) ? '<button class="btn-ghost btn-sm" onclick="goBin()">\ud83d\uddd1 Recently deleted</button> ' : '')
+      + (can("edit") ? '<button class="btn-ghost btn-sm" onclick="goDraftImport()">\u2795 Import draft specs</button> ' : '')
       + (can("edit") ? '<button class="btn-ghost btn-sm" onclick="goManageGroups()">⚙ Manage groups</button> ' : '')
       + (can("admin") ? '<button class="btn-ghost btn-sm" onclick="goPeople()">👥 People &amp; permissions</button> '
                       + '<button class="btn-ghost btn-sm" onclick="goProductions()">📈 Production data</button> '
@@ -1916,7 +2009,7 @@
           out += '<div class="catalog-thumb-ph">\ud83e\udd69</div>';
         }
         out += '<div class="catalog-body">'
-          + '<h3>'+esc(s.productName||"(untitled)")+(isStale(s) ? ' <span class="stale-flag" title="Issued over a year ago">\u26a0 1yr+</span>' : '')+'</h3>'
+          + '<h3>'+esc(s.productName||"(untitled)")+(s.draft ? ' <span class="draft-flag">DRAFT</span>' : '')+(isStale(s) ? ' <span class="stale-flag" title="Issued over a year ago">\u26a0 1yr+</span>' : '')+'</h3>'
           + '<div class="catalog-sage">'+esc(s.outputSageDesc||"")+'</div>'
           + '<div class="catalog-meta">'+channelBadgesHtml(s)+' '+esc(s.outputSku||"\u2014")+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
           + '<div class="catalog-actions">'
@@ -2983,7 +3076,8 @@
     var tab = S.printTab || "sheet";
     var showProd = specChannel(sp) === "mmah" && can("production");
     if(tab === "production" && !showProd) tab = "sheet";
-    var out = '<div class="topbar" style="margin-top:-8px;">'
+    var out = (sp.draft ? '<div class="draft-banner"><b>DRAFT</b> \u2014 this sheet is not finished (details, input SKU and photos still to add). Click Edit and Save to complete it.</div>' : '')
+      + '<div class="topbar" style="margin-top:-8px;">'
       + '<h2 style="margin:0;font-size:17px;">'+esc(sp.productName||"")+'</h2>'
       + '<div class="nav">'
       + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button>'
