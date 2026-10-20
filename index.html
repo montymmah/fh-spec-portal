@@ -444,7 +444,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "5.5.1";
+  var APP_VERSION = "5.6";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -498,7 +498,7 @@
 
   function blankMmah(){
     return {
-      channel:"mmah",
+      channel:"mmah", variantLabel:"", variants:[],
       productName:"", outputSku:"", inputSku:"", outputSageDesc:"", inputSageDesc:"",
       furtherOutputs:[{label:"", specId:""}],
       targetWeight:"", minWeight:"", maxWeight:"",
@@ -528,7 +528,7 @@
   // One entry per channel: which typed fields exist, which tick rows are required, what the importer should fill in.
   var TEMPLATE = {
     mmah: {
-      textFields: ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","targetWeight","minWeight","maxWeight",
+      textFields: ["productName","outputSku","inputSku","outputSageDesc","inputSageDesc","variantLabel","targetWeight","minWeight","maxWeight",
         "fatCover","cuttingNotes","packingPrep","packagingNote","positionInTray",
         "frozenBestBefore","thawedProduct","customNotes","trimRepurposeNote","altCutMinG","altCutNote","issuedDate"],
       requiredTicks: REQUIRED_TICKS,
@@ -1089,7 +1089,7 @@
     }catch(e){ handleWriteError(e); }
   }
   function openPrintSpec(spec){
-    S.view="print"; S.printSpec=spec; S.printTab="sheet";
+    S.view="print"; S.printSpec=spec; S.printTab="sheet"; S.varIdx=0; S.varFor=spec.id; S.printAll=false;
     render(); window.scrollTo(0,0);
   }
   function goPrint(id){
@@ -1287,6 +1287,8 @@
     S.form.outputSku = stripSpaces(S.form.outputSku);
     S.form.inputSku = stripSpaces(S.form.inputSku);
     if(S.form.outputSku2) S.form.outputSku2 = stripSpaces(S.form.outputSku2);
+    S.form.variants = (S.form.variants||[]).map(function(v){ return {label:(v.label||"").trim(), outputSku:stripSpaces(v.outputSku), inputSku:stripSpaces(v.inputSku), outputSageDesc:(v.outputSageDesc||"").trim(), inputSageDesc:(v.inputSageDesc||"").trim()}; })
+      .filter(function(v){ return v.label||v.outputSku||v.inputSku||v.outputSageDesc||v.inputSageDesc; });
     S.form.channel = specChannel(S.form);
     if(S.form.channel === "retail"){
       if(S.form.trimDiscard){ S.form.trimSku = ""; S.form.trimText = ""; }        // discarded: nothing to keep on the sheet
@@ -1296,7 +1298,7 @@
     if(!SETUP_OK){ showToast("Add your Supabase URL/key at the top of the file first."); return; }
     var payload = JSON.parse(JSON.stringify(S.form));
     payload.issuedByInitials = name;
-    payload.draft = false;
+    payload.draft = !!payload.keepDraft; delete payload.keepDraft;
     delete payload.id;
     delete payload._histFull; delete payload._histLoading; delete payload._histFailed;
     if(S.formId && S.lightList){
@@ -1361,7 +1363,7 @@
     var focusKey = refocusId ? null : a11yKey(active);
     try{
       document.getElementById("app").innerHTML = renderView();
-      document.getElementById("printArea").innerHTML = (S.view==="print" && S.printSpec) ? renderPrintable(S.printSpec) : "";
+      document.getElementById("printArea").innerHTML = (S.view==="print" && S.printSpec) ? printHtml(S.printSpec) : "";
       wireFileInputs();
       enhanceA11y();
       focusOverlay();
@@ -1693,20 +1695,24 @@
     var h = rows[0].map(function(x){ return x.trim().toLowerCase(); });
     var iN = h.findIndex(function(x){return /name|product/.test(x);}), iS = h.findIndex(function(x){return /sku/.test(x);}),
         iW = h.findIndex(function(x){return /weight/.test(x);}), iT = h.findIndex(function(x){return /note/.test(x);}),
-        iMn = h.findIndex(function(x){return /min/.test(x);}), iMx = h.findIndex(function(x){return /max/.test(x);});
+        iV = h.findIndex(function(x){return /variant/.test(x);}), iMn = h.findIndex(function(x){return /min/.test(x);}), iMx = h.findIndex(function(x){return /max/.test(x);});
     if(iN < 0) return [];
-    var have = {}; S.specs.forEach(function(sp){ [sp.outputSku, sp.outputSku2].forEach(function(k){ k = normCode(k||""); if(k) have[k] = true; }); });
+    var have = {}; S.specs.forEach(function(sp){ allOutSkus(sp).forEach(function(k){ k = normCode(k||""); if(k) have[k] = true; }); });
     var seen = {}, out = [];
     rows.slice(1).forEach(function(r){
       var name = (r[iN]||"").trim(); if(!name) return;
       var sku = iS>=0 ? stripSpaces(r[iS]||"") : "", k = normCode(sku), st = "new";
-      if(k && have[k]) st = "exists"; else if(k && seen[k]) st = "dup";
-      if(k) seen[k] = true;
+      var vars = iV>=0 ? String(r[iV]||"").split(";").map(function(x){ var p = x.split("|"); return {outputSku:stripSpaces(p[0]||""), label:(p[1]||"").trim()}; }).filter(function(v){ return v.outputSku; }) : [];
+      if(vars.length){ sku = vars[0].outputSku; k = normCode(sku); }
+      var ks = vars.length ? vars.map(function(v){ return normCode(v.outputSku); }) : (k ? [k] : []);
+      if(ks.some(function(x){ return have[x]; })) st = "exists"; else if(ks.some(function(x){ return seen[x]; })) st = "dup";
+      ks.forEach(function(x){ seen[x] = true; });
       var w = iW>=0 ? String(r[iW]||"").replace(/[^0-9.]/g,"") : "";
-      out.push({name:name, sku:sku, weight:w, min: iMn>=0 ? String(r[iMn]||"").replace(/[^0-9.]/g,"") : "", max: iMx>=0 ? String(r[iMx]||"").replace(/[^0-9.]/g,"") : "", note: iT>=0 ? (r[iT]||"").trim() : "", status:st});
+      out.push({name:name, vars:vars, sku:sku, weight:w, min: iMn>=0 ? String(r[iMn]||"").replace(/[^0-9.]/g,"") : "", max: iMx>=0 ? String(r[iMx]||"").replace(/[^0-9.]/g,"") : "", note: iT>=0 ? (r[iT]||"").trim() : "", status:st});
     });
     return out;
   }
+  window.toggleKeepDraft = function(){ readFormFromInputs(); S.form.keepDraft = !S.form.keepDraft; render(); };
   window.goDraftImport = function(){
     if(!can("edit")){ showToast("You don’t have permission to import."); return; }
     tryLeave(function(){ S.view = "draftimport"; S.draftText = ""; S.draftBusy = false; render(); window.scrollTo(0,0); });
@@ -1722,7 +1728,8 @@
     S.draftBusy = true; S.draftDone = 0; S.draftFail = 0; render();
     for(var i=0;i<rows.length;i++){
       var r = rows[i], f = blankMmah();
-      f.productName = r.name; f.outputSku = r.sku; f.targetWeight = r.weight; f.minWeight = r.min; f.maxWeight = r.max; f.draft = true;
+      f.productName = r.name; f.outputSku = r.sku;
+      if(r.vars.length > 1){ f.variantLabel = r.vars[0].label; f.variants = r.vars.slice(1).map(function(v){ return {label:v.label, outputSku:v.outputSku, inputSku:"", outputSageDesc:"", inputSageDesc:""}; }); } f.targetWeight = r.weight; f.minWeight = r.min; f.maxWeight = r.max; f.draft = true;
       f.customNotes = "DRAFT. " + r.note + (r.min||r.max ? " Min/max weights are estimates \u2014 check." : "");
       f.issuedByInitials = S.session.name;
       f.editHistory = [{by:S.session.name, at:new Date().toISOString(), action:"created (draft import)"}];
@@ -1737,7 +1744,7 @@
   function renderDraftImport(){
     var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">Import draft specs</h2>'
       + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button></div></div>';
-    out += '<div class="card"><p style="margin-top:0">Creates unfinished <b>MMAH</b> specs from a list (CSV with columns <i>Product name, Output SKU, Target weight (g), Min weight (g), Max weight (g), Note</i>). Each one is marked <b>DRAFT</b> until someone edits and saves it. Products whose output SKU already has a spec are skipped.</p>'
+    out += '<div class="card"><p style="margin-top:0">Creates unfinished <b>MMAH</b> specs from a list (CSV with columns <i>Product name, Output SKU, Target weight (g), Min weight (g), Max weight (g), Variants (SKU|Grade;SKU|Grade), Note</i>). Each one is marked <b>DRAFT</b> until someone edits and saves it. Products whose output SKU already has a spec are skipped.</p>'
       + '<input type="file" accept=".csv,.txt,text/csv" onchange="draftFile(this)" style="margin-bottom:8px"><br>'
       + '<textarea id="draftTxt" rows="5" style="width:100%" placeholder="…or paste the CSV here">'+esc(S.draftText||"")+'</textarea>'
       + '<div style="margin-top:8px"><button class="btn-sm" onclick="draftPreview()">Preview</button></div></div>';
@@ -1747,7 +1754,7 @@
       var nNew = rows.filter(function(r){return r.status==="new";}).length;
       out += '<div class="card" style="overflow-x:auto"><p style="margin-top:0"><b>'+nNew+'</b> will be created, '+(rows.length-nNew)+' skipped.</p>'
         + '<table class="people-table"><thead><tr><th scope="col">Product</th><th scope="col">Output SKU</th><th scope="col">Target / min / max (g)</th><th scope="col">Result</th></tr></thead><tbody>'
-        + rows.map(function(r){ return '<tr'+(r.status==="new"?'':' class="off"')+'><td>'+esc(r.name)+'</td><td>'+esc(r.sku)+'</td><td>'+esc(r.weight)+(r.min||r.max ? ' / '+esc(r.min)+' / '+esc(r.max) : '')+'</td><td>'
+        + rows.map(function(r){ return '<tr'+(r.status==="new"?'':' class="off"')+'><td>'+esc(r.name)+'</td><td>'+esc(r.vars.length>1 ? r.vars.map(function(v){ return v.outputSku; }).join(", ") : r.sku)+'</td><td>'+esc(r.weight)+(r.min||r.max ? ' / '+esc(r.min)+' / '+esc(r.max) : '')+'</td><td>'
             +(r.status==="new"?"Create draft":r.status==="exists"?"Skip – a spec already has this SKU":"Skip – repeated in this list")+'</td></tr>'; }).join("")
         + '</tbody></table><div style="margin-top:12px"><button class="btn-dark" onclick="draftCreate()"'+((S.draftBusy||!nNew)?' disabled':'')+'>'
         + (S.draftBusy ? 'Creating… '+(S.draftDone||0)+' of '+nNew : 'Create '+nNew+' draft specs')+'</button></div></div>';
@@ -1944,7 +1951,7 @@
       var hits = live.filter(function(x){
         return (x.productName||"").toLowerCase().indexOf(q)>=0 || (x.outputSku||"").toLowerCase().indexOf(q)>=0
           || (x.inputSku||"").toLowerCase().indexOf(q)>=0 || (x.outputSageDesc||"").toLowerCase().indexOf(q)>=0
-          || (x.inputSageDesc||"").toLowerCase().indexOf(q)>=0;
+          || (x.inputSageDesc||"").toLowerCase().indexOf(q)>=0 || variantBlob(x).indexOf(q)>=0;
       });
       out += '<div class="recent-head"><b>Results ('+hits.length+')</b><span data-action="openChannel" data-channel="all">See all</span></div>'
         + (hits.length ? '<div class="recent-list">'+hits.slice(0,30).map(specRowHtml).join("")+'</div>' : '<div class="empty">No specs match \u201c'+esc(S.homeSearch.trim())+'\u201d.</div>');
@@ -1970,7 +1977,7 @@
       if(groupFilter && effectiveGroups(s).indexOf(groupFilter)<0) return false;
       if(!q) return true;
       return (s.productName||"").toLowerCase().indexOf(q)>=0 || (s.outputSku||"").toLowerCase().indexOf(q)>=0
-        || (s.inputSku||"").toLowerCase().indexOf(q)>=0 || (s.outputSageDesc||"").toLowerCase().indexOf(q)>=0;
+        || (s.inputSku||"").toLowerCase().indexOf(q)>=0 || (s.outputSageDesc||"").toLowerCase().indexOf(q)>=0 || variantBlob(s).indexOf(q)>=0;
     });
     var out = '<div class="tabs">' + CHANNELS.map(function(c){
         return '<button class="tab'+(S.channel===c.key?' active':'')+'" data-action="openChannel" data-channel="'+c.key+'">'+esc(c.name)+'</button>';
@@ -2011,7 +2018,7 @@
         out += '<div class="catalog-body">'
           + '<h3>'+esc(s.productName||"(untitled)")+(s.draft ? ' <span class="draft-flag">DRAFT</span>' : '')+(isStale(s) ? ' <span class="stale-flag" title="Issued over a year ago">\u26a0 1yr+</span>' : '')+'</h3>'
           + '<div class="catalog-sage">'+esc(s.outputSageDesc||"")+'</div>'
-          + '<div class="catalog-meta">'+channelBadgesHtml(s)+' '+esc(s.outputSku||"\u2014")+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
+          + '<div class="catalog-meta">'+channelBadgesHtml(s)+' '+esc(s.outputSku||"\u2014")+(variantList(s).length ? ' <span class="draft-flag" style="color:#1f4a7a;background:#dde9f6">'+variantList(s).length+' grades</span>' : '')+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
           + '<div class="catalog-actions">'
           + '<button class="btn-sm" data-action="print" data-id="'+esc(s.id)+'">View / Print</button>'
           + (showArchived || !can("edit") ? '' : '<button class="btn-sm" data-action="edit" data-id="'+esc(s.id)+'">Edit</button>')
@@ -2037,6 +2044,7 @@
       + (S.formId ? '<button class="btn-ghost btn-sm" data-action="duplicate" data-id="'+esc(S.formId)+'">Duplicate</button>'
           + '<button class="btn-ghost btn-sm" data-action="'+(f.archived?"unarchive":"archive")+'" data-id="'+esc(S.formId)+'">'+(f.archived?"Restore":"Archive")+'</button>'
           + (can("delete") ? '<button class="btn-ghost btn-sm" data-action="delete" data-id="'+esc(S.formId)+'">Delete</button>' : '') : '')
+      + '<button class="btn-ghost btn-sm" onclick="toggleKeepDraft()" title="A draft shows a DRAFT badge until someone saves it as finished">'+(f.keepDraft?'\u2611':'\u2610')+' Save as draft</button>'
       + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Cancel</button>'
       + '<button class="btn-dark btn-sm" onclick="saveSpec()">Save</button></div></div>';
   }
@@ -2113,6 +2121,7 @@
       + fieldText("outputSageDesc","Output Sage description",f.outputSageDesc)
       + fieldText("inputSageDesc","Input Sage description",f.inputSageDesc)
       + '</div>'
+      + variantsField(f)
       + '<div class="field"><label class="field-label">Further output(s)</label>'
       + normFurther(f.furtherOutputs).map(function(item,idx,arr){ return furtherOutputRow(item, idx, arr.length); }).join("")
       + '<button class="btn-sm" onclick="addFurtherOutput()">+ Add output</button>'
@@ -2930,9 +2939,58 @@
     return out + '</div>';
   }
 
+
+  // ---- grades / variants (v5.6): top-level SKU fields are variant 1; spec.variants holds the others ----
+  var VAR_KEYS = ["label","outputSku","inputSku","outputSageDesc","inputSageDesc"];
+  function variantList(sp){
+    var extra = (sp.variants||[]).filter(function(v){ return v && (v.label||v.outputSku||v.inputSku); });
+    if(!extra.length) return [];
+    return [{label:sp.variantLabel||"Variant 1", outputSku:sp.outputSku||"", inputSku:sp.inputSku||"", outputSageDesc:sp.outputSageDesc||"", inputSageDesc:sp.inputSageDesc||""}].concat(extra);
+  }
+  function viewVariant(sp, i){
+    var vl = variantList(sp);
+    if(vl.length < 2) return sp;
+    if(i == null) i = (S.varFor === sp.id && S.varIdx < vl.length) ? S.varIdx : 0;
+    var v = vl[i], o = {};
+    for(var k in sp) o[k] = sp[k];
+    o.outputSku = v.outputSku; o.inputSku = v.inputSku; o.outputSageDesc = v.outputSageDesc; o.inputSageDesc = v.inputSageDesc;
+    o.productName = (sp.productName||"") + (v.label ? " — " + v.label : "");
+    return o;
+  }
+  function allOutSkus(sp){
+    var out = [sp.outputSku, sp.outputSku2];
+    (sp.variants||[]).forEach(function(v){ if(v) out.push(v.outputSku); });
+    return out;
+  }
+  function variantBlob(sp){
+    return (sp.variants||[]).map(function(v){ return v ? [v.label,v.outputSku,v.inputSku,v.outputSageDesc,v.inputSageDesc].join(" ") : ""; }).join(" ").toLowerCase() + " " + (sp.variantLabel||"").toLowerCase();
+  }
+  function printHtml(sp){
+    var vl = variantList(sp);
+    if(vl.length > 1 && S.printAll) return vl.map(function(v,i){ return renderPrintable(viewVariant(sp,i)); }).join('<div style="page-break-after:always;break-after:page"></div>');
+    return renderPrintable(viewVariant(sp));
+  }
+  window.setVariantTab = function(i){ S.varFor = S.printSpec && S.printSpec.id; S.varIdx = i; render(); };
+  window.addVariant = function(){ readFormFromInputs(); S.form.variants = (S.form.variants||[]).concat([{label:"",outputSku:"",inputSku:"",outputSageDesc:"",inputSageDesc:""}]); render(); };
+  window.removeVariant = function(i){ readFormFromInputs(); S.form.variants.splice(i,1); render(); };
+  window.setVariant = function(i, k, el){ var v = el.value; if(k==="outputSku"||k==="inputSku"){ var c = stripSpaces(v); if(c!==v){ el.value = c; v = c; } } S.form.variants[i][k] = v; };
+  function variantsField(f){
+    var vs = f.variants||[];
+    function inp(i,k,label,v){ return '<div class="field" style="flex:1;min-width:150px"><label class="field-label">'+label+'</label><input type="text" value="'+esc(v||"")+'" oninput="setVariant('+i+',\''+k+'\',this)"></div>'; }
+    return '<div class="field" id="fld-variants"><label class="field-label">Grades / variants (optional)</label>'
+      + '<p class="note" style="margin-top:0">For one cut sold in several grades or BMS. Everything on the sheet is shared; only the SKUs and Sage descriptions change per grade. The SKU fields above are the first grade.</p>'
+      + fieldText("variantLabel","Name of the first grade (e.g. Grade A3)",f.variantLabel)
+      + vs.map(function(v,i){
+          return '<div class="card" style="margin:8px 0;padding:10px"><div class="row">'+inp(i,"label","Grade name (e.g. Grade A4)",v.label)+inp(i,"outputSku","Output SKU",v.outputSku)+inp(i,"inputSku","Input SKU",v.inputSku)+'</div>'
+            + '<div class="row">'+inp(i,"outputSageDesc","Output Sage description",v.outputSageDesc)+inp(i,"inputSageDesc","Input Sage description",v.inputSageDesc)+'</div>'
+            + '<button class="btn-ghost btn-sm" onclick="removeVariant('+i+')">Remove this grade</button></div>';
+        }).join("")
+      + '<button class="btn-sm" onclick="addVariant()">+ Add grade / variant</button></div>';
+  }
+
   function specCodes(sp){
     var seen = {}, out = [];
-    [sp.outputSku, sp.outputSku2].forEach(function(c){ var n = normCode(c); if(n && !seen[n]){ seen[n] = 1; out.push(n); } });
+    allOutSkus(sp).forEach(function(c){ var n = normCode(c); if(n && !seen[n]){ seen[n] = 1; out.push(n); } });
     return out;
   }
   function pctTxt(n){ return n==null ? "\u2014" : (Math.round(n*10)/10) + "%"; }
@@ -2960,6 +3018,9 @@
     var head = '<div class="card">';
     if(!codes.length) return head + '<p class="note">Add an output SKU to this spec to see its production history.</p></div>';
     if(!prodUnlocked()) return renderProdLock("Production history");
+    var allCodes = codes, vl = variantList(sp);
+    if(S.prodVarFor !== sp.id){ S.prodVarFor = sp.id; S.prodVar = ""; }
+    if(S.prodVar && codes.indexOf(normCode(S.prodVar)) >= 0) codes = [normCode(S.prodVar)];
     var c = ensureProd(sp);
     if(c.loading) return head + '<p class="note" role="status"><span class="spinner"></span> Loading production history\u2026</p></div>';
     if(c.err) return head + '<p class="note">'+esc(c.err)+'</p><button class="btn-sm" onclick="S.prodCache={}; render();">Try again</button></div>';
@@ -3022,9 +3083,16 @@
     } else if(inputList.length === 1){
       inBox = '<p class="note" style="margin:6px 0">Input used: <b>'+esc(inputList[0].key)+'</b>'+(inputList[0].desc ? ' · '+esc(inputList[0].desc) : '')+' (all '+inputList[0].n+' processings)</p>';
     }
+    var varBar = '';
+    if(vl.length > 1){
+      varBar = '<div class="prod-filter" role="group" aria-label="Grade" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0"><span class="note">Grade</span>'
+        + '<button class="btn-sm '+(codes.length===allCodes.length?'btn-dark':'btn-ghost')+'" onclick="S.prodVar=\'\'; render();">All</button>'
+        + vl.map(function(v){ var cd = normCode(v.outputSku); if(!cd) return ''; var on = codes.length===1 && codes[0]===cd && allCodes.length>1;
+            return '<button class="btn-sm '+(on?'btn-dark':'btn-ghost')+'" onclick="S.prodVar=\''+esc(cd)+'\'; render();">'+esc(v.label||cd)+'</button>'; }).join("") + '</div>';
+    }
     var head2 = '<div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>Production history</b>'
       + '<span><button class="btn-ghost btn-sm" onclick="S.prodCache={}; render();">↻ Refresh</button> <button class="btn-ghost btn-sm" onclick="lockProduction()">🔒 Lock</button></span></div>'
-      + '<p class="note" style="margin:4px 0 0">Matched on '+esc(codes.join(", "))+'. Figures are exactly as entered in the processing sheet. Not for printing.</p>' + bar + inBox;
+      + '<p class="note" style="margin:4px 0 0">Matched on '+esc(codes.join(", "))+'. Figures are exactly as entered in the processing sheet. Not for printing.</p>' + varBar + bar + inBox;
     if(!groups.length){
       return head + head2 + '<p>No processings match this filter.</p><button class="btn-sm" onclick="S.prodInput=\'\'; S.prodRange=\'all\'; render();">Clear filters</button></div>';
     }
@@ -3076,6 +3144,7 @@
     var tab = S.printTab || "sheet";
     var showProd = specChannel(sp) === "mmah" && can("production");
     if(tab === "production" && !showProd) tab = "sheet";
+    var vl = variantList(sp), vi = (S.varFor === sp.id && S.varIdx < vl.length) ? S.varIdx : 0, spv = viewVariant(sp);
     var out = (sp.draft ? '<div class="draft-banner"><b>DRAFT</b> \u2014 this sheet is not finished (details, input SKU and photos still to add). Click Edit and Save to complete it.</div>' : '')
       + '<div class="topbar" style="margin-top:-8px;">'
       + '<h2 style="margin:0;font-size:17px;">'+esc(sp.productName||"")+'</h2>'
@@ -3090,14 +3159,20 @@
       + '<button class="tab'+(tab==="history"?' active':'')+'" data-action="printTab" data-tab="history">History'+(hist.length?' ('+hist.length+')':'')+'</button>'
       + (showProd ? '<button class="tab'+(tab==="production"?' active':'')+'" data-action="printTab" data-tab="production">Production</button>' : '')
       + '</div>';
+    if(vl.length > 1 && (tab==="sheet" || tab==="sage")){
+      out += '<div class="tabs var-tabs" role="tablist" aria-label="Grade" style="margin-top:-6px"><span class="note" style="align-self:center;margin-right:8px">Grade</span>'
+        + vl.map(function(v,i){ return '<button class="tab'+(i===vi?' active':'')+'" role="tab" aria-selected="'+(i===vi)+'" onclick="setVariantTab('+i+')">'+esc(v.label||("Variant "+(i+1)))+'</button>'; }).join("")
+        + (tab==="sheet" ? '<label class="note" style="margin-left:auto;align-self:center;cursor:pointer"><input type="checkbox"'+(S.printAll?' checked':'')+' onchange="S.printAll=this.checked; render();"> Print all grades (one page each)</label>' : '')
+        + '</div>';
+    }
     if(tab==="history"){
       out += renderHistoryTab(sp);
     } else if(tab==="production"){
       out += renderProductionTab(sp);
     } else if(tab==="sage"){
-      out += renderSageLinesTab(sp);
+      out += renderSageLinesTab(spv);
     } else {
-      out += '<div class="card" style="background:var(--panel)">' + renderPrintable(sp) + '</div>';
+      out += '<div class="card" style="background:var(--panel)">' + (S.printAll && vl.length>1 ? printHtml(sp) : renderPrintable(spv)) + '</div>';
     }
     return out;
   }
