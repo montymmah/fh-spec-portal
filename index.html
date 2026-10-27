@@ -143,6 +143,7 @@
   .recent-row:hover{background:var(--page-bg);}
   .recent-name{font-weight:700;}
   .recent-sku,.recent-date{color:var(--grey1);font-size:13.5px;}
+  .recent-sku{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
   .recent-date{text-align:right;}
   @media (max-width:720px){ .recent-row{grid-template-columns:1fr;gap:4px;} .recent-date{text-align:left;} }
   .chan-badge.retail{background:var(--ink);}
@@ -178,7 +179,6 @@
   .menu-item{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 12px;border-radius:6px;font-size:14px;cursor:pointer;color:#1c1c1c;font-family:inherit;}
   .menu-item:hover,.menu-item:focus{background:#f3eeee;}
   .menu-sep{height:1px;background:#e5e5e5;margin:4px 0;}
-  .fav{background:none;border:0;cursor:pointer;font-size:18px;color:#b8860b;padding:0 4px;line-height:1;vertical-align:middle;}
   .catalog-card{position:relative;}
   .card-sel{position:absolute;top:8px;left:8px;width:22px;height:22px;z-index:5;}
   .bulk-bar{position:sticky;top:0;z-index:20;background:#1c1c1c;color:#fff;padding:8px 12px;border-radius:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
@@ -459,7 +459,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "5.7";
+  var APP_VERSION = "5.7.1";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -1916,11 +1916,17 @@
     });
     return {count:list.length, groups:labels};
   }
+  function skuSummary(sp){
+    var seen = {}, list = [];
+    allOutSkus(sp).forEach(function(k){ String(k||"").split(/[,;\s]+/).forEach(function(c){ c = c.trim(); if(c && !seen[c.toLowerCase()]){ seen[c.toLowerCase()] = 1; list.push(c); } }); });
+    if(!list.length) return "";
+    return list[0] + (list.length > 1 ? " (+" + (list.length-1) + " more)" : "");
+  }
   function specRowHtml(x){
     return '<div class="recent-row" data-action="print" data-id="'+esc(x.id)+'">'
       + '<span>'+channelBadgesHtml(x)+'</span>'
       + '<span class="recent-name">'+esc(x.productName||"(untitled)")+'</span>'
-      + '<span class="recent-sku">'+esc(x.outputSku||"")+'</span>'
+      + '<span class="recent-sku">'+esc(skuSummary(x))+'</span>'
       + '<span class="recent-date">'+fmtDate(x.updatedAt)+'</span></div>';
   }
   function renderHomeLocked(){
@@ -1971,8 +1977,6 @@
         + (hits.length ? '<div class="recent-list">'+hits.slice(0,30).map(specRowHtml).join("")+'</div>' : '<div class="empty">No specs match \u201c'+esc(S.homeSearch.trim())+'\u201d.</div>');
     } else {
       S._firstHit = null;
-      var favS = favList(), favSpecs = live.filter(function(x){ return favS.indexOf(x.id) >= 0; });
-      if(favSpecs.length) out += '<div class="recent-head"><b>\u2605 Favourites</b></div><div class="recent-list">'+favSpecs.slice(0,8).map(specRowHtml).join("")+'</div>';
       var recent = live.slice().sort(function(a,b){ return (b.updatedAt||"").localeCompare(a.updatedAt||""); }).slice(0,5);
       out += '<div class="recent-head"><b>Recently updated</b><span data-action="openChannel" data-channel="all">See all</span></div>'
         + (S.loadingSpecs && !S.specs.length ? '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>'
@@ -1985,15 +1989,13 @@
     var q = S.search.trim().toLowerCase();
     var showArchived = S.libraryFilter === "archived";
     var showDrafts = S.libraryFilter === "drafts";
-    var showLive = S.libraryFilter === "live", showFavs = S.libraryFilter === "favs";
-    var groupFilter = (S.libraryFilter && ["archived","drafts","live","favs"].indexOf(S.libraryFilter) < 0) ? S.libraryFilter : null;
-    var favIds = favList();
+    var showLive = S.libraryFilter === "live";
+    var groupFilter = (S.libraryFilter && ["archived","drafts","live"].indexOf(S.libraryFilter) < 0) ? S.libraryFilter : null;
     var draftCount = S.specs.filter(function(s){ return s.draft && !s.archived; }).length;
     var list = S.specs.filter(function(s){
       if(!!s.archived !== showArchived) return false;
       if(showDrafts && !s.draft) return false;
       if(showLive && s.draft) return false;
-      if(showFavs && favIds.indexOf(s.id) < 0) return false;
       if(S.channel && S.channel !== "all" && specChannel(s) !== S.channel) return false;
       if(groupFilter && effectiveGroups(s).indexOf(groupFilter)<0) return false;
       if(!q) return true;
@@ -2010,7 +2012,6 @@
     out += '<div class="chk-group" style="margin-bottom:6px">'
       + '<div class="chk-opt'+(!S.libraryFilter?' sel':'')+'" onclick="S.libraryFilter=null; render();"><span>All</span></div>'
       + '<div class="chk-opt'+(showLive?' sel':'')+'" onclick="S.libraryFilter=\'live\'; render();"><span>Live</span></div>'
-      + (favIds.length ? '<div class="chk-opt'+(showFavs?' sel':'')+'" onclick="S.libraryFilter=\'favs\'; render();"><span>\u2605 Favourites</span></div>' : '')
       + groupsForView().map(function(o){
           return '<div class="chk-opt'+(S.libraryFilter===o.key?' sel':'')+'" onclick="S.libraryFilter=\''+o.key+'\'; render();"><span>'+esc(o.label)+'</span></div>';
         }).join("")
@@ -2043,9 +2044,9 @@
           out += '<div class="catalog-thumb-ph">\ud83e\udd69</div>';
         }
         out += '<div class="catalog-body">'
-          + '<h3><button class="fav" aria-label="Favourite" aria-pressed="'+(favIds.indexOf(s.id)>=0)+'" onclick="toggleFav(\''+esc(s.id)+'\', event)">'+(favIds.indexOf(s.id)>=0 ? '\u2605' : '\u2606')+'</button>'+esc(s.productName||"(untitled)")+(s.draft ? ' <span class="draft-flag">DRAFT</span>' : '')+(isStale(s) ? ' <span class="stale-flag" title="Issued over a year ago">\u26a0 1yr+</span>' : '')+'</h3>'
+          + '<h3>'+esc(s.productName||"(untitled)")+(s.draft ? ' <span class="draft-flag">DRAFT</span>' : '')+(isStale(s) ? ' <span class="stale-flag" title="Issued over a year ago">\u26a0 1yr+</span>' : '')+'</h3>'
           + '<div class="catalog-sage">'+esc(s.outputSageDesc||"")+'</div>'
-          + '<div class="catalog-meta">'+channelBadgesHtml(s)+' '+esc(s.outputSku||"\u2014")+(variantList(s).length ? ' <span class="draft-flag" style="color:#1f4a7a;background:#dde9f6">'+variantList(s).length+' grades</span>' : '')+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
+          + '<div class="catalog-meta">'+channelBadgesHtml(s)+' '+esc(skuSummary(s)||"\u2014")+(variantList(s).length ? ' <span class="draft-flag" style="color:#1f4a7a;background:#dde9f6">'+variantList(s).length+' grades</span>' : '')+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
           + '<div class="catalog-actions">'
           + '<button class="btn-sm" data-action="print" data-id="'+esc(s.id)+'">View / Print</button>'
           + (showArchived || !can("edit") ? '' : '<button class="btn-sm" data-action="edit" data-id="'+esc(s.id)+'">Edit</button>')
@@ -3005,7 +3006,7 @@
     var vs = f.variants||[];
     function inp(i,k,label,v){ return '<div class="field" style="flex:1;min-width:150px"><label class="field-label">'+label+'</label><input type="text" value="'+esc(v||"")+'" oninput="setVariant('+i+',\''+k+'\',this)"></div>'; }
     return '<div class="field" id="fld-variants"><label class="field-label">Grades</label>'
-      + fieldText("variantLabel","Grade (for the SKUs above)",f.variantLabel)
+      + (vs.length ? fieldText("variantLabel","First grade (for the SKUs above)",f.variantLabel) : '')
       + vs.map(function(v,i){
           return '<div class="card" style="margin:8px 0;padding:10px"><div class="row">'+inp(i,"label","Grade",v.label)+inp(i,"outputSku","Output SKU",v.outputSku)+inp(i,"inputSku","Input SKU",v.inputSku)+'</div>'
             + '<div class="row">'+inp(i,"outputSageDesc","Output Sage description",v.outputSageDesc)+inp(i,"inputSageDesc","Input Sage description",v.inputSageDesc)+'</div>'
@@ -3486,18 +3487,6 @@
     return toks.every(function(t){ return blob.indexOf(t) >= 0; });
   }
   window.searchEnter = function(e){ if(e.key === "Enter" && S._firstHit){ e.preventDefault(); goPrint(S._firstHit); } };
-
-  // ---- favourites (kept on this device, per person) ----
-  function favKey(){ return "ff_favs_" + (S.session ? S.session.name : ""); }
-  function favList(){ try{ return JSON.parse(localStorage.getItem(favKey())||"[]") || []; }catch(e){ return []; } }
-  function isFav(id){ return favList().indexOf(id) >= 0; }
-  window.toggleFav = function(id, ev){
-    if(ev) ev.stopPropagation();
-    var a = favList(), i = a.indexOf(id);
-    if(i >= 0) a.splice(i,1); else a.push(id);
-    try{ localStorage.setItem(favKey(), JSON.stringify(a)); }catch(e){}
-    render();
-  };
 
   // ---- bulk select: print / archive / delete ----
   function specById(id){ return S.specs.filter(function(s){ return s.id === id; })[0]; }
