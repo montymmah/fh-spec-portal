@@ -172,6 +172,21 @@
   .spec-sheet .ss-link::after{content:" \2197";font-size:11px;}
   .draft-flag{font-size:10px;font-weight:700;color:#7a1f1f;background:#f6dede;padding:2px 6px;border-radius:4px;vertical-align:middle;}
   .draft-banner{background:#f6dede;color:#7a1f1f;border:1px solid #e3b5b5;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:14px;}
+  .menu-wrap{position:relative;display:inline-block;}
+  .menu-btn{background:none;border:0;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;}
+  .menu-pop{position:absolute;right:0;top:calc(100% + 6px);min-width:230px;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.16);padding:6px;z-index:60;}
+  .menu-item{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 12px;border-radius:6px;font-size:14px;cursor:pointer;color:#1c1c1c;font-family:inherit;}
+  .menu-item:hover,.menu-item:focus{background:#f3eeee;}
+  .menu-sep{height:1px;background:#e5e5e5;margin:4px 0;}
+  .fav{background:none;border:0;cursor:pointer;font-size:18px;color:#b8860b;padding:0 4px;line-height:1;vertical-align:middle;}
+  .catalog-card{position:relative;}
+  .card-sel{position:absolute;top:8px;left:8px;width:22px;height:22px;z-index:5;}
+  .bulk-bar{position:sticky;top:0;z-index:20;background:#1c1c1c;color:#fff;padding:8px 12px;border-radius:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+  .bulk-bar .btn-sm{background:#fff;color:#1c1c1c;}
+  .chg{font-size:12.5px;color:#444;margin-top:4px;}
+  .chg summary{cursor:pointer;color:#7a1f1f;}
+  .ss-tray{font-size:11px;color:#606060;margin-top:2px;}
+  @media screen and (max-width:720px){ .var-tabs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;} .var-tabs .tab{white-space:nowrap;} .spec-sheet{overflow-x:auto;} }
   .stale-flag{font-size:10px;font-weight:700;color:#946200;background:#fbe9c6;padding:2px 6px;border-radius:4px;vertical-align:middle;}
   .groups-dropdown{position:absolute;top:100%;right:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);z-index:60;min-width:190px;display:flex;flex-direction:column;gap:2px;margin-top:4px;}
   .catalog-actions{display:flex;gap:6px;margin-top:auto;flex-wrap:wrap;}
@@ -444,7 +459,7 @@
   var SIZE_OPTS = [["small","Small"],["medium","Medium"],["large","Large"]];
   var DEFAULT_GROUP_OPTS = [["brit","British"],["jap","Japanese"],["mmah","MMAH"],["asianSlices","Asian Slices"],["offcuts","Offcuts"],["chilean","Chilean"]];
 
-  var APP_VERSION = "5.6";
+  var APP_VERSION = "5.7";
 
   // The two channels shown on the landing page. Edit the wording here.
   var CHANNELS = [
@@ -812,7 +827,7 @@
 
   // ---------- helpers ----------
   function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-  function nl2br(s){ return esc(s).replace(/\n/g,"<br>"); }
+  function nl2br(s){ return esc(s).replace(/\r/g,"").replace(/\n/g,"<br>").replace(/ {2,}/g,function(m){ return new Array(m.length).join("&nbsp;")+" "; }); }
   function fmtDate(iso){
     if(!iso) return "\u2014";
     try{ var d=new Date(iso); return d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); }catch(e){ return iso; }
@@ -1363,7 +1378,7 @@
     var focusKey = refocusId ? null : a11yKey(active);
     try{
       document.getElementById("app").innerHTML = renderView();
-      document.getElementById("printArea").innerHTML = (S.view==="print" && S.printSpec) ? printHtml(S.printSpec) : "";
+      document.getElementById("printArea").innerHTML = (S.view==="print" && S.printSpec) ? printHtml(S.printSpec) : (S.view==="bulkprint" ? bulkPrintHtml() : "");
       wireFileInputs();
       enhanceA11y();
       focusOverlay();
@@ -1516,9 +1531,8 @@
       out += '<button class="btn-ghost btn-sm" onclick="goLibrary()">Library</button>'
         + (can("edit") ? '<button class="btn-sm" onclick="goImport()">Import Old Version</button>'
                        + '<button class="btn-primary btn-sm" onclick="goNew()">+ New Spec</button>' : '')
-        + '<span class="who"><b>'+esc(S.session.name)+'</b>'
-        + '<button class="btn-ghost btn-sm" onclick="openChangePw()">Change password</button>'
-        + '<button class="btn-ghost btn-sm" onclick="doLogout()">Log out</button></span>';
+        + '<span class="menu-wrap"><button class="who menu-btn" onclick="toggleMenu(event)" aria-haspopup="menu" aria-expanded="'+(!!S.menuOpen)+'" title="Menu"><b>'+esc(S.session.name)+'</b><span aria-hidden="true">\u25be</span></button>'
+        + (S.menuOpen ? menuHtml() : '') + '</span>';
     }
     out += '</div></div>';
     if(S.session && !can("edit")) out += '<div class="subnote">You have view-only access.</div>';
@@ -1817,6 +1831,9 @@
     else if(S.view==="loginlog") html += renderLoginLog();
     else if(S.view==="bin") html += renderBin();
     else if(S.view==="draftimport") html += renderDraftImport();
+    else if(S.view==="bulkprint") html += renderBulkPrint();
+    else if(S.view==="activity") html += renderActivity();
+    else if(S.view==="shopify") html += renderShopify();
     if(S.lightbox){
       html += '<div class="lightbox-overlay" data-action="closeLightbox">'
         + '<button class="lightbox-close" data-action="closeLightbox">\u00d7</button>'
@@ -1833,6 +1850,7 @@
         + '<button type="submit" class="btn-primary btn-sm">Delete</button></div>'
         + '</form></div>';
     }
+    if(S.bulkAct) html += bulkModalHtml();
     html += loginOverlays();
     if(S.chooseChannel){
       html += '<div class="confirm-overlay" onclick="cancelChooseChannel()">'
@@ -1923,7 +1941,6 @@
   function renderHome(){
     if(!S.session) return renderHomeLocked();
     var out = '<div class="home"><h1 class="home-title">Which specs do you need?</h1>'
-      + '<p class="home-sub">Pick a channel. The portal remembers your choice next time.</p>'
       + '<div class="channel-cards">';
     CHANNELS.forEach(function(c){
       var st = channelStats(c.key), isLast = (S.lastChannel === c.key);
@@ -1944,18 +1961,18 @@
     var q = (S.homeSearch||"").trim().toLowerCase();
     out += '<label class="home-label" for="homeSearchInput">Know the product or SKU? Search every spec, both channels</label>'
       + '<div class="home-search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>'
-      + '<input type="text" id="homeSearchInput" placeholder="e.g. ribeye, MMAHOFFIL, WAGUKFILF1" value="'+esc(S.homeSearch||"")+'" oninput="S.homeSearch=this.value; render();"></div>';
+      + '<input type="text" id="homeSearchInput" placeholder="e.g. ribeye, MMAHOFFIL, WAGUKFILF1" value="'+esc(S.homeSearch||"")+'" onkeydown="searchEnter(event)" oninput="S.homeSearch=this.value; render();"></div>';
 
     var live = S.specs.filter(function(x){ return !x.archived; });
     if(q){
-      var hits = live.filter(function(x){
-        return (x.productName||"").toLowerCase().indexOf(q)>=0 || (x.outputSku||"").toLowerCase().indexOf(q)>=0
-          || (x.inputSku||"").toLowerCase().indexOf(q)>=0 || (x.outputSageDesc||"").toLowerCase().indexOf(q)>=0
-          || (x.inputSageDesc||"").toLowerCase().indexOf(q)>=0 || variantBlob(x).indexOf(q)>=0;
-      });
+      var hits = live.filter(function(x){ return specMatches(x, S.homeSearch); });
+      S._firstHit = hits.length ? hits[0].id : null;
       out += '<div class="recent-head"><b>Results ('+hits.length+')</b><span data-action="openChannel" data-channel="all">See all</span></div>'
         + (hits.length ? '<div class="recent-list">'+hits.slice(0,30).map(specRowHtml).join("")+'</div>' : '<div class="empty">No specs match \u201c'+esc(S.homeSearch.trim())+'\u201d.</div>');
     } else {
+      S._firstHit = null;
+      var favS = favList(), favSpecs = live.filter(function(x){ return favS.indexOf(x.id) >= 0; });
+      if(favSpecs.length) out += '<div class="recent-head"><b>\u2605 Favourites</b></div><div class="recent-list">'+favSpecs.slice(0,8).map(specRowHtml).join("")+'</div>';
       var recent = live.slice().sort(function(a,b){ return (b.updatedAt||"").localeCompare(a.updatedAt||""); }).slice(0,5);
       out += '<div class="recent-head"><b>Recently updated</b><span data-action="openChannel" data-channel="all">See all</span></div>'
         + (S.loadingSpecs && !S.specs.length ? '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>'
@@ -1968,26 +1985,32 @@
     var q = S.search.trim().toLowerCase();
     var showArchived = S.libraryFilter === "archived";
     var showDrafts = S.libraryFilter === "drafts";
-    var groupFilter = (S.libraryFilter && S.libraryFilter !== "archived" && S.libraryFilter !== "drafts") ? S.libraryFilter : null;
+    var showLive = S.libraryFilter === "live", showFavs = S.libraryFilter === "favs";
+    var groupFilter = (S.libraryFilter && ["archived","drafts","live","favs"].indexOf(S.libraryFilter) < 0) ? S.libraryFilter : null;
+    var favIds = favList();
     var draftCount = S.specs.filter(function(s){ return s.draft && !s.archived; }).length;
     var list = S.specs.filter(function(s){
       if(!!s.archived !== showArchived) return false;
       if(showDrafts && !s.draft) return false;
+      if(showLive && s.draft) return false;
+      if(showFavs && favIds.indexOf(s.id) < 0) return false;
       if(S.channel && S.channel !== "all" && specChannel(s) !== S.channel) return false;
       if(groupFilter && effectiveGroups(s).indexOf(groupFilter)<0) return false;
       if(!q) return true;
-      return (s.productName||"").toLowerCase().indexOf(q)>=0 || (s.outputSku||"").toLowerCase().indexOf(q)>=0
-        || (s.inputSku||"").toLowerCase().indexOf(q)>=0 || (s.outputSageDesc||"").toLowerCase().indexOf(q)>=0 || variantBlob(s).indexOf(q)>=0;
+      return specMatches(s, S.search);
     });
+    S._shownIds = list.map(function(x){ return x.id; }); S._firstHit = q && list.length ? list[0].id : null;
     var out = '<div class="tabs">' + CHANNELS.map(function(c){
         return '<button class="tab'+(S.channel===c.key?' active':'')+'" data-action="openChannel" data-channel="'+c.key+'">'+esc(c.name)+'</button>';
       }).join("")
       + '<button class="tab'+(S.channel==="all"?' active':'')+'" data-action="openChannel" data-channel="all">All specs</button></div>';
-    out += '<div class="field search-bar"><input type="text" id="librarySearchInput" placeholder="Search by product name, Sage description, or SKU\u2026" value="'+esc(S.search)+'" oninput="S.search=this.value; render();">'
+    out += '<div class="field search-bar"><input type="text" id="librarySearchInput" placeholder="Search by product name, Sage description, or SKU\u2026" value="'+esc(S.search)+'" onkeydown="searchEnter(event)" oninput="S.search=this.value; render();">'
       + (S.search ? '<button class="btn-ghost btn-sm" onclick="S.search=\'\'; render();">\u00d7 Clear</button>' : '')
       + '<button class="btn-sm" onclick="loadSpecs()">\u21bb Refresh</button></div>';
     out += '<div class="chk-group" style="margin-bottom:6px">'
       + '<div class="chk-opt'+(!S.libraryFilter?' sel':'')+'" onclick="S.libraryFilter=null; render();"><span>All</span></div>'
+      + '<div class="chk-opt'+(showLive?' sel':'')+'" onclick="S.libraryFilter=\'live\'; render();"><span>Live</span></div>'
+      + (favIds.length ? '<div class="chk-opt'+(showFavs?' sel':'')+'" onclick="S.libraryFilter=\'favs\'; render();"><span>\u2605 Favourites</span></div>' : '')
       + groupsForView().map(function(o){
           return '<div class="chk-opt'+(S.libraryFilter===o.key?' sel':'')+'" onclick="S.libraryFilter=\''+o.key+'\'; render();"><span>'+esc(o.label)+'</span></div>';
         }).join("")
@@ -1995,28 +2018,32 @@
       + '<div class="chk-opt'+(showArchived?' sel':'')+'" onclick="S.libraryFilter=\'archived\'; render();"><span>Archived</span></div>'
       + '</div>'
       + '<div style="margin-bottom:14px">'
-      + ((can("delete") || can("admin")) ? '<button class="btn-ghost btn-sm" onclick="goBin()">\ud83d\uddd1 Recently deleted</button> ' : '')
       + (can("edit") ? '<button class="btn-ghost btn-sm" onclick="goDraftImport()">\u2795 Import draft specs</button> ' : '')
-      + (can("edit") ? '<button class="btn-ghost btn-sm" onclick="goManageGroups()">⚙ Manage groups</button> ' : '')
-      + (can("admin") ? '<button class="btn-ghost btn-sm" onclick="goPeople()">👥 People &amp; permissions</button> '
-                      + '<button class="btn-ghost btn-sm" onclick="goProductions()">📈 Production data</button> '
-                      + '<button class="btn-ghost btn-sm" onclick="goLoginLog()">\ud83d\udee1 Login log</button> '
-                      + '<button class="btn-ghost btn-sm" onclick="exportBackup()">⬇ Export backup</button>' : '')
+      + (can("edit") ? '<button class="btn-ghost btn-sm" onclick="goManageGroups()">\u2699 Manage groups</button> ' : '')
+      + '<button class="btn-ghost btn-sm" onclick="toggleSelMode()">'+(S.selMode ? '\u2715 Cancel select' : '\u2611 Select')+'</button>'
       + '</div>';
     if(S.loadingSpecs) out += '<div class="empty"><span class="spinner"></span> Loading specs\u2026</div>';
     else if(!list.length) out += '<div class="empty">'+(showArchived ? 'No archived specs.' : (can("edit") ? 'No specs here yet. Click <b>+ New Spec</b> to add one.' : 'No specs here yet.'))+'</div>';
     else{
+      if(S.selMode){
+        var nSel = selIds().length;
+        out += '<div class="bulk-bar" role="toolbar" aria-label="Selected specs"><b>'+nSel+' selected</b>'
+          + '<button class="btn-sm" onclick="selectAllShown()">Select all shown</button>'
+          + '<button class="btn-sm" onclick="bulkPrint()">\ud83d\udda8 Print</button>'
+          + (can("edit") ? (showArchived ? '<button class="btn-sm" onclick="bulkAsk(\'restore\')">Restore</button>' : '<button class="btn-sm" onclick="bulkAsk(\'archive\')">Archive</button>') : '')
+          + (can("delete") ? '<button class="btn-sm" onclick="bulkAsk(\'delete\')">Delete</button>' : '') + '</div>';
+      }
       out += '<div class="catalog-grid">';
       list.forEach(function(s){
         var thumb = (s.referenceImages||[])[0];
-        out += '<div class="catalog-card">';
+        out += '<div class="catalog-card">' + (S.selMode ? '<input type="checkbox" class="card-sel" aria-label="Select '+esc(s.productName||"spec")+'"'+(S.sel && S.sel[s.id] ? ' checked' : '')+' onclick="toggleSel(\''+esc(s.id)+'\', event)">' : '');
         if(thumb){
           out += '<img class="catalog-thumb" data-ip="'+esc(imgPath(thumb))+'" src="'+esc(imgSrc(thumb))+'" style="transform:rotate('+(thumb.rotation||0)+'deg);cursor:pointer" data-action="print" data-id="'+esc(s.id)+'" title="Open this spec">';
         } else {
           out += '<div class="catalog-thumb-ph">\ud83e\udd69</div>';
         }
         out += '<div class="catalog-body">'
-          + '<h3>'+esc(s.productName||"(untitled)")+(s.draft ? ' <span class="draft-flag">DRAFT</span>' : '')+(isStale(s) ? ' <span class="stale-flag" title="Issued over a year ago">\u26a0 1yr+</span>' : '')+'</h3>'
+          + '<h3><button class="fav" aria-label="Favourite" aria-pressed="'+(favIds.indexOf(s.id)>=0)+'" onclick="toggleFav(\''+esc(s.id)+'\', event)">'+(favIds.indexOf(s.id)>=0 ? '\u2605' : '\u2606')+'</button>'+esc(s.productName||"(untitled)")+(s.draft ? ' <span class="draft-flag">DRAFT</span>' : '')+(isStale(s) ? ' <span class="stale-flag" title="Issued over a year ago">\u26a0 1yr+</span>' : '')+'</h3>'
           + '<div class="catalog-sage">'+esc(s.outputSageDesc||"")+'</div>'
           + '<div class="catalog-meta">'+channelBadgesHtml(s)+' '+esc(s.outputSku||"\u2014")+(variantList(s).length ? ' <span class="draft-flag" style="color:#1f4a7a;background:#dde9f6">'+variantList(s).length+' grades</span>' : '')+' &middot; updated '+fmtDate(s.updatedAt)+'</div>'
           + '<div class="catalog-actions">'
@@ -2148,11 +2175,11 @@
 
     out += '<div class="section-bar">2 - PACKING INSTRUCTIONS</div><div class="section-body">';
     out += fieldText("packingPrep","Packing preparation",f.packingPrep,false,"text","e.g. Skinpack, Vacpack");
-    out += tickField("packagingType","Packaging", checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType")
+    out += tickField("packagingType","Packaging", checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType") + TRAY_NOTE_HTML
       + '<div style="margin-top:8px">'+fieldText("packagingNote","Bag size / other note (if applicable)",f.packagingNote)+'</div>');
     out += fieldText("positionInTray","Position in tray",f.positionInTray);
     out += tickField("labelCuttingPlant","Label type \u2014 Cutting plant", checkGroupHTML(LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant"));
-    out += boolField("scalesLabelExists","Scales label","Yes, exists on scales","Leave unticked as a reminder to request one \u2014 mainly needed for brand new products. Most existing products already have one.");
+    out += boolField("scalesLabelExists","Scales label (for internal reference)","Yes, exists on scales");
     out += tickField("labelWarehouse","Label type \u2014 Warehouse", checkGroupHTML(LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse"));
     out += '</div>';
 
@@ -2228,9 +2255,9 @@
 
     out += '<div class="section-bar">1 - CUTTING DETAILS</div><div class="section-body">';
     out += fieldTextarea("cuttingNotes","Cutting notes",f.cuttingNotes);
-    out += '<div class="field"><label class="field-label">Weight band \u2014 every steak must fall within this range</label><div class="wb-grid">'
-      + '<div class="wb-cell"><div class="wb-label">Absolute legal minimum (g)</div>'+rawInput("minWeight",f.minWeight,"number")+rawInput("toleranceNote",f.toleranceNote,"text","formula / note")+'</div>'
-      + '<div class="wb-cell"><div class="wb-label">1-in-40 limit, T1 (g)</div>'+rawInput("avgWeightMin",f.avgWeightMin,"number")+rawInput("avgWeightNote",f.avgWeightNote,"text","formula / note")+'</div>'
+    out += '<div class="field"><label class="field-label">Weight band \u2014 cut every steak at or above the working minimum</label><div class="wb-grid">'
+      + '<div class="wb-cell"><div class="wb-label">Reject below \u2014 legal minimum (g)</div>'+rawInput("minWeight",f.minWeight,"number")+rawInput("toleranceNote",f.toleranceNote,"text","formula / note")+'</div>'
+      + '<div class="wb-cell"><div class="wb-label">Working minimum, T1 (g)</div>'+rawInput("avgWeightMin",f.avgWeightMin,"number")+rawInput("avgWeightNote",f.avgWeightNote,"text","formula / note")+'</div>'
       + '<div class="wb-cell"><div class="wb-label">Target weight (g)</div>'+rawInput("targetWeight",f.targetWeight,"number")+'</div>'
       + '<div class="wb-cell"><div class="wb-label">Maximum weight (g)</div>'+rawInput("maxWeight",f.maxWeight,"number")+'</div>'
       + '</div></div>';
@@ -2241,11 +2268,11 @@
     out += '</div>';
 
     out += '<div class="section-bar">2 - PACKING INSTRUCTIONS</div><div class="section-body">';
-    out += tickField("packagingType","Packaging", checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType"));
+    out += tickField("packagingType","Packaging", checkGroupHTML(PACKAGING_OPTS, f.packagingType, true, "packagingType") + TRAY_NOTE_HTML);
     out += fieldText("positionInTray","Position in tray",f.positionInTray);
     out += fieldText("packingPrep","Packing preparation",f.packingPrep,false,"text","e.g. Skinpack, Vacpack");
     out += tickField("labelCuttingPlant","Label type \u2014 Cutting plant", checkGroupHTML(RT_LABEL_CP_OPTS, f.labelCuttingPlant, true, "labelCuttingPlant"));
-    out += boolField("scalesLabelExists","Scales label","Yes, exists on scales","Leave unticked as a reminder to request one \u2014 mainly needed for brand new products. Most existing products already have one.");
+    out += boolField("scalesLabelExists","Scales label (for internal reference)","Yes, exists on scales");
     out += tickField("secondaryPack","Secondary packaging \u2014 Warehouse", checkGroupHTML(RT_SECONDARY_OPTS, f.secondaryPack, true, "secondaryPack")
       + (f.secondaryPack==="other" ? '<div style="margin-top:8px">'+fieldText("secondaryPackNote","Other secondary packaging",f.secondaryPackNote)+'</div>' : ''));
     out += tickField("labelWarehouse","Label type \u2014 Warehouse", checkGroupHTML(RT_LABEL_WH_OPTS, f.labelWarehouse, true, "labelWarehouse"));
@@ -2977,15 +3004,14 @@
   function variantsField(f){
     var vs = f.variants||[];
     function inp(i,k,label,v){ return '<div class="field" style="flex:1;min-width:150px"><label class="field-label">'+label+'</label><input type="text" value="'+esc(v||"")+'" oninput="setVariant('+i+',\''+k+'\',this)"></div>'; }
-    return '<div class="field" id="fld-variants"><label class="field-label">Grades / variants (optional)</label>'
-      + '<p class="note" style="margin-top:0">For one cut sold in several grades or BMS. Everything on the sheet is shared; only the SKUs and Sage descriptions change per grade. The SKU fields above are the first grade.</p>'
-      + fieldText("variantLabel","Name of the first grade (e.g. Grade A3)",f.variantLabel)
+    return '<div class="field" id="fld-variants"><label class="field-label">Grades</label>'
+      + fieldText("variantLabel","Grade (for the SKUs above)",f.variantLabel)
       + vs.map(function(v,i){
-          return '<div class="card" style="margin:8px 0;padding:10px"><div class="row">'+inp(i,"label","Grade name (e.g. Grade A4)",v.label)+inp(i,"outputSku","Output SKU",v.outputSku)+inp(i,"inputSku","Input SKU",v.inputSku)+'</div>'
+          return '<div class="card" style="margin:8px 0;padding:10px"><div class="row">'+inp(i,"label","Grade",v.label)+inp(i,"outputSku","Output SKU",v.outputSku)+inp(i,"inputSku","Input SKU",v.inputSku)+'</div>'
             + '<div class="row">'+inp(i,"outputSageDesc","Output Sage description",v.outputSageDesc)+inp(i,"inputSageDesc","Input Sage description",v.inputSageDesc)+'</div>'
-            + '<button class="btn-ghost btn-sm" onclick="removeVariant('+i+')">Remove this grade</button></div>';
+            + '<button class="btn-ghost btn-sm" onclick="removeVariant('+i+')">Remove grade</button></div>';
         }).join("")
-      + '<button class="btn-sm" onclick="addVariant()">+ Add grade / variant</button></div>';
+      + '<button class="btn-sm" onclick="addVariant()">+ Add grade</button></div>';
   }
 
   function specCodes(sp){
@@ -3192,7 +3218,7 @@
       var h = hist[i];
       var verb = h.action==="archived" ? "archived this sheet" : (h.action==="unarchived" ? "restored this sheet" : (h.action==="created" ? "created this sheet" : "amended this sheet"));
       out += '<div class="hist-row"><div><b>'+fmtDate(h.at)+'</b> \u00b7 '+esc(h.by||"someone")+' '+verb
-        + (h.snapshot ? '' : '<div class="note">No copy of the earlier version was kept for this change.</div>')
+        + (h.snapshot ? changesHtml(histChanges(hist, i, sp)) : '<div class="note">No copy of the earlier version was kept for this change.</div>')
         + '</div>'
         + (h.snapshot ? '<button class="btn-sm" data-action="viewVersion" data-idx="'+i+'">View previous version</button>' : '')
         + '</div>';
@@ -3268,7 +3294,7 @@
       + '<tr><td class="lbl">Use of trim</td><td>'+ssSelectedOnly(TRIM_OPTS,s.trimUse)
         + (s.trimUse==="repurpose" && s.trimRepurposeNote ? ' &mdash; <i>'+esc(s.trimRepurposeNote)+'</i>' : '')
         + trimLinkHtml(!!s.trimRepurposeNote)+'</td></tr>'
-      + '<tr><td class="lbl">Cutting notes</td><td>'+esc(s.cuttingNotes||"\u2014")+'</td></tr>'
+      + '<tr><td class="lbl">Cutting notes</td><td>'+nl2br(s.cuttingNotes||"\u2014")+'</td></tr>'
       + altCutPrintRow(s)
       + '</table>';
 
@@ -3276,7 +3302,7 @@
     out += '<table class="ss-table">'
       + '<tr><td class="lbl">Packing preparation</td><td><b>'+esc(s.packingPrep||"\u2014")+'</b></td></tr>'
       + '<tr><td class="lbl">Packaging</td><td>'+ssSelectedOnly(PACKAGING_OPTS,s.packagingType)
-        + (s.packagingNote ? ' &mdash; <i>'+esc(s.packagingNote)+'</i>' : '')+'</td></tr>'
+        + (s.packagingNote ? ' &mdash; <i>'+esc(s.packagingNote)+'</i>' : '')+trayRulePrint(s)+'</td></tr>'
       + '<tr><td class="lbl">Position in tray</td><td>'+esc(s.positionInTray||"\u2014")+'</td></tr>'
       + '<tr><td class="lbl">Label type \u2014 Cutting plant</td><td>'+ssSelectedOnly(LABEL_CP_OPTS,s.labelCuttingPlant)+'</td></tr>'
       + '<tr><td class="lbl">Label type \u2014 Warehouse</td><td>'+ssSelectedOnly(LABEL_WH_OPTS,s.labelWarehouse)+'</td></tr>'
@@ -3385,11 +3411,11 @@
     function wb(label, val, note, cls){
       return '<td class="'+(cls||'mincell')+'"><span class="k">'+label+'</span><span class="v">'+esc(val)+'</span>'+(note ? '<span class="d">'+esc(note)+'</span>' : '')+'</td>';
     }
-    out += '<div class="ss-wbtitle">Weight band \u2014 every steak must fall within this range:</div>';
+    out += '<div class="ss-wbtitle">Weight band \u2014 cut every steak at or above the working minimum:</div>';
     out += '<table class="ss-table ss-weightband wb4"><tr>'
-      + wb("ABSOLUTE LEGAL MINIMUM", fmtWt(s.minWeight), s.toleranceNote)
-      + wb("1-IN-40 LIMIT (T1)", fmtWt(s.avgWeightMin), "No more than 1 in 40 packs below this" + (s.avgWeightNote ? " \u00b7 " + s.avgWeightNote : ""))
-      + wb("TARGET WEIGHT (W)", fmtWt(s.targetWeight), "Advertised weight \u00b7 batch average must not fall below this", "targetcell")
+      + wb("REJECT BELOW (LEGAL MINIMUM)", fmtWt(s.minWeight), "No pack may be lighter" + (s.toleranceNote ? " \u00b7 " + s.toleranceNote : ""))
+      + wb("WORKING MINIMUM (T1)", fmtWt(s.avgWeightMin), "Rework / out-of-range below this" + (s.avgWeightNote ? " \u00b7 " + s.avgWeightNote : ""))
+      + wb("TARGET WEIGHT (W)", fmtWt(s.targetWeight), "Batch average must not fall below this", "targetcell")
       + wb("MAXIMUM WEIGHT", fmtWt(s.maxWeight), "Do not exceed")
       + '</tr></table>';
     out += '<table class="ss-table">'
@@ -3402,7 +3428,7 @@
     out += '<div class="ss-bar">2 - PACKING INSTRUCTIONS</div>';
     var secondary = (s.secondaryPack === "other" && s.secondaryPackNote) ? '<b>'+esc(s.secondaryPackNote)+'</b>' : ssSelectedOnly(RT_SECONDARY_OPTS, s.secondaryPack);
     out += '<table class="ss-table">'
-      + '<tr><td class="lbl">Packaging</td><td>'+ssSelectedOnly(PACKAGING_OPTS,s.packagingType)+'</td></tr>'
+      + '<tr><td class="lbl">Packaging</td><td>'+ssSelectedOnly(PACKAGING_OPTS,s.packagingType)+trayRulePrint(s)+'</td></tr>'
       + '<tr><td class="lbl">Position in tray</td><td>'+esc(s.positionInTray||"\u2014")+'</td></tr>'
       + '<tr><td class="lbl">Packing preparation</td><td>'+esc(s.packingPrep||"\u2014")+'</td></tr>'
       + '<tr><td class="lbl">Label type - Cutting plant</td><td>'+ssSelectedOnly(RT_LABEL_CP_OPTS,s.labelCuttingPlant)+'</td></tr>'
@@ -3427,6 +3453,298 @@
   window.goImport=function(){ tryLeave(goImport); };
   window.goHome=function(){ tryLeave(goHome); };
   window.startNew=startNew;
+
+  // ================= v5.7 additions =================
+  function ml(s){ return nl2br(s); }
+  var TRAY_NOTE_HTML = '<p class="note" style="margin:8px 0 0"><b>Tray rule:</b> steak 4cm or thicker → deep tray. Under 4cm → shallow tray.</p>';
+  function trayRulePrint(s){
+    if(["blackDeep","blackShallow","transparentDeep","transparentShallow"].indexOf(s.packagingType) < 0) return "";
+    return '<div class="ss-tray">Tray: 4cm+ thick = deep · under 4cm = shallow</div>';
+  }
+
+  // ---- header menu ----
+  window.toggleMenu = function(e){ if(e) e.stopPropagation(); S.menuOpen = !S.menuOpen; render(); };
+  window.menuGo = function(fn){ S.menuOpen = false; if(typeof window[fn] === "function") window[fn](); else render(); };
+  function menuHtml(){
+    function item(label, fn){ return '<button class="menu-item" role="menuitem" onclick="menuGo(\''+fn+'\')">'+label+'</button>'; }
+    var admin = can("admin"), out = '<div class="menu-pop" role="menu">';
+    if(admin){
+      out += item("👥 People &amp; permissions","goPeople") + item("🛡 Login log","goLoginLog") + item("📋 Activity log","goActivity")
+        + item("📈 Production data","goProductions") + item("🛍 Shopify check","goShopify") + item("⬇ Export backup","exportBackup");
+    }
+    if(can("delete") || admin) out += item("🗑 Recently deleted","goBin");
+    out += (admin || can("delete") ? '<div class="menu-sep"></div>' : '') + item("🔑 Change password","openChangePw") + item("Log out","doLogout") + '</div>';
+    return out;
+  }
+
+  // ---- forgiving search ----
+  function normS(x){ return String(x||"").toLowerCase().replace(/[^a-z0-9]+/g,""); }
+  function specMatches(sp, q){
+    var toks = String(q||"").toLowerCase().split(/\s+/).map(normS).filter(Boolean);
+    if(!toks.length) return true;
+    var blob = normS([sp.productName,sp.outputSku,sp.outputSku2,sp.inputSku,sp.outputSageDesc,sp.inputSageDesc].join(" ")) + normS(variantBlob(sp));
+    return toks.every(function(t){ return blob.indexOf(t) >= 0; });
+  }
+  window.searchEnter = function(e){ if(e.key === "Enter" && S._firstHit){ e.preventDefault(); goPrint(S._firstHit); } };
+
+  // ---- favourites (kept on this device, per person) ----
+  function favKey(){ return "ff_favs_" + (S.session ? S.session.name : ""); }
+  function favList(){ try{ return JSON.parse(localStorage.getItem(favKey())||"[]") || []; }catch(e){ return []; } }
+  function isFav(id){ return favList().indexOf(id) >= 0; }
+  window.toggleFav = function(id, ev){
+    if(ev) ev.stopPropagation();
+    var a = favList(), i = a.indexOf(id);
+    if(i >= 0) a.splice(i,1); else a.push(id);
+    try{ localStorage.setItem(favKey(), JSON.stringify(a)); }catch(e){}
+    render();
+  };
+
+  // ---- bulk select: print / archive / delete ----
+  function specById(id){ return S.specs.filter(function(s){ return s.id === id; })[0]; }
+  function selIds(){ return Object.keys(S.sel||{}).filter(function(k){ return S.sel[k] && specById(k); }); }
+  window.toggleSelMode = function(){ S.selMode = !S.selMode; S.sel = {}; render(); };
+  window.toggleSel = function(id, ev){ if(ev) ev.stopPropagation(); S.sel = S.sel || {}; S.sel[id] = !S.sel[id]; render(); };
+  window.selectAllShown = function(){ S.sel = {}; (S._shownIds||[]).forEach(function(i){ S.sel[i] = true; }); render(); };
+  window.bulkPrint = function(){
+    var ids = (S._shownIds||[]).filter(function(i){ return S.sel && S.sel[i]; });
+    if(!ids.length){ showToast("Tick at least one spec first."); return; }
+    S.bulkIds = ids; S.view = "bulkprint"; render(); window.scrollTo(0,0);
+  };
+  function printAllHtml(sp){
+    var vl = variantList(sp);
+    if(vl.length > 1) return vl.map(function(v,i){ return renderPrintable(viewVariant(sp,i)); }).join('<div style="page-break-after:always;break-after:page"></div>');
+    return renderPrintable(sp);
+  }
+  function bulkPrintHtml(){
+    return (S.bulkIds||[]).map(specById).filter(Boolean).map(printAllHtml).join('<div style="page-break-after:always;break-after:page"></div>');
+  }
+  function renderBulkPrint(){
+    var specs = (S.bulkIds||[]).map(specById).filter(Boolean);
+    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">Print '+specs.length+' spec'+(specs.length===1?'':'s')+'</h2>'
+      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="S.view=\'library\'; render();">Back to Library</button>'
+      + '<button class="btn-primary btn-sm" onclick="doPrint()">Print / Save as PDF</button></div></div>';
+    out += '<div class="card"><p class="note" style="margin-top:0">Each spec starts on a new page'+(specs.some(function(s){ return variantList(s).length>1; }) ? ' (every grade gets its own page)' : '')+'.</p><ol>'
+      + specs.map(function(s){ return '<li>'+esc(s.productName||"(untitled)")+(s.outputSku ? ' <span class="note">'+esc(s.outputSku)+'</span>' : '')+'</li>'; }).join("") + '</ol></div>';
+    return out;
+  }
+  window.bulkAsk = function(type){
+    var n = selIds().length;
+    if(!n){ showToast("Tick at least one spec first."); return; }
+    if(type !== "print" && !can(type === "delete" ? "delete" : "edit")){ showToast("You don’t have permission to do that."); return; }
+    S.bulkAct = type; S.reauthErr = ""; render();
+  };
+  window.bulkCancel = function(){ S.bulkAct = null; S.reauthErr = ""; render(); };
+  async function archiveOne(id, flag){
+    var spec = specById(id); if(!spec) return "not found";
+    var payload = JSON.parse(JSON.stringify(spec));
+    delete payload.id; delete payload._histFull; delete payload._histLoading; delete payload._histFailed;
+    payload.archived = flag;
+    if(S.lightList){ try{ payload.editHistory = await fetchFullHistory(id); }catch(e){ return "history"; } }
+    payload.editHistory = (payload.editHistory||[]).concat([{by:S.session.name, at:new Date().toISOString(), action: flag ? "archived" : "unarchived"}]);
+    var r = await rpcA("app_update_spec", {p_id:id, p_payload:payload});
+    return r.error ? (r.error.message || "failed") : null;
+  }
+  window.bulkRun = async function(){
+    var type = S.bulkAct, ids = selIds(), ok = 0, bad = 0;
+    if(!type || !ids.length || S.bulkBusy) return;
+    var pwd = "";
+    if(type === "delete"){
+      pwd = (document.getElementById("delPwd")||{}).value || "";
+      if(!pwd){ S.reauthErr = "Enter your password to confirm."; render(); return; }
+    }
+    S.bulkBusy = true; render();
+    for(var i=0;i<ids.length;i++){
+      var err = null;
+      if(type === "delete"){
+        var r = await rpcA("app_delete_spec", {p_id:ids[i], p_pwd:pwd});
+        if(r.error){
+          if(/Incorrect password/i.test(r.error.message||"")){ S.bulkBusy = false; S.reauthErr = "That password isn’t right."; render(); return; }
+          err = r.error.message || "failed";
+        } else releaseEditLock(ids[i]);
+      } else err = await archiveOne(ids[i], type === "archive");
+      if(S.sessionLost || !S.session){ S.bulkBusy = false; return; }
+      if(err) bad++; else ok++;
+    }
+    S.bulkBusy = false; S.bulkAct = null; S.sel = {}; S.selMode = false; S.reauthErr = "";
+    showToast(ok + " spec" + (ok===1?"":"s") + (type==="delete" ? " deleted" : type==="archive" ? " archived" : " restored") + (bad ? ", " + bad + " failed" : "") + ".");
+    await loadSpecs(); render();
+  };
+  function bulkModalHtml(){
+    var n = selIds().length, t = S.bulkAct;
+    var title = t === "delete" ? "Delete "+n+" spec"+(n===1?"":"s")+" permanently?" : (t === "archive" ? "Archive "+n+" spec"+(n===1?"":"s")+"?" : "Restore "+n+" spec"+(n===1?"":"s")+"?");
+    return '<div class="confirm-overlay" onclick="bulkCancel()"><form class="confirm-box login-box" onclick="event.stopPropagation()" onsubmit="event.preventDefault();bulkRun();return false">'
+      + '<p><b>'+title+'</b>'+(t==="delete" ? '<br>They stay in Recently deleted for 30 days. Enter your password to confirm.' : '')+'</p>'
+      + (t==="delete" ? pwField("delPwd", "Your password", "current-password") : '')
+      + (S.reauthErr ? '<div class="login-err" role="alert">'+esc(S.reauthErr)+'</div>' : '')
+      + '<div class="row" style="margin-top:14px"><button type="button" class="btn-ghost btn-sm" onclick="bulkCancel()">Cancel</button>'
+      + '<button type="submit" class="btn-primary btn-sm"'+(S.bulkBusy?' disabled':'')+'>'+(S.bulkBusy ? "Working…" : (t==="delete" ? "Delete" : "Confirm"))+'</button></div></form></div>';
+  }
+
+  // ---- what changed between two versions of a spec ----
+  var FIELD_LABELS = {productName:"Product name",outputSku:"Output SKU",inputSku:"Input SKU",outputSageDesc:"Output description",inputSageDesc:"Input description",
+    outputSku2:"Second output SKU",outputSageDesc2:"Second output description",targetWeight:"Target weight",minWeight:"Minimum weight",maxWeight:"Maximum weight",
+    avgWeightMin:"Working minimum",toleranceNote:"Minimum note",avgWeightNote:"Working minimum note",fatCover:"Fat cover",cuttingNotes:"Cutting notes",packingPrep:"Packing preparation",
+    packagingType:"Packaging",packagingNote:"Packaging note",positionInTray:"Position in tray",labelCuttingPlant:"Label (cutting plant)",labelWarehouse:"Label (warehouse)",
+    secondaryPack:"Secondary packaging",secondaryPackNote:"Secondary packaging note",finishedState:"Finished state",frozenBestBefore:"Frozen best before",thawedProduct:"Thawed product",
+    customNotes:"Custom notes",trimUse:"Use of trim",trimRepurposeNote:"Trim repurposed into",trimSku:"Trim SKU",trimText:"Trim instructions",inputCondition:"Input condition",
+    cuttingMachine:"Cutting machine",scalesLabelExists:"Scales label",groups:"Groups",archived:"Archived",draft:"Draft",variants:"Grades",variantLabel:"First grade name",
+    furtherOutputs:"Further outputs",referenceImages:"Photos",imageDisplaySize:"Photo size",imageLayout3:"Photo layout",issuedDate:"Issued date",weightRecordingNote:"Weight recording",
+    altCutOn:"Alternative cut",altCutMinG:"Alternative cut minimum",altCutNote:"Alternative cut note",altCutSpecId:"Alternative cut spec",trimDiscard:"Trim discarded",unitOfSale:"Unit of sale"};
+  var DIFF_SKIP = {id:1,updatedAt:1,editHistory:1,issuedByInitials:1,writtenBy:1,keepDraft:1,channel:1,hasSnapshot:1};
+  function diffVal(v){
+    if(v == null || v === "") return "(empty)";
+    if(v === true) return "yes"; if(v === false) return "no";
+    if(Array.isArray(v)){
+      if(v.length && typeof v[0] === "object") return v.length + (v.length===1 ? " item" : " items");
+      return v.join(", ") || "(none)";
+    }
+    var t = String(v).replace(/\s+/g," ").trim();
+    return t.length > 40 ? t.slice(0,38) + "…" : t;
+  }
+  function diffSpecs(a, b){
+    if(!a || !b) return null;
+    var keys = {}, out = [];
+    Object.keys(a).concat(Object.keys(b)).forEach(function(k){ keys[k] = 1; });
+    Object.keys(keys).sort().forEach(function(k){
+      if(DIFF_SKIP[k] || k.charAt(0) === "_") return;
+      var x = a[k], y = b[k];
+      if((x == null || x === "" || x === false || (Array.isArray(x) && !x.length)) && (y == null || y === "" || y === false || (Array.isArray(y) && !y.length))) return;
+      if(JSON.stringify(x) === JSON.stringify(y)) return;
+      var lbl = FIELD_LABELS[k] || k.replace(/([A-Z])/g," $1").replace(/^./,function(c){ return c.toUpperCase(); });
+      if(k === "referenceImages"){ out.push({label:lbl, from:(x||[]).length+" photo(s)", to:(y||[]).length+" photo(s)"}); return; }
+      out.push({label:lbl, from:diffVal(x), to:diffVal(y)});
+    });
+    return out;
+  }
+  function changesHtml(list){
+    if(list == null) return '';
+    if(!list.length) return '<div class="chg">No field changes recorded.</div>';
+    var shown = list.slice(0,10);
+    return '<details class="chg"><summary>What changed ('+list.length+')</summary><ul style="margin:4px 0 0 18px;padding:0">'
+      + shown.map(function(c){ return '<li><b>'+esc(c.label)+'</b>: '+esc(c.from)+' → '+esc(c.to)+'</li>'; }).join("")
+      + (list.length > shown.length ? '<li>…and '+(list.length-shown.length)+' more</li>' : '') + '</ul></details>';
+  }
+  function histChanges(hist, i, cur){
+    var h = hist[i];
+    if(!h || h.action || !h.snapshot) return null;
+    var after = cur;
+    for(var j=i+1;j<hist.length;j++){ if(hist[j].snapshot){ after = hist[j].snapshot; break; } }
+    return diffSpecs(h.snapshot, after);
+  }
+
+  // ---- admin activity log ----
+  window.goActivity = function(){
+    if(!can("admin")){ showToast("Admins only."); return; }
+    tryLeave(function(){ S.view = "activity"; S.actRows = null; S.actErr = ""; S.actDays = S.actDays || 30; render(); window.scrollTo(0,0); loadActivity(); });
+  };
+  window.setActDays = function(n){ S.actDays = n; S.actRows = null; render(); loadActivity(); };
+  async function loadActivity(){
+    var res = await rpcA("app_recent_activity", {p_days:S.actDays});
+    if(res.error){ S.actErr = res.error.message || "Couldn’t load."; S.actRows = []; }
+    else{
+      var ev = [], cutoff = Date.now() - S.actDays*86400000, d = res.data || {};
+      (d.specs||[]).forEach(function(s){
+        var hist = Array.isArray(s.hist) ? s.hist : [], cur = s.cur || {};
+        hist.forEach(function(h,i){
+          var t = Date.parse(h.at); if(!t || t < cutoff) return;
+          ev.push({at:h.at, by:h.by||"someone", name:cur.productName||"(untitled)", id:s.id, action:h.action||"amended", changes:histChanges(hist,i,cur), noCopy:(!h.action && !h.snapshot)});
+        });
+      });
+      (d.deleted||[]).forEach(function(x){ ev.push({at:x.deleted_at, by:x.deleted_by||"someone", name:x.name||"(untitled)", id:x.id, action:"deleted", changes:null}); });
+      ev.sort(function(a,b){ return (b.at||"").localeCompare(a.at||""); });
+      S.actRows = ev;
+    }
+    if(S.view === "activity") render();
+  }
+  function renderActivity(){
+    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">Activity log</h2>'
+      + '<div class="nav">' + [7,30,90].map(function(n){ return '<button class="btn-sm '+(S.actDays===n?'btn-dark':'btn-ghost')+'" onclick="setActDays('+n+')">Last '+n+' days</button>'; }).join("")
+      + '<button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button></div></div>';
+    if(S.actRows === null) return out + '<div class="empty"><span class="spinner"></span> Loading…</div>';
+    if(S.actErr) out += '<div class="banner">'+esc(S.actErr)+'</div>';
+    if(!S.actRows.length) return out + '<div class="empty">Nothing recorded in this period.</div>';
+    var verbs = {amended:"edited", created:"created", archived:"archived", unarchived:"restored", deleted:"deleted"}, day = "";
+    out += '<div class="card">';
+    S.actRows.forEach(function(e){
+      var dkey = fmtDate(e.at);
+      if(dkey !== day){ day = dkey; out += '<div class="hist-row" style="background:#f6f1f1"><b>'+esc(dkey)+'</b></div>'; }
+      var tm = ""; try{ tm = new Date(e.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}); }catch(x){}
+      out += '<div class="hist-row"><div><b>'+esc(e.by)+'</b> '+(verbs[e.action]||esc(e.action))+' <b>'+esc(e.name)+'</b> <span class="note">'+esc(tm)+'</span>'
+        + (e.noCopy ? '<div class="chg">No copy of the earlier version was kept.</div>' : changesHtml(e.changes)) + '</div></div>';
+    });
+    return out + '</div>';
+  }
+
+  // ---- temporary: Shopify check ----
+  var SHOPIFY_IGNORE = ["BURWAGZ5", "MMAHBEPAN1", "MMAHBEPAN2", "MMAHIBBUR2", "MMAHIBCHO1", "MMAHIBCHO4", "MMAHIBCHO5", "MMAHIBDEL1", "MMAHIBHAM1", "MMAHIBHAM2", "MMAHIBRIB1", "MMAHIBSAL1", "MMAHIBSAU1", "MMAHIBSAU4", "MMAHIBTEN1", "MMAHIPCS1", "MMAHIPSC1", "MMAHIPSL2", "MMAHIPSN1", "MMAHIPSPR1", "MMAHIPSR1", "MMAHIPSS1", "MMAHOFBAC1", "MMAHUKRUM1", "MMAHUKRUM2", "MMAHUKSTR5", "MMAHUSBRI1", "S-WAGJACHUZ3", "S-WAGJACHUZ5", "S-WAGJAFILZ4", "S-WAGUKBURZ3", "S-WAGUKSHAZ1", "WAGCHFLAF1", "WAGJATOMZ1", "WAGMINZ2", "WAGUKTOMZ1"];
+  function ignoredSkus(){ var m = {}; SHOPIFY_IGNORE.forEach(function(k){ m[normCode(k)] = 1; }); try{ JSON.parse(localStorage.getItem("ff_shopify_ignore")||"[]").forEach(function(k){ m[normCode(k)] = 1; }); }catch(e){} return m; }
+  window.shopifyIgnore = function(sku){ var a = []; try{ a = JSON.parse(localStorage.getItem("ff_shopify_ignore")||"[]"); }catch(e){} a.push(sku); try{ localStorage.setItem("ff_shopify_ignore", JSON.stringify(a)); }catch(e){} S.shopRes = shopifyAnalyse(S.shopRows); render(); };
+  window.shopifyResetIgnore = function(){ try{ localStorage.removeItem("ff_shopify_ignore"); }catch(e){} if(S.shopRows) S.shopRes = shopifyAnalyse(S.shopRows); render(); };
+  window.goShopify = function(){ if(!can("admin")){ showToast("Admins only."); return; } tryLeave(function(){ S.view = "shopify"; S.shopRows = null; S.shopRes = null; render(); window.scrollTo(0,0); }); };
+  window.shopifyFile = function(inp){
+    var f = inp.files && inp.files[0]; if(!f) return;
+    var r = new FileReader();
+    r.onload = function(){ S.shopRows = parseCSV(String(r.result)); S.shopRes = shopifyAnalyse(S.shopRows); render(); };
+    r.readAsText(f);
+  };
+  function shopifyAnalyse(rows){
+    if(!rows || rows.length < 2) return {err:"That file looks empty."};
+    var h = rows[0].map(function(x){ return x.trim().toLowerCase(); });
+    function col(re){ return h.findIndex(function(x){ return re.test(x); }); }
+    var iH = col(/^handle$/), iT = col(/^title$/), iTy = col(/^type$/), iSt = col(/^status$/), iSku = col(/^variant sku$/), iO1 = col(/^option1 value$/), iO2 = col(/^option2 value$/);
+    if(iSku < 0 || iH < 0) return {err:"This doesn’t look like a Shopify products export (no Handle / Variant SKU columns)."};
+    var have = {}, shop = {}, ign = ignoredSkus(), nIgn = 0;
+    S.specs.forEach(function(sp){ allOutSkus(sp).forEach(function(k){ k = normCode(k||""); if(k) have[k] = 1; }); });
+    var cur = {handle:"", title:"", type:"", status:""}, miss = [];
+    rows.slice(1).forEach(function(r){
+      var hd = (r[iH]||"").trim();
+      if(hd && hd !== cur.handle){ cur = {handle:hd, title:(r[iT]||"").trim(), type:iTy>=0 ? (r[iTy]||"").trim() : "", status:iSt>=0 ? (r[iSt]||"").trim().toLowerCase() : ""}; }
+      var sku = (r[iSku]||"").trim(); if(!sku) return;
+      var k = normCode(sku); shop[k] = 1;
+      if(!/^MMAH/i.test(sku) || cur.status === "archived" || have[k]) return;
+      if(!/beef|wagyu|pork|berkshire|iberico|kurobuta/i.test(cur.type + " " + cur.title)) return;
+      if(ign[k]){ nIgn++; return; }
+      miss.push({sku:sku, title:cur.title, opt:[iO1>=0 ? r[iO1] : "", iO2>=0 ? r[iO2] : ""].filter(Boolean).join(" / "), status:cur.status});
+    });
+    var orphan = [];
+    S.specs.forEach(function(sp){
+      if(sp.archived || specChannel(sp) !== "mmah") return;
+      allOutSkus(sp).forEach(function(k){ if(!k) return; var n = normCode(k); if(!/^R-/i.test(k) && !shop[n]) orphan.push({sku:k, name:sp.productName||"(untitled)"}); });
+    });
+    return {miss:miss, orphan:orphan, nIgn:nIgn, total:rows.length-1};
+  }
+  function renderShopify(){
+    var out = '<div class="topbar" style="margin-top:-8px;margin-bottom:14px;"><h2 style="margin:0;font-size:17px;">Shopify check <span class="draft-flag">TEMPORARY</span></h2>'
+      + '<div class="nav"><button class="btn-ghost btn-sm" onclick="goLibrary()">Back to Library</button></div></div>';
+    out += '<div class="card"><p style="margin-top:0">Upload a Shopify products export (CSV). It is read in your browser only. It lists MMAH beef/pork products with no spec yet, and specs whose SKU isn’t on Shopify. Remove this tool once every spec is uploaded.</p>'
+      + '<input type="file" accept=".csv,text/csv" onchange="shopifyFile(this)"></div>';
+    var r = S.shopRes; if(!r) return out;
+    if(r.err) return out + '<div class="banner">'+esc(r.err)+'</div>';
+    out += '<div class="card" style="overflow-x:auto"><p style="margin-top:0"><b>On Shopify, no spec yet ('+r.miss.length+')</b> <span class="note">'+r.nIgn+' hidden as not needed'
+      + (r.nIgn ? ' · <a href="#" onclick="shopifyResetIgnore();return false">show them again</a>' : '')+'</span></p>'
+      + (r.miss.length ? '<table class="people-table"><thead><tr><th scope="col">Product</th><th scope="col">Variant</th><th scope="col">SKU</th><th scope="col">Status</th><th scope="col"></th></tr></thead><tbody>'
+        + r.miss.map(function(m){ return '<tr><td>'+esc(m.title)+'</td><td>'+esc(m.opt)+'</td><td>'+esc(m.sku)+'</td><td>'+esc(m.status)+'</td><td><button class="btn-ghost btn-sm" onclick="shopifyIgnore(\''+esc(m.sku)+'\')">Not needed</button></td></tr>'; }).join("") + '</tbody></table>'
+        : '<p class="note">Every MMAH beef/pork product on Shopify has a spec.</p>') + '</div>';
+    out += '<div class="card" style="overflow-x:auto"><p style="margin-top:0"><b>Spec SKUs not on Shopify ('+r.orphan.length+')</b> <span class="note">may have changed code or not be live yet</span></p>'
+      + (r.orphan.length ? '<table class="people-table"><thead><tr><th scope="col">Spec</th><th scope="col">SKU</th></tr></thead><tbody>'
+        + r.orphan.map(function(m){ return '<tr><td>'+esc(m.name)+'</td><td>'+esc(m.sku)+'</td></tr>'; }).join("") + '</tbody></table>' : '<p class="note">All spec SKUs are on Shopify.</p>') + '</div>';
+    return out;
+  }
+
+  // ---- swipe between grades on touch screens ----
+  (function(){
+    var x0 = null, y0 = null;
+    document.addEventListener("touchstart", function(e){ if(e.touches.length === 1){ x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } else x0 = null; }, {passive:true});
+    document.addEventListener("touchend", function(e){
+      if(x0 === null || S.view !== "print" || !S.printSpec || (S.printTab||"sheet") !== "sheet") { x0 = null; return; }
+      var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+      if(Math.abs(dx) < 70 || Math.abs(dy) > 45) return;
+      var vl = variantList(S.printSpec); if(vl.length < 2) return;
+      var cur = (S.varFor === S.printSpec.id && S.varIdx < vl.length) ? S.varIdx : 0, nxt = cur + (dx < 0 ? 1 : -1);
+      if(nxt >= 0 && nxt < vl.length) setVariantTab(nxt);
+    }, {passive:true});
+  })();
+
   window.cancelChooseChannel=function(){ S.chooseChannel=false; render(); };
   window.goManageGroups=function(){ tryLeave(goManageGroups); };
   window.goEdit=goEdit; window.goPrint=goPrint;
@@ -3438,11 +3756,16 @@
     if(appEl) appEl.addEventListener("click", onAppClick);
     document.addEventListener("keydown", function(e){
       if(e.key === "Escape"){
-        if(S.lightbox){ closeLightbox(); }
+        if(S.menuOpen){ S.menuOpen = false; render(); }
+        else if(S.bulkAct){ bulkCancel(); }
+        else if(S.lightbox){ closeLightbox(); }
         else if(S.confirmDelete){ cancelDelete(); }
         else if(S.confirmLeave){ confirmLeaveStay(); }
         else if(S.chooseChannel){ cancelChooseChannel(); }
       }
+    });
+    document.addEventListener("click", function(e){
+      if(S.menuOpen && !(e.target.closest && e.target.closest(".menu-wrap"))){ S.menuOpen = false; render(); }
     });
     window.addEventListener("beforeunload", function(e){
       if(!S.reloading && isFormDirty()){ e.preventDefault(); e.returnValue = ""; }
